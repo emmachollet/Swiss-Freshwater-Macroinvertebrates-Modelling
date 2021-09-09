@@ -129,7 +129,7 @@ excl    <- colnames(rank.env)[which(rank.env[1,] == 0)]
 
 a.lot = F     # set to FALSE if it's for exploration (few taxa and env. fact.)
               # set to TRUE for a proper simulation (all important taxa and env. fact.)
-
+# salut
 if (a.lot == T){
     
     env.fact <- prio
