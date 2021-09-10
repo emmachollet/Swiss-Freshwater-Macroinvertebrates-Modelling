@@ -2,7 +2,7 @@
 
 ## ---- Produce pdf of a list of plots ----
 
-print.pdf.plots <- function(list.plots, width = 12, dir.output, info.file.name, file.name){
+print.pdf.plots <- function(list.plots, width = 12, dir.output, info.file.name = "", file.name){
   
   pdf(paste0(dir.output, info.file.name, file.name), paper = 'special', width = width, height = width*3/4, onefile = TRUE)
   

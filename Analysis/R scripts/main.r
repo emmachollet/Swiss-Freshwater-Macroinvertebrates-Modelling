@@ -4,7 +4,7 @@
 ## 
 ## --- "Bridging gap in macroinvertebrates community assembly" -- Project ---
 ## 
-## --- June 21, 2021 -- Emma Chollet ---
+## --- Deptember 9, 2021 -- Emma Chollet ---
 ##
 ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -54,7 +54,7 @@ graphics.off()
 # Define directory and files
 dir.env.data      <- "../../Data/Processed data/Environmental data/"
 dir.inv.data      <- "../../Data/Processed data/Invertebrate data/"
-dir.output        <- "../Plots/"
+dir.output        <- "../Plots/Models analysis plots/"
 
 file.inv.data     <- "All_occ_data_2020-06-25.dat"
 file.inv.BDM.data <- "BDM_occ_data_2020-06-25.dat"
@@ -203,16 +203,6 @@ info.file.name <- paste0(file.prefix, d,
 for ( i in 1:no.taxa){
     cat("Summary of absence and presence for", list.taxa[i], ":", summary(data[, list.taxa[i]]), "\n")
 }
-
-## ---- Plot taxa vs env. fact. (data visualization) ----
-
-# Compute plots
-list.plots <- plot.data.envvstax(data = data, env.fact = env.fact, list.taxa = list.taxa)
-
-# Print the plots in a pdf file
-file.name <- "Data_EnvFactvsTax.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
-
 
 ## ---- Feature selection (rfe) ----
 

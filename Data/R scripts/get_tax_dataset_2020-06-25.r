@@ -16,7 +16,7 @@ rm(list = ls()) # delete all the objects and variables in the workspace
 
 dir.data                <- "../Processed data/Invertebrate data/"
 dir.output              <- "../Processed data/Invertebrate data/"
-dir.plot                <- "../../Analysis/Plots/"
+dir.plot                <- "../../Analysis/Plots/Explorative plots/"
 
 file.inv.data           <- "invertebrates_wide_2020-06-25.dat"      # Output from R scripts/convert_invertebrates_data.r       
 file.tax                <- "invertebrates_taxonomy_2020-06-25.dat"  # Output from R scripts/convert_invertebrates_data.r
