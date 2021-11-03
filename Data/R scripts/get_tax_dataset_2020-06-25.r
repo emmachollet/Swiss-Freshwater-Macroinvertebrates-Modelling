@@ -30,7 +30,7 @@ d <- "2020-06-25" # date of the exportation of the MIDAT file database
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Packages and functions ####
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-source("get.tax.level.r")
+source("get_tax_level.r")
 if ( !require("dplyr") ) { install.packages("dplyr"); library("dplyr") }
 if ( !require("ggplot2") ) { install.packages("ggplot2"); library("ggplot2") }
 
@@ -598,7 +598,7 @@ for (j in 1:length(tax.levels)){
 length(warning.list.BDM)
 
 # write to .txt file
-sink(file = paste(dir.output,"mixed_taxonomy_BDM_",d,".txt"), append = FALSE, type = c("output", "message"), split = TRUE)
+sink(file = paste0(dir.output,"mixed_taxonomy_BDM_",d,".txt"), append = FALSE, type = c("output", "message"), split = TRUE)
 warning.list.BDM
 sink()
 
@@ -643,7 +643,7 @@ for (j in 1:length(tax.levels)){
 length(warning.list.BDM.fam)
 
 # write to .txt file
-sink(file = paste(dir.output,"mixed_taxonomy_BDM_fam_",d,".txt"), append = FALSE, type = c("output", "message"), split = TRUE)
+sink(file = paste0(dir.output,"mixed_taxonomy_BDM_fam_",d,".txt"), append = FALSE, type = c("output", "message"), split = TRUE)
 warning.list.BDM.fam
 sink()
 
@@ -690,7 +690,7 @@ for (j in 1:length(tax.levels)){
 length(warning.list.ALL)
 
 # write to .txt file
-sink(file = paste(dir.output,"mixed_taxonomy_ALL_",d,".txt"),
+sink(file = paste0(dir.output,"mixed_taxonomy_ALL_",d,".txt"),
      append = FALSE, type = c("output", "message"), split = TRUE)
 warning.list.ALL
 sink()
@@ -953,6 +953,11 @@ write.table(data.forenv, filename, sep="\t", col.names=TRUE, row.names=FALSE)
 # 4. Plot prevalence ####
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+# Set treshold for intermediate prevalence
+prev.uptresh <- 0.75
+prev.lowtresh <- 0.25
+
+# 4a. ALL prevalence ####
 
 # Construct dataframe with prevalence and taxonomic level for ALL
 
@@ -972,7 +977,7 @@ for(i in cind.taxa){
   
   if( n.missobs > 100){ # too many missing observation
     
-    cat("sum NA for", colnames(data.ALL)[i], "is", n.missobs, "too many missing obs !! \n")
+    cat("sum NA for", colnames(data.ALL)[i], "is", n.missobs, " many missing obs !! \n")
     
     # sum na for Occurrence.Lumbriculidae is 3863 
     # sum na for Occurrence.Lumbricidae is 3691 
@@ -981,7 +986,7 @@ for(i in cind.taxa){
     
   } else if ( 100 > n.missobs && n.missobs > 0 ) { # some missing information, we have to be careful
     
-    cat("sum NA for", colnames(data.ALL)[i], "is", n.missobs, "\n")
+    # cat("sum NA for", colnames(data.ALL)[i], "is", n.missobs, "\n")
   }
   
   #fill missing values column
@@ -1006,14 +1011,24 @@ for(i in cind.taxa){
 # reorder prevalence dataframe in decreasing order
 data.prev <- arrange(data.prev, desc(Prevalence))
 
+list.taxa.intermprev <- data.prev[which(data.prev[, "Prevalence"] < prev.uptresh & data.prev[,"Prevalence"] > prev.lowtresh), 
+                                  "Occurrence.taxa"]
+size.intermprev <- length(list.taxa.intermprev)
 
-pdf(paste(dir.plot, "All_Prevalence.pdf"), height = 10, width = 13)
-ggplot(data=data.prev, aes( x = 1:dim(data.prev)[1], y = Prevalence, colour = Taxonomic.level))+ 
+info <- paste("Total of", nrow(data.prev), "taxa and", dim(data.ALL)[1], "observations \n", 
+              size.intermprev, "taxa with prevalence between", prev.lowtresh, "and", prev.uptresh)
+xaxis.vectname <- paste(sub("Occurrence.","", data.prev[, "Occurrence.taxa"]), data.prev$Missing.values)
+
+pdf(paste0(dir.plot, "All_Prevalence.pdf"), height = 10, width = 17)
+ggplot(data=data.prev, aes( x = 1:dim(data.prev)[1], y = Prevalence, colour = Taxonomic.level, size = Missing.values))+ 
   geom_point() +
-  labs(title = "Prevalence of taxa", subtitle = "test", caption = "other test", 
-       x = "Taxa (ordered by decreasing number of occurrences)", y = "Prevalence",
-       color = "Taxonomic level") + #, tag = "A") +
-  scale_x_discrete(limits = sub("Occurrence.","", data.prev[, "Occurrence.taxa"])) +
+  labs(title = "Prevalence of taxa", 
+        subtitle = info, 
+       #caption = "other test", 
+       x = "Taxa and missing observations", y = "Prevalence",
+       color = "Taxonomic level",
+       size = "Missing observations") + #, tag = "A") +
+  scale_x_discrete(limits = xaxis.vectname) +
   theme(axis.text.x = element_text(angle=90))
 
 dev.off()
@@ -1021,6 +1036,8 @@ dev.off()
 ## save the table for later use
 filename <- paste(dir.output, "All_prevalence_", d,".dat", sep="")
 write.table(data.prev, filename, sep="\t", col.names=TRUE, row.names=FALSE)
+
+# 4b. BDM prevalence ####
 
 # Construct dataframe with prevalence and taxonomic level for BDM
 
@@ -1041,7 +1058,7 @@ for(i in cind.taxa){
   
   if( n.missobs > 100){ # too many missing observation
     
-    cat("sum NA for", colnames(data.BDM)[i], "is", n.missobs, "too many missing obs !! \n")
+    cat("sum NA for", colnames(data.BDM)[i], "is", n.missobs, " many missing obs !! \n")
     
     # sum na for Occurrence.Lumbriculidae is 3863 
     # sum na for Occurrence.Lumbricidae is 3691 
@@ -1050,7 +1067,7 @@ for(i in cind.taxa){
     
   } else if ( 100 > n.missobs && n.missobs > 0 ) { # some missing information, we have to be careful
     
-    cat("sum NA for", colnames(data.BDM)[i], "is", n.missobs, "\n")
+    # cat("sum NA for", colnames(data.BDM)[i], "is", n.missobs, "\n")
   }
   
   #fill missing values column
@@ -1073,14 +1090,25 @@ for(i in cind.taxa){
 # reorder prevalence dataframe in decreasing order
 data.prev.BDM <- arrange(data.prev.BDM, desc(Prevalence))
 
+list.taxa.intermprev <- data.prev.BDM[which(data.prev.BDM[, "Prevalence"] < prev.uptresh & data.prev.BDM[,"Prevalence"] > prev.lowtresh), 
+                                  "Occurrence.taxa"]
+size.intermprev <- length(list.taxa.intermprev)
 
-pdf(paste(dir.plot, "BDM_Prevalence.pdf"), height = 10, width = 13)
-ggplot(data=data.prev.BDM, aes( x = 1:dim(data.prev.BDM)[1], y = Prevalence, colour = Taxonomic.level))+ 
+info <- paste("Total of", nrow(data.prev.BDM), "taxa and", dim(data.BDM)[1], "observations \n",
+              size.intermprev, "taxa with prevalence between", prev.lowtresh, "and", prev.uptresh)
+xaxis.vectname <- paste(sub("Occurrence.","", data.prev.BDM[, "Occurrence.taxa"]), data.prev.BDM$Missing.values)
+
+
+pdf(paste0(dir.plot, "BDM_Prevalence.pdf"), height = 20, width = 35)
+ggplot(data=data.prev.BDM, aes( x = 1:dim(data.prev.BDM)[1], y = Prevalence, colour = Taxonomic.level, size = Missing.values))+ 
   geom_point() +
-  labs(title = "Prevalence of taxa", subtitle = "test", caption = "other test", 
-       x = "Taxa (ordered by decreasing number of occurrences)", y = "Prevalence",
-       color = "Taxonomic level") + #, tag = "A") +
-  scale_x_discrete(limits = sub("Occurrence.","", data.prev.BDM[, "Occurrence.taxa"])) +
+  labs(title = "Prevalence of taxa", 
+       subtitle = info, 
+       # caption = "other test", 
+       x = "Taxa and missing observations", y = "Prevalence",
+       color = "Taxonomic level",
+       size = "Missing observations") +
+  scale_x_discrete(limits = xaxis.vectname) +
   theme(axis.text.x = element_text(angle=90))
 
 dev.off()

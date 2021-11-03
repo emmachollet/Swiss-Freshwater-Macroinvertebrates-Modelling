@@ -28,7 +28,7 @@ dir.data.inv                 <- "../Processed data/Invertebrate data/"
 file.inv                     <- "invertebrates_wide_2020-06-25.dat"
 
 dir.GIS.data                 <- "../Original data/"
-file.environment.data        <- "GIS_20210526.csv" 
+file.environment.data        <- "SitesData_for_RS_2020-06-25_result.csv" 
 
 dir.output                   <- "../Processed data/Environmental data/"
 

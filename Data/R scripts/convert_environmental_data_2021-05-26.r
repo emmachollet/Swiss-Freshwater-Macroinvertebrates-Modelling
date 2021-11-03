@@ -581,6 +581,14 @@ data <- data[,c( c(1:ncol(data))[-c(CH_ind, InS_ind, morph_ind)],
 # If the rank.file below doesn't match with the colnames/env factors of the data produced by this workflow
 # write env data set now and produce manually a new rank.file with new colnames/env factors sorted in 0, 1, 2 or 3 levels
 
+
+# d <- "2020-06-25"  # date of the MIDAT invertebrate datafile
+# 
+# # write All env data set
+# filename <- paste(dir.env.data,"All_environmental_data_",d,".dat", sep="")
+# write.table(data, filename,sep="\t",row.names=F,col.names=TRUE)
+
+
 # filename <- paste(dir.env.data,"raw_environmental_data_",d,".dat", sep="")
 # write.table(data, filename,sep="\t",row.names=F,col.names=TRUE)
 

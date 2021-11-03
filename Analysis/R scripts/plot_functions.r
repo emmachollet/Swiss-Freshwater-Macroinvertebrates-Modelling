@@ -121,21 +121,24 @@ plot.data.envvstax <- function(data, env.fact, list.taxa){
   
   for (j in 1:no.taxa){
     
-    list.plots[[n]] <- featurePlot(x = data[,env.fact],
-                                    y = data[,list.taxa[j]],
+    plot.data <- data[,c(list.taxa[j],env.fact)]
+    plot.data <- na.omit(plot.data)
+    
+    list.plots[[n]] <- featurePlot(x = plot.data[,env.fact],
+                                    y = plot.data[,list.taxa[j]],
                                     plot = "box",   # to visualize two boxplots, each for absent and present
                                     strip=strip.custom(par.strip.text=list(cex=.7)),
                                     scales = list(x = list(relation="free"),
                                                   y = list(relation="free")),
                                     main = list.taxa[j])
-    n <- n + 1
-    list.plots[[n]] <- featurePlot(x = data[,env.fact],
-                                    y = data[,list.taxa[j]],
-                                    plot = "density", # to visualize density of absence and presence in relation to env predictors
-                                    strip=strip.custom(par.strip.text=list(cex=.7)),
-                                    scales = list(x = list(relation="free"),
-                                                  y = list(relation="free")),
-                                    main = list.taxa[j])
+    # n <- n + 1
+    # list.plots[[n]] <- featurePlot(x = plot.data[,env.fact],
+    #                                 y = plot.data[,list.taxa[j]],
+    #                                 plot = "density", # to visualize density of absence and presence in relation to env predictors
+    #                                 strip=strip.custom(par.strip.text=list(cex=.7)),
+    #                                 scales = list(x = list(relation="free"),
+    #                                               y = list(relation="free")),
+    #                                 main = list.taxa[j])
     n <- n + 1
     
     # Plot pairs of env. fact. vs taxa, too heavy to print
@@ -178,7 +181,7 @@ model.comparison <- function(outputs, null.model, list.algo, list.taxa, prev.inv
   } else {
     c <- c("Training performance") # if empty, then only plot for training set
   }
-  for (m in length(c)){
+  for (m in 1:length(c)){
     if(c[m] == "Training performance"){
       title <- paste("Comparison of models performance on training set")
     } else {

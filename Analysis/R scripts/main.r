@@ -32,6 +32,8 @@ if ( !require("caret") ) { install.packages("caret"); library("caret") } # compr
 if ( !require("fastAdaboost") ) { install.packages("fastAdaboost"); library("fastAdaboost") } # to run adaboost ml algorithm
 if ( !require("kernlab") ) { install.packages("kernlab"); library("kernlab") }
 if ( !require("earth") ) { install.packages("earth"); library("earth") } # to run MARS ml algorithm
+if ( !require("randomForestSRC") ) { install.packages("randomForestSRC"); library("randomForestSRC") } # to run RF and additional features
+
 
 # install.packages(c('caret', 'skimr', 'RANN', 'randomForest', 'fastAdaboost', 'gbm', 'xgboost', 'caretEnsemble', 'C50', 'earth'))
 # install.packages("ggpubr")
@@ -96,6 +98,18 @@ source("model_functions.r")
 source("plot_functions.r")
 
 ## ---- Construct datasets  ----
+a.lot = F     # set to FALSE if it's for exploration (few taxa and env. fact.)
+              # set to TRUE for a proper simulation (all important taxa and env. fact.)
+
+# Select taxa for prediction
+if (a.lot == T){
+  list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25), 
+                              "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
+} else if (a.lot == F){
+  # list.taxa <- c("Occurrence.Gammaridae", "Occurrence.Heptageniidae")
+  list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55), 
+                              "Occurrence.taxa"] # Select only few taxa
+}
 
 # Replace "0" and "1" by "absent" and "present" and convert them to factors
 cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
@@ -106,13 +120,12 @@ for (i in cind.taxa ) {
     data.inv[,i] = as.factor(data.inv[,i])
 }
 
-# # Convert environmental character columns to factors
-# data.env[sapply(data.env, is.character)] <- lapply(data.env[sapply(data.env, is.character)], as.factor)
-
 # Construct main dataset (with inv and env)
 data <- data.env %>%
     left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
 dim(data)
+
+# - - - - 
 
 # Select environmental factors for prediction
 
@@ -127,16 +140,10 @@ prio    <- colnames(rank.env)[which(rank.env[1,] == 2)]
 explo   <- colnames(rank.env)[which(rank.env[1,] == 1)]
 excl    <- colnames(rank.env)[which(rank.env[1,] == 0)]
 
-a.lot = F     # set to FALSE if it's for exploration (few taxa and env. fact.)
-              # set to TRUE for a proper simulation (all important taxa and env. fact.)
-# salut
 if (a.lot == T){
-    
     env.fact <- prio
     # env.fact <- c(prio,explo)
-    
 } else if (a.lot == F){
-    
     env.fact <- c("temperature",
                     "velocity",
                     "cow.density",
@@ -167,34 +174,43 @@ env.fact <- env.fact[which(env.fact %in% colnames(data.env))]
 # env.fact[-which(env.fact %in% colnames(data.env))] # which selected factors are not in data.env ?
 # [1] "A.EDO" "F.EDO" are missing
 
-# Select taxa for prediction
-
-if (a.lot == T){
-    
-    list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25), 
-                                "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
-
-    
-} else if (a.lot == F){
-    
-    # list.taxa <- c("Occurrence.Gammaridae", "Occurrence.Heptageniidae")
-    list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55), 
-                                "Occurrence.taxa"] # Select only few taxa
-}
-
-
 # Construct training and testing datasets (randomly or according to an env. fact.)
-ratio <- 1 # set a ratio for training dataset (can be 1)
-split.var <- "temperature" # data splitted according to this variable (default is "random")
+ratio <- 0.8 # set a ratio for training dataset (can be 1)
+split.var <- "IAR" # data splitted according to this variable (default is "random")
 splitted.data <- split.data(data = data, training.ratio = ratio, variable = split.var)
+
+# - - - - 
+
+# Select models to apply (! their packages have to be installed first)
+list.algo <- c('glm', # Random Forest
+               'rf',
+               # 'adaboost',
+               # 'earth', # MARS: Multivariate Adaptive Regression Splines
+               #'elm', # Extreme Learning Machine (Neural Network)
+               # 'bayesglm') #, # Bayesian Generalized Linear Model
+               'svmRadial')
+
+color.vect <- c("Null model" = "#000000",
+                "glm" = "#030AE8",
+                "rf" = "#790FBF",
+                "svmRadial" = "#DB1111",
+                "adaboost" = "#948B8B",
+                "earth" = "#048504",
+                "elm" = "#A84E05",
+                "absent" = "#c2141b", 
+                "present" = "#007139")
 
 # Assemble information to insert in file names
 no.env.fact <- length(env.fact)
 no.taxa <- length(list.taxa)
+no.algo <- length(list.algo)
+
 percentage.train.set <- ratio * 100
-info.file.name <- paste0(file.prefix, d,
+info.file.name <- paste0(file.prefix, 
+                         # d, # don't need to include the date
                          no.taxa, "taxa_", 
-                         no.env.fact, "envfact_", 
+                         no.env.fact, "envfact_",
+                         no.algo, "algo_",
                          "trainset", percentage.train.set, 
                          if( ratio != 1) {split.var}, 
                          "_")
@@ -242,25 +258,30 @@ for ( i in 1:no.taxa){
 # WORKSPACE: BDM, 55 env.fact, 29 taxa : 1:30 hours, saved 12.08.2021
 
 ## ---- Apply models ----
+
+# test with other package for RF
+j = 1
+data.train <- splitted.data[["Training data"]]
+data.test <- splitted.data[["Testing data"]]
+temp.train <- na.omit(data.train[, c("SiteId", "SampId", "X", "Y", list.taxa[j], env.fact)]) # create a temporary training dataset with the taxon and env fact, to 
+temp.test <- na.omit(data.test[, c("SiteId", "SampId", "X", "Y", list.taxa[j], env.fact)])
+f <- reformulate(env.fact, list.taxa[j]) # not obligatory, just if we want to express it as a fct
+my.rf <- rfsrc(f, mtry=5, ntree=2000, importance = "random",
+              data=temp.train) # function to run RF
+plot(my.rf)
+# selection of the best stressor candidates
+md.obj <- max.subtree (my.rf)
+md.obj$topvars # extracts the names of the variables in the object md.obj
+# rank interactions only for the most important predictors, 
+# for example, those hypothesised a priori or those delivered by max.subtree (my.rf) using the argument xvar.names
+my.rf.interaction <- find.interaction (my.rf, xvar.names=md.obj$topvars,
+                                       importance="random", method= "vimp", nrep=3) # method= "vimp"
+                                        # computes the additive and combined (paired) effects of each pair of stressors in
+                                        # the response variable
+# Large positive or negative numbers of difference (between additive and paired stressor effects) 
+# can indicate a potential interaction effect
+
 ptm <- proc.time() # to calculate time of simulation
-
-# Apply machine learning (ML) models
-# Select models to apply (! their packages have to be installed first)
-list.algo <- c('glm', # Random Forest
-               'rf',
-               # 'adaboost',
-               # 'earth', # MARS: Multivariate Adaptive Regression Splines
-               # 'xgbDART',
-               #'elm', # Extreme Learning Machine (Neural Network)
-               # 'bayesglm') #, # Bayesian Generalized Linear Model
-               'svmRadial')
-
-# if ( !require("elmNN") ) { install.packages("elmNN"); library("elmNN") }
-# if ( !require("arm") ) { install.packages("arm"); library("arm") } 
-
-# Assemble information to insert in file names
-no.algo <- length(list.algo)
-info.file.name <- paste0(info.file.name, no.algo, "algo_")
 
 # Define the training control
 train.control <- trainControl(
@@ -297,6 +318,8 @@ print(proc.time()-ptm)
 # Don't forget to reload the functions if we upload old workspace
 # source("model_functions.r")
 # source("plot_functions.r")
+
+# STOPPED HERE #### go through all plots and replace outputs names and colors
 
 ## ---- Plot models comparison ----
 

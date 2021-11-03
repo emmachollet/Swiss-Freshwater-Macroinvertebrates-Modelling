@@ -2,3 +2,6 @@
 .Rhistory
 Data/Original data/*
 ~$*
+Data/Processed data/*
+*.docx
+Analysis/Plots/*
