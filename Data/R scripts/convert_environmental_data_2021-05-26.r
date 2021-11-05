@@ -511,6 +511,21 @@ data$bed.deg <- 1 - data[,"bed modification"]
 
 
 
+## <Riparian agriculture buffer zone ###########################################################################
+# Here we add the proportion of upstream riparian agriculture within a 10m buffer zone according to Bogdan et al. 2020.
+
+arable <- read.csv(paste0(dir.GIS.data, "/Arable_All_Buffer_Catch.csv"), sep=';', header=TRUE, na.strings=c("<Null>", "NA", ""), stringsAsFactors=FALSE)
+jarable <- dplyr::select(arable, EZG_NR, Perc_B10)
+colnames(jarable) <- c("EZG_NR", "A10m")
+data <- left_join(data, jarable, by = "EZG_NR") #JW: can we use EZG just like this or are some of the EZG not correct (EZG_ok?), also whats EZG1?
+
+## <Transformations temperature and flow velocity ###########################################################################
+# Here we add the squared values of temperature and flow velocity, #JW: Not sure were Bogdan is doing this (or you emma?). Maybe here is not the right place.
+
+data$temperature2 <- as.numeric(data$temperature**2)
+data$velocity2 <- as.numeric(data$velocity**2)
+
+
 # check data$Note for any outstanding issues ####
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
