@@ -11,10 +11,10 @@ Data science support: Andreas Scheidegger (as)
 -----------------------------------------------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------------------------------------
 
-## Part I : Data processing
+## Part I : Data (pre-)processing
 
 -----------------------------------------------------------------------------------------------------------------------------------
-test
+
 We need to process  A. invertebrate data and B. environmental data, and C. explore final datasets (to find missing values, problems)
 
 Directories:
@@ -80,7 +80,7 @@ Outputs:
 	- *BDM_prev_perc_2020-06-25.dat*
 	- two plots of prevalence percentage (ALL and BDM)
 
-**Scripts checked 29 June 2021**
+**Scripts checked 12 November 2021**
 
 -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -140,51 +140,34 @@ Outputs:
 	- *All_environmental_data_2021-05-26.dat*
 	- *BDM_environmental_data_2020-06-25.dat*
 
-**Scripts checked 30 July 2021**
+**Scripts checked 12 November 2021**
 
 -----------------------------------------------------------------------------------------------------------------------------------
 
 ### C. Explore data
-Classify environmental factors by their importance from prior knowledge and select the ones to be used in priority, compute and plot dataframe with main summary statistics, plot correlation matrix, plot factors on Swiss map, plot boxplots for distribution of factors per taxa presence/absence
+
+Classify environmental factors by their importance from prior knowledge and select the ones to be used in priority, plot information about the number of duplicated samples per sites in the dataset, compute and plot dataframe with main summary statistics, plot correlation matrix, plot factors on Swiss map, plot boxplots for distribution of factors per taxa presence/absence
 
 Inputs:	
 	- *All_occ_data_2020-06-25.dat*
 	- *BDM_occ_data_2020-06-25.dat*
 	- *All_environmental_data_2020-06-25.dat*
 	- *BDM_environmental_data_2020-06-25.dat*
-
 	- *ranking_env_data.csv*
 	- *environmentaldata_documentation_20210728.csv*
-	- 
 
 Script:
 	- **explorative_plots.r**
 
 Outputs:
+	- Plots in pdf: DuplicatedSamples, Summaries, CorrMatrix, OnMap, EnvFactvsTax
 
-
-
-**Scripts checked 01 July 2021**
-
------------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------------
-
-## Part II : Create explorative plots
+**Scripts checked 12 November2021**
 
 -----------------------------------------------------------------------------------------------------------------------------------
-
-We need to produce A. explorative plots of environmental factors in Switzerland 
-and outputs of different models.
-
-Directories:
-R script: *Swiss Freshwater Macroinvertebrates Modelling/Analysis/*
-Invertebrate intput files: *Swiss Freshwater Macroinvertebrates Modelling/Data/Processed data/Invertebrate data/*
-Environmental and Swiss map intput files: *Swiss Freshwater Macroinvertebrates Modelling/Data/Processed data/Environmental data/*
-Output files: *Swiss Freshwater Macroinvertebrates Modelling/Analysis/Plots/*
-
 -----------------------------------------------------------------------------------------------------------------------------------
 
-### A. Producing plots
+## Part II : Apply models
 
-#### Step 1
+
 To be written ...

@@ -22,8 +22,6 @@ if ( !require(ggpubr) ) { install.packages("ggpubr"); library("ggpubr") } # to m
 if ( !require(corrplot) ) { install.packages("corrplot"); library("corrplot") } # to make nice arrangement of nice plots
 if ( !require("gridExtra") ) { install.packages("gridExtra"); library("gridExtra") } # to arrange multiple plots on a page
 
-
-
 # Check and set working directory
 getwd() # show working directory
 
@@ -51,7 +49,7 @@ rank.env          <- read.csv(paste(dir.env.data,file.rank.env,sep=""),header=TR
 env.explan        <- read.csv(paste(dir.env.data,file.env.explan,sep=""),header=TRUE, sep=";", stringsAsFactors=FALSE)
 
 # Read inv and env data, set if we want to compute for the All or the BDM dataset
-BDM <- FALSE
+BDM <- T
 
 if( BDM == TRUE){
     
@@ -90,7 +88,6 @@ data <- data.env %>%
     left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
 dim(data)
 
-
 # Use the file ranking.data to make a list of useful factors to explore
 
 # replace "_" and " " by "." in colnames to be consistent
@@ -110,37 +107,38 @@ excl    <- colnames(rank.env)[which(rank.env[1,] == 0)]
 cat("We have", length(prio) + length(explo), "environmental factors to explore.\n",
     length(prio), "of them are interesting (but can still be highly correlated)")
 
-# make a list of env. fact. we want to explore
-a.lot = T    
+# decide to explore the selected (Bogdan's) factors or the list "priority"
+select = T    
 
-if (a.lot == T){
+if (select == F){
     
     env.fact <- prio
     
-} else if (a.lot == F){
+} else if (select == T){
     
-    env.fact <- c("temperature",
-                  "velocity",
-                  "cow.density",
-                  "IAR",
-                  "urban.area",
-                  "FRI",
-                  "WALD.ANT",
-                  "width.variability",
-                  "bed.modification",
-                  "morphology",
-                  "A.EDO",
-                  "F.EDO",
-                  "ARA.fraction",
-                  "agri.land",
-                  "Slope",
-                  "fields",
-                  "saprobic.cond",
-                  "normcov.mobile.blocks",
-                  "normcov.coarse.inorganic.sediments",
-                  "normcov.gravel",
-                  "normcov.sand.silt",
-                  "normcov.fine.sediments")
+    env.fact <- c("temperature", # Temp
+                  "velocity", # FV
+                  "A10m", # A10m
+                  "cow.density", # LUD
+                  "IAR", # IAR
+                  "urban.area", # Urban
+                  "FRI", # FRI
+                  "bFRI", # bFRI
+                  "width.variability")# , # WV
+                  # "bed.modification",
+                  # "morphology",
+                  # "A.EDO",
+                  # "F.EDO",
+                  # "ARA.fraction",
+                  # "agri.land",
+                  # "Slope",
+                  # "fields",
+                  # "saprobic.cond",
+                  # "normcov.mobile.blocks",
+                  # "normcov.coarse.inorganic.sediments",
+                  # "normcov.gravel",
+                  # "normcov.sand.silt",
+                  # "normcov.fine.sediments")
 }
 
 
@@ -151,7 +149,9 @@ if(BDM != TRUE) {
               grep("normcov.",env.fact),
               grep("sfract.",env.fact),
               grep("v.",env.fact, fixed = TRUE)) # has to match exactly, to avoid to remove .variability or .vegetation
-    env.fact <- env.fact[-cind]
+    if(length(cind) != 0){
+        env.fact <- env.fact[-cind]
+    }
 }
 
 # check if env.fact selected are really factors in data.env
@@ -159,6 +159,53 @@ env.fact <- env.fact[which(env.fact %in% colnames(data.env))]
 
 no.env.fact <- length(env.fact)
 print(no.env.fact)
+
+## ---- Plot vizualisation of duplicates ----
+
+# count nb of sites and samples
+n.sites <- length(unique(data.inv$SiteId))
+n.samp <- length(unique(data.inv$SampId))
+dup <- duplicated(data.inv$SiteId)
+sites.dup <- data.inv$SiteId[dup]
+
+data.inv.dup <- data.inv[which(data.inv$SiteId %in% sites.dup), ] # exclude sites with only 1 sampling
+data.inv.dup <- data.inv.dup[order(data.inv.dup$SiteId),]
+
+if( BDM == F){ data.inv.dup <- data.inv.dup[data.inv.dup$MonitoringProgram!="BDM",]} #exclude BDM sites
+
+
+file.name <- paste0(file.prefix, "DuplicatedSamples.pdf")
+
+if ( !file.exists(paste0(dir.output,file.name)) ){ # don't print if file already exists
+
+    pdf(paste0(dir.output, file.name), paper = 'special', 
+        width = 17, height = 13,
+        onefile = TRUE)
+    
+    dnrep <- as.data.frame(cbind("nrep"=sort(table(data.inv.dup$SiteId)),"SiteId"=names(sort(table(data.inv.dup$SiteId)))))
+    plot(dnrep$nrep)
+    
+    tab.nrep <- table(dnrep$nrep) # nr. of replicates, e.g. 4 sites with 8 replicates
+    
+    data.inv.dup <- left_join(data.inv.dup,dnrep,by="SiteId")
+    data.inv.dup$nrep <- as.numeric(data.inv.dup$nrep)
+    data.inv.dup <- data.inv.dup[order(data.inv.dup$nrep),]
+    
+    cols <- rainbow(8,start=0.1)
+    plot(data.inv.dup$X,data.inv.dup$Y,pch=16,col=cols[data.inv.dup$nrep],main="sites with repeated samplings")
+    legend("topleft",legend=sort(unique(data.inv.dup$nrep)),pch=16,col=cols[unique(data.inv.dup$nrep)])
+    
+    sdup <- unique(data.inv.dup$SiteId)
+    plot(1:length(sdup),type="n",ylim=range(data.inv.dup$Year),xlab="Site",ylab="Year")
+    cols <- 1:8
+    for(i in 1:length(sdup)){
+        years.i <- data.inv.dup$Year[data.inv.dup$SiteId==sdup[i]]
+        points(rep(i,length(years.i)),years.i,col=cols[1+i%%10])
+        segments(x0=i,y0=min(years.i),y1=max(years.i),col=cols[1+i%%10])
+    }
+
+    dev.off()
+}
 
 ## ---- Produce and plot summ stat ----
 
@@ -197,8 +244,8 @@ dev.off()
 ## ---- Plot correlation matrix ----
 
 # set pdf size depending of number of env. fact
-if( BDM == T){
-    dim.pdf <- c("width" = 20, "height" = 20)
+if( select == T){
+    dim.pdf <- c("width" = 13, "height" = 13)
 } else {
     dim.pdf <- c("width" = 20, "height" = 20)
 }
@@ -239,10 +286,14 @@ print(proc.time()-ptm)
 ptm <- proc.time() # to calculate time of pdf production
 
 file.name <- paste0(no.env.fact,"envfact_", "OnMap.pdf")
-map.inputs.d <- map.inputs(dir.env.data = dir.env.data, data.env = data.env)
 
-map.env.fact(inputs = map.inputs.d, env.fact = env.fact, data.env = data.env, env.explan = env.explan,
-             dir.output = dir.output, file.prefix = file.prefix, file.name = file.name)
+if ( !file.exists(paste0(dir.output, file.prefix, file.name)) ){ # don't print if file already exists
+    
+    map.inputs.d <- map.inputs(dir.env.data = dir.env.data, data.env = data.env)
+    
+    map.env.fact(inputs = map.inputs.d, env.fact = env.fact, data.env = data.env, env.explan = env.explan,
+                 dir.output = dir.output, file.prefix = file.prefix, file.name = file.name)
+}
 
 print("Producing PDF time:")
 print(proc.time()-ptm)
@@ -257,11 +308,13 @@ ptm <- proc.time() # to calculate time of pdf production
 list.plots <- plot.data.envvstax(data = data, env.fact = env.fact, list.taxa = list.taxa)
 
 # print the plots in a pdf file
-file.name <- paste0(file.prefix, no.env.fact,"_EnvFactvsTax.pdf")
-print.pdf.plots(list.plots = list.plots, dir.output = dir.output, file.name = file.name)
+file.name <- paste0(file.prefix, no.env.fact,"envfact_EnvFactvsTax.pdf")
+
+if ( !file.exists(paste0(dir.output,file.name)) ){ # don't print if file already exists
+    print.pdf.plots(list.plots = list.plots, dir.output = dir.output, file.name = file.name)
+}
 
 print("Producing PDF time:")
 print(proc.time()-ptm)
 # Producing All_pdf -> 1 min
 # Producing BDM_pdf -> 4 min
-
