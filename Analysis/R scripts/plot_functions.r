@@ -165,28 +165,28 @@ model.comparison <- function(outputs, null.model, list.algo, list.taxa, prev.inv
   no.algo <- length(list.algo)
   no.taxa <- length(list.taxa)
   
-  col.vect <- c("Null model" = "#000000", 
-                # "adaboost" = "#948B8B",
-                # "earth" = "#048504",
-                "svmRadial" = "#DB1111",
-                "glm" = "#030AE8",
-                # "CT2" = "#A84E05",
-                "rf" = "#790FBF")
+  # make a vector of colors
+  col.vect <- names(list.algo)
+  names(col.vect) <- list.algo
+  col.vect <- c("Null model" = "#000000", col.vect)
   
   list.plots <- list()
   n = 1
+  
   # Plot performance on training and testing set
-  if( is.null(outputs[[1]][[1]][["Testing performance"]]) == FALSE){ # check if testing set isn't empty
-    c <- c("Training performance", "Testing performance")
+  if( length(outputs[[1]][[1]]) > 6){ # check if testing set isn't empty
+    c <- c("Performance training set", "Performance testing set")
   } else {
-    c <- c("Training performance") # if empty, then only plot for training set
+    c <- c("Performance training set") # if empty, then only plot for training set
   }
   for (m in 1:length(c)){
-    if(c[m] == "Training performance"){
+    if(m == 1){
       title <- paste("Comparison of models performance on training set")
     } else {
       title <- paste("Comparison of models performance on testing set")
     }
+    print(paste("Plotting comparison for", c[m]))
+    # fill data frame with all performances
     plot.data <- data.frame(matrix(ncol = no.algo, nrow = no.taxa))
     colnames(plot.data) <- list.algo
     plot.data$Taxa <- list.taxa
@@ -204,6 +204,7 @@ model.comparison <- function(outputs, null.model, list.algo, list.taxa, prev.inv
         # plot.data[j, "expl.pow_null.model"] <- NA
       }
     }
+    # transform data frame to plot easier
     plot.data$null.perf <- plot.data[,"Null model"]
     plot.data <- gather(plot.data, key = model, value = performance, all_of(c("Null model",list.algo)))
     plot.data <- gather(plot.data, key = expl.pow_model, value = expl.pow, all_of(paste0("expl.pow_", list.algo)))
@@ -267,6 +268,8 @@ model.comparison <- function(outputs, null.model, list.algo, list.taxa, prev.inv
   n = 3
   for (j in 1:no.taxa){
     
+    print(paste("Plotting comparison after resampling for", list.taxa[j]))
+    
     temp.list.trmod <- vector(mode = 'list', length = no.algo)
     names(temp.list.trmod) <- list.algo
     for (l in 1:no.algo){
@@ -306,9 +309,9 @@ plot.varimp <- function(outputs, list.algo, list.taxa, env.fact){
       # print(plot(outputs[[l]][[j]][["Trained model"]], main = title))
       
       # Plot variable importance
-      perf <- round(outputs[[l]][[j]][["Training performance"]], digits = 3)
+      perf <- round(outputs[[l]][[j]][["Performance training set"]], digits = 3)
       plot.title <- paste("Algo:", list.algo[l], 
-                          "\nStandardized deviance:", 
+                          "\nPerformance on training set:", 
                           ifelse(length(perf) > 1, perf, perf[1] ))
       
       temp.list.plots[[l]] <- ggplot(outputs[[l]][[j]][["Variable importance"]]) +
@@ -329,36 +332,36 @@ plot.varimp <- function(outputs, list.algo, list.taxa, env.fact){
   return(list.plots)
 }
 
-plot.table.varimp <- function(outputs, list.algo, list.taxa, env.fact){
-  
-  temp.list <- list()
-  no.algo <- length(list.algo)
-  no.taxa <- length(list.taxa)
-  no.env.fact <- length(env.fact)
-  
-  temp.df <- data.frame(matrix(ncol = no.algo*no.taxa, nrow = no.env.fact))
-  colnames(temp.df) <- c(outer(list.algo, list.taxa, FUN = paste))
-  rownames(temp.df) <- env.fact
-  
-  for (j in 1:no.taxa) {
-    for (l in 1:no.algo) {
-      for (k in 1:no.env.fact) {
-        temp.df[env.fact[k],paste(list.algo[l], list.taxa[j])] <- outputs[[l]][[j]][["Variable importance"]][["importance"]][env.fact[k],1]
-      }
-    }
-  }
-  temp.df$mean.imp <- rowMeans(temp.df)
-  temp.df <- as.matrix(temp.df)
-  temp.list[[1]] <- plot(temp.df, 
-                           #key = NULL,
-                           digits = 2, text.cell=list(cex=0.5),
-                           axis.col=list(side=3, las=2), axis.row = list(side=2, las=1),
-                           col = viridis,
-                           xlab = "",
-                           ylab = "Environmental factor",
-                           main = "Variable importance for ML algorithm applied to taxa")
- return(temp.list)
-}
+# plot.table.varimp <- function(outputs, list.algo, list.taxa, env.fact){
+#   
+#   temp.list <- list()
+#   no.algo <- length(list.algo)
+#   no.taxa <- length(list.taxa)
+#   no.env.fact <- length(env.fact)
+#   
+#   temp.df <- data.frame(matrix(ncol = no.algo*no.taxa, nrow = no.env.fact))
+#   colnames(temp.df) <- c(outer(list.algo, list.taxa, FUN = paste))
+#   rownames(temp.df) <- env.fact
+#   
+#   for (j in 1:no.taxa) {
+#     for (l in 1:no.algo) {
+#       for (k in 1:no.env.fact) {
+#         temp.df[env.fact[k],paste(list.algo[l], list.taxa[j])] <- outputs[[l]][[j]][["Variable importance"]][["importance"]][env.fact[k],1]
+#       }
+#     }
+#   }
+#   temp.df$mean.imp <- rowMeans(temp.df)
+#   temp.df <- as.matrix(temp.df)
+#   temp.list[[1]] <- plot(temp.df, 
+#                            #key = NULL,
+#                            digits = 2, text.cell=list(cex=0.5),
+#                            axis.col=list(side=3, las=2), axis.row = list(side=2, las=1),
+#                            col = viridis,
+#                            xlab = "",
+#                            ylab = "Environmental factor",
+#                            main = "Variable importance for ML algorithm applied to taxa")
+#  return(temp.list)
+# }
 
 # Plot PDP
 
@@ -368,13 +371,10 @@ plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
   no.taxa <- length(list.taxa)
   no.env.taxa <- length(env.fact)
   
-  col.vect <- c(# "Null model" = "#000000", 
-                # "adaboost" = "#948B8B",
-                # "earth" = "#048504",
-                "svmRadial" = "#DB1111",
-                "glm" = "#030AE8",
-                # "CT2" = "#A84E05",
-                "rf" = "#790FBF")
+  # make a vector of colors
+  col.vect <- names(list.algo)
+  names(col.vect) <- list.algo
+  col.vect <- c("Null model" = "#000000", col.vect)
   
   list.plots <- list()
   
@@ -389,11 +389,11 @@ plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
         
       for (k in 1:no.env.fact) {
         print(paste("Producing PDP of", k, env.fact[k], "for", j,  list.taxa[j]))
-        temp.df <- data.frame(partial(outputs[[1]][[j]][["Trained model"]], pred.var = env.fact[k])[,env.fact[k]])
+        temp.df <- data.frame(pdp::partial(outputs[[1]][[j]][["Trained model"]], pred.var = env.fact[k])[,env.fact[k]])
         colnames(temp.df) <- "value"
         temp.df$factor <- env.fact[k]
         for (l in 1:no.algo){ 
-        temp.df[,list.algo[l]] <- partial(outputs[[l]][[j]][["Trained model"]], pred.var = env.fact[k])[,"yhat"]
+        temp.df[,list.algo[l]] <- pdp::partial(outputs[[l]][[j]][["Trained model"]], pred.var = env.fact[k])[,"yhat"]
         }
         temp.df <- gather(temp.df, key = model, value = fct, -value, - factor)
         plot.data <- union(plot.data,temp.df)
@@ -558,7 +558,7 @@ map.ml.pred.taxa <- function(inputs, outputs, list.taxa, list.algo, algo = list.
         cat("Constructing ggplot for:", taxon, "\n")
         
         plot.data <- outputs[[algo]][[list.taxa[j]]][["Observation testing set"]]
-        plot.data$pred <- outputs[[algo]][[list.taxa[j]]][["Prediction on testing set (probabilities)"]][,"present"]
+        plot.data$pred <- outputs[[algo]][[list.taxa[j]]][["Prediction probabilities testing set"]][,"present"]
         
         # Map geometries
         g <- ggplot()
@@ -607,7 +607,7 @@ response.ml.pred.taxa <- function(outputs, list.algo, list.taxa, env.fact, algo 
         cat("Constructing ggplot for:", taxon, "\n")
         
         plot.data <- outputs[[algo]][[list.taxa[j]]][["Observation testing set"]]
-        plot.data$pred <- outputs[[algo]][[list.taxa[j]]][["Prediction on testing set (probabilities)"]][,"present"]
+        plot.data$pred <- outputs[[algo]][[list.taxa[j]]][["Prediction probabilities testing set"]][,"present"]
         plot.data <- gather(plot.data, key = factors, value = value, -SiteId, -SampId, -X, -Y, -list.taxa[j], -pred)
         
         g <- ggplot(data = plot.data, aes(x = value, y = pred, color = plot.data[,list.taxa[j]]))

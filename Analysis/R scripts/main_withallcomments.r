@@ -9,9 +9,7 @@
 ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-## ---- PRELIMINARIES ----
-
-# Libraries ####
+## ---- Libraries, data and functions ----
 
 # Load packages
 # data management
@@ -39,35 +37,33 @@ if ( !require("randomForestSRC") ) { install.packages("randomForestSRC"); librar
 # if ( !require("keras") ) { devtools::install_github("rstudio/keras"); library("keras") } # to run Neural Networks
 # if ( !require("tensorflow") ) { devtools::install_github("rstudio/tensorflow"); library("tensorflow") } # to run Neural Networks
 # use_condaenv("r-tensorflow")
+#
+library(remotes)
+remotes::install_github("rstudio/reticulate")
+reticulate::install_miniconda()
 
-# # needed for ANN
-# if( !require("reticulate")){ 
-#   # remotes::install_github("rstudio/reticulate"); # this tried to install reticulate in a inaccessible folder 
-#   install.packages("reticulate"); 
-#   library("reticulate")}
-# # use_condaenv("r-reticulate")
-# 
-# if( !require("tensorflow")){
-#   # devtools::install_github("rstudio/tensorflow");
-#   install.packages("tensorflow");
-#   library(tensorflow)}
-# # tf_version()
-# 
-# install_tensorflow()
-# 
-# if( !require("keras")){ 
-#   devtools::install_github("rstudio/keras");
-#   # install.packages("keras");
-#   library(keras)}
-# 
-# # library("tensorflow")
-# # library("keras")
-# 
-# install_keras()
+devtools::install_github("rstudio/tensorflow")
+library("tensorflow")
+install_tensorflow()
 
-## Run this to prompt miniconda installation request!
-## If no request is prompted, you're ready to start coding! Else, press "n".
-# set_random_seed(0)
+devtools::install_github("rstudio/keras")
+library("keras")
+install_keras()
+
+
+#tensorflow::install_tensorflow()
+#tensorflow::tf_config()
+
+
+# install.packages(c('caret', 'skimr', 'RANN', 'randomForest', 'fastAdaboost', 'gbm', 'xgboost', 'caretEnsemble', 'C50', 'earth'))
+# install.packages("ggpubr")
+# library(dplyr) # to sort, join, merge data
+# library(ggplot2) # to do nice plots
+# library(caret) # comprehensive framework to build machine learning models
+# library(skimr) # to show key descriptive stats
+# library(RANN)  # required for knnInpute
+# library(e1071) # to do a recursive feature elimination
+# library(caretEnsemble) # to do ensemble prediction with caret
 
 # Check and set working directory
 getwd() # show working directory
@@ -77,13 +73,10 @@ getwd() # show working directory
 rm(list=ls())
 graphics.off()
 
-# Load data ####
-
 # Define directory and files
 dir.env.data      <- "../../Data/Processed data/Environmental data/"
 dir.inv.data      <- "../../Data/Processed data/Invertebrate data/"
 dir.output        <- "../Plots/Models analysis plots/"
-dir.workspace     <- "../Intermediate results/"
 
 file.inv.data     <- "All_occ_data_2020-06-25.dat"
 file.inv.BDM.data <- "BDM_occ_data_2020-06-25.dat"
@@ -120,15 +113,46 @@ if( BDM == TRUE){
 
 d <- paste0(Sys.Date(), "_")    # date for file names
 
-# Load functions ####
-
-source("ml_model_functions.r")
+# Load functions
+source("model_functions.r")
 source("plot_functions.r")
-source("utilities.r")
 
-## ---- DATA WRANGLING  ----
+## ---- Construct datasets  ----
 
-# Select env. factors ####
+# Replace "0" and "1" by "absent" and "present" and convert them to factors
+cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
+
+for (i in cind.taxa ) {
+    data.inv[which(data.inv[,i] == 0),i] <- "absent"
+    data.inv[which(data.inv[,i] == 1),i] <- "present"
+    data.inv[,i] = as.factor(data.inv[,i])
+}
+
+# Construct main dataset (with inv and env)
+data <- data.env %>%
+    left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
+dim(data)
+
+# make a list of taxa we want to predict
+
+a.lot = F     # set to FALSE if it's for exploration (few taxa)
+# set to TRUE for a proper simulation (all taxa with intermadiate prevalence)
+
+# Select taxa for prediction
+if (a.lot == T){
+  list.taxa <- colnames(data.inv)[cind.taxa]
+} else if (a.lot == F){
+  # list.taxa       <- c("Occurrence.Gammaridae", "Occurrence.Heptageniidae") # two taxa
+    list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55), # few taxa
+                              "Occurrence.taxa"] # Select only few taxa
+  # list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25), # all taxa with intermediate prevalence
+  #                             "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
+}
+
+
+# - - - - 
+
+# Select environmental factors for prediction
 
 # Replace "_" and " " by "." in colnames to be consistent
 colnames(rank.env) <- gsub("_", ".", colnames(rank.env))
@@ -150,17 +174,29 @@ if (select == F){
   
 } else if (select == T){
   
-  env.fact <- c("temperature",       # Temp
-                "velocity",          # FV
-                "A10m",              # A10m
-                "cow.density",       # LUD
-                "IAR",               # IAR
-                "urban.area",        # Urban
-                "FRI",               # FRI
-                "bFRI",              # bFRI
-                "width.variability", # WV
-                "temperature2",
-                "velocity2")
+  env.fact <- c("temperature", # Temp
+                "velocity", # FV
+                "A10m", # A10m
+                "cow.density", # LUD
+                "IAR", # IAR
+                "urban.area", # Urban
+                "FRI", # FRI
+                "bFRI", # bFRI
+                "width.variability")# , # WV
+  # "bed.modification",
+  # "morphology",
+  # "A.EDO",
+  # "F.EDO",
+  # "ARA.fraction",
+  # "agri.land",
+  # "Slope",
+  # "fields",
+  # "saprobic.cond",
+  # "normcov.mobile.blocks",
+  # "normcov.coarse.inorganic.sediments",
+  # "normcov.gravel",
+  # "normcov.sand.silt",
+  # "normcov.fine.sediments")
 }
 
 if(BDM != TRUE) {
@@ -180,51 +216,17 @@ env.fact <- env.fact[which(env.fact %in% colnames(data.env))]
 # env.fact[-which(env.fact %in% colnames(data.env))] # which selected factors are not in data.env ?
 # [1] "A.EDO" "F.EDO" are missing
 
-# Standardize env. factors ####
-
-preproc.data.env <- preProcess(data.env[,c("SiteId", "SampId", env.fact)], method = c("center", "scale")) 
-
-# Select taxa ####
-
-cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
- 
-# Replace "0" and "1" by "absent" and "present" and convert them to factors
-for (i in cind.taxa ) {
-#     data.inv[which(data.inv[,i] == 0),i] <- "absent"
-#     data.inv[which(data.inv[,i] == 1),i] <- "present"
-     data.inv[,i] = as.factor(data.inv[,i])
-}
-
-# Construct main dataset (with inv and env)
-data <- data.env[, c("SiteId", "SampId", env.fact)] %>%
-  left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
-dim(data)
-
-
-# Select taxa
-all.taxa = F 
-# set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
-# set to TRUE to apply models to all taxa
-
-# Select taxa for prediction
-if (all.taxa == T){
-  list.taxa <- colnames(data.inv)[cind.taxa]
-} else if (all.taxa == F){
-  # list.taxa       <- c("Occurrence.Gammaridae", "Occurrence.Heptageniidae") # two taxa
-  list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55), # few taxa
-                              "Occurrence.taxa"] # Select only few taxa
-  # list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25), # all taxa with intermediate prevalence
-  #                             "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
-}
+# Construct training and testing datasets (randomly or according to an env. fact.)
+ratio <- 1 # set a ratio for training dataset (can be 1)
+split.var <- "IAR" # data splitted according to this variable (default is "random")
+splitted.data <- split.data(data = data, training.ratio = ratio, variable = split.var)
 
 # - - - - 
-
-# Select ml algorithms ####
 
 # Select models to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
 list.algo <- c("#030AE8" = 'glm', # Random Forest
-               "#048504" = 'bam', # Generalized Additive Model using splines
+               # "#048504" = 'gam', # Generalized Additive Model using splines
                # "#948B8B" = 'adaboost',
                # 'earth', # MARS: Multivariate Adaptive Regression Splines
                # "#A84E05" = 'elm', # Extreme Learning Machine (Neural Network)
@@ -232,132 +234,128 @@ list.algo <- c("#030AE8" = 'glm', # Random Forest
                # "#DB1111" = 'svmRadial', # Support Vector Machine
                "#790FBF" = 'rf') # Random Forest
 
+# color.vect <- c("Null model" = "#000000",
+#                 "glm" = "#030AE8",
+#                 "gam" = "#048504",
+#                 "rf" = "#790FBF",
+#                 "svmRadial" = "#DB1111",
+#                 "adaboost" = "#948B8B",
+#                 "elm" = "#A84E05",
+#                 "absent" = "#c2141b", 
+#                 "present" = "#007139")
+
 # Assemble information to insert in file names
 no.env.fact <- length(env.fact)
 no.taxa <- length(list.taxa)
 no.algo <- length(list.algo)
 
-# Write information for file names
-# percentage.train.set <- ratio * 100
+percentage.train.set <- ratio * 100
 info.file.name <- paste0(file.prefix, 
                          # d, # don't need to include the date
                          no.taxa, "taxa_", 
                          no.env.fact, "envfact_",
                          no.algo, "algo_",
-                         # "trainset", percentage.train.set, 
-                         # if( ratio != 1) {split.var}, 
+                         "trainset", percentage.train.set, 
+                         if( ratio != 1) {split.var}, 
                          "_")
 
 # Summary of prevalence of chosen taxa
 for ( i in 1:no.taxa){
-    cat("Summary of absence, presence and NA for", list.taxa[i], ":", summary(data[, list.taxa[i]]), "\n")
+    cat("Summary of absence and presence for", list.taxa[i], ":", summary(data[, list.taxa[i]]), "\n")
 }
 
+## ---- Feature selection (rfe) ----
 
-# Split (and save) data ####
+# We might need a rigorous way to determine the important variables first before feeding them to the ML algorithm.
+# RFE works in 3 broad steps:
+# Step 1: Build a ML model on a training dataset and estimate the feature importances on the test dataset.
+# Step 2: Keeping priority to the most important variables, iterate through by building models of given subset sizes, that is, 
+#         subgroups of most important predictors determined from step 1. Ranking of the predictors is recalculated in each iteration.
+# Step 3: The model performances are compared across different subset sizes to arrive at the optimal number and list of final predictors.
 
-# Split for ml purpose (e.g. 80% training, 20% testing)
-# ratio <- 0.8 # set a ratio for training dataset (can be 1)
-# split.var <- "random" # data splitted according to this variable (default is "random")
-# splitted.data <- split.data(data = data, training.ratio = ratio, variable = split.var)
-
-# Split for CV
-file.name <- paste0(dir.workspace,"SplitsForCV.rds")
-
-# If the file with the three different splits already exist, just read it
-if (file.exists(file.name) == T ){
-  
-  if(exists("splits") == F){ splits <- readRDS(file = file.name)
-    cat("File with data splits already exists, we read it from", file.name, "and save it in object 'splits'")}
-    else{
-    cat("List with data splits already exists as object 'splits' in this environment.")
-    }
-  } else {
-  
-  cat("No data splits exist yet, we produce it and save it in", file.name)
-  splits <- split.data(data, 1)
-  saveRDS(splits, file = file.name)
-
-}
-
-# Normalize data ####
-
-centered.splits <- lapply(splits, FUN = center.splits, cv = T)
-
-#pp <- preProcess(splits[[]])
-
-
-#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# #1) No cross validation ####
-# centered.occ.data <- center.splits(list(inv.occ), cv = F)
-# #a) No cross validation, no comm corr
-# res.1 <- stat_mod_cv(data.splits = centered.occ.data, cv = F, comm.corr = F)
+# ptm <- proc.time() # to calculate time of calculation
 # 
-# #b) No cross validation, comm corr
-# res.1 <- stat_mod_cv(data.splits = centered.occ.data, cv = F, comm.corr = T)
+# ctrl <- rfeControl(functions = rfFuncs, # based on random forest algorithm
+#                    method = "repeatedcv", # method of cross-validation
+#                    repeats = 2,
+#                    verbose = FALSE)
 # 
-# #2) Cross validation ####
-# centered.splits <- lapply(splits, FUN = center.splits, cv = T)
+# subsets <- c(1:5, round(no.env.fact/2), round(3/4*no.env.fact)) # select size of subsets of env. fact. to be tested
 # 
-# #b) Cross validation, no comm corr
-# res.3 <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = F)
+# # Make a list with the different predictive performance for each taxon in list.taxa
+# rfe.result <- vector(mode = 'list', length = no.taxa)
+# names(rfe.result) <- list.taxa
 # 
-# #b) Cross validation, comm corr
-# res.4 <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = T)
+# for (j in 1:no.taxa){
+#   
+#   temp.data <- na.omit(data[, c(list.taxa[j],env.fact)])
+#   
+#   rfe.result[[j]] <- rfe(x=temp.data[, env.fact], y=temp.data[, list.taxa[j]], # receives the output of the rfeControl() as values
+#                          sizes = subsets, # what all model sizes (the number of most important features) the rfe should consider.
+#                          rfeControl = ctrl)
+#   
+# }
+# 
+# print(paste(no.env.fact, "rfe calculation time:"))
+# print(proc.time()-ptm)
 
+# WORKSPACE: BDM, 55 env.fact, 29 taxa : 1:30 hours, saved 12.08.2021
 
 ## ---- Apply models ----
 
+# # test with other package for RF
+# j = 1
+# data.train <- splitted.data[["Training data"]]
+# data.test <- splitted.data[["Testing data"]]
+# temp.train <- na.omit(data.train[, c("SiteId", "SampId", "X", "Y", list.taxa[j], env.fact)]) # create a temporary training dataset with the taxon and env fact, to 
+# temp.test <- na.omit(data.test[, c("SiteId", "SampId", "X", "Y", list.taxa[j], env.fact)])
+# f <- reformulate(env.fact, list.taxa[j]) # not obligatory, just if we want to express it as a fct
+# my.rf <- rfsrc(f, mtry=5, ntree=2000, importance = "random",
+#               data=temp.train) # function to run RF
+# plot(my.rf)
+# # selection of the best stressor candidates
+# md.obj <- max.subtree (my.rf)
+# md.obj$topvars # extracts the names of the variables in the object md.obj
+# # rank interactions only for the most important predictors, 
+# # for example, those hypothesised a priori or those delivered by max.subtree (my.rf) using the argument xvar.names
+# my.rf.interaction <- find.interaction (my.rf, xvar.names=md.obj$topvars,
+#                                        importance="random", method= "vimp", nrep=3) # method= "vimp"
+#                                         # computes the additive and combined (paired) effects of each pair of stressors in
+#                                         # the response variable
+# # Large positive or negative numbers of difference (between additive and paired stressor effects) 
+# # can indicate a potential interaction effect
+
 ptm <- proc.time() # to calculate time of simulation
 
-## TEST ANN WITH KERAS ####
 
-# Prepare training and testing set
+# ## TEST ANN WITH KERAS ####
+#  
+# # Prepare training and testing set
 # target <- list.taxa[1]
 # 
-# temp.train <- splits[[1]][[1]][, c(target,env.fact)]
+# temp.train <- splitted.data$`Training data`[, c(target,env.fact)]
 # temp.train <- na.omit(temp.train)
 # 
-# temp.test <- splits[[1]][[2]][, c(target,env.fact)]
+# temp.test <- splitted.data$`Testing data`[, c(target,env.fact)]
 # temp.test <- na.omit(temp.test)
-
+# 
 # Xtrain <- as.matrix(temp.train[, env.fact])
 # Ytrain <- as.matrix(temp.train[, target])
 # 
 # Xtest <- as.matrix(temp.test[, env.fact])
 # Ytest <- as.matrix(temp.test[, target])
-
-# Xtrain <- temp.train[, env.fact]
-# Ytrain <- temp.train[, target]
 # 
-# Xtest <- temp.test[, env.fact]
-# Ytest <- temp.test[, target]
-
-# One Hot Encoding
-# Ytraincat <- to_categorical(as.numeric(Ytrain[,1]) -1)
-
-# use_session_with_seed(42)
-
+# # One Hot Encoding
+# # Ytraincat <- to_categorical(as.numeric(Ytrain[,1]) -1)
+# 
 # # Initialize a sequential model
-# model <- keras_model_sequential()
+# model <- keras_model_sequential() 
 # 
-# model %>%
-#   layer_dense(units = 12, activation = 'relu', input_shape = c(20)) %>% 
-#   layer_dense(units = 12, activation = 'relu') %>% 
-#   layer_dense(units = 10, activation = 'sigmoid') 
-# 
-# model %>% compile(
-#   loss = 'binary_crossentropy',
-#   optimizer = optimizer_rmsprop()
-# )
-# 
-# model %>% fit(
-#   x = Xtrain, y = Ytrain, epochs = 20, batch_size = 32
-# )
+# # Add layers to the model
+# model %>% 
+#   layer_dense(units = 8, activation = 'relu', input_shape = c(4)) %>% 
+#   layer_dense(units = 3, activation = 'softmax')
 
-# intermediately, we need to store one of the splits in splitted data to make 
-# the ML algorithms running
-splitted.data <- splits[["Split1"]]
 
 # Make a list to store the outputs of each model
 outputs <- vector(mode = 'list', length = no.algo)

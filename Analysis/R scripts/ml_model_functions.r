@@ -59,7 +59,8 @@ lowest <- function (x, metric, maximize = F){
     return(best)
 }
 
-apply.ml.model <- function(splitted.data, list.taxa, env.fact, algorithm, selec.metric = "StandardizedDeviance", train.control = trainControl(), ...){
+# Function to apply ML algorithms
+apply.ml.model <- function(splitted.data, list.taxa, env.fact, algorithm, selec.metric = "StandardizedDeviance", ...){
     
     data.train <- splitted.data[["Training data"]]
     data.test <- splitted.data[["Testing data"]]
@@ -68,6 +69,8 @@ apply.ml.model <- function(splitted.data, list.taxa, env.fact, algorithm, selec.
     list.outputs <- vector(mode = 'list', length = length(list.taxa))
     names(list.outputs) <- list.taxa
     
+    # if testing data set exists, create outputs for results on training and testing data sets
+    # else only list outputs for training data set
     if(nrow(data.test)>0){which.set <- c("training set", "testing set")
     } else {which.set <- c("training set")}
     out <- c("Observation", #1
@@ -78,28 +81,17 @@ apply.ml.model <- function(splitted.data, list.taxa, env.fact, algorithm, selec.
              "Confusion matrix") #6
     output.names <- c("Trained model", "Variable importance", c(outer(out, which.set, FUN = paste)))
     
-    
     for (j in 1:length(list.taxa)){
         
         print(paste("Applying", algorithm, "to", list.taxa[j]))
-        
-        # For each taxon we do a list with the important outputs
-        # temp.output <- c("Trained model",                                 #1
-        #                  "Variable importance",                           #2
-        #                  "Training performance",                          #2
-        #                  "Prediction on testing set (presence/absence)",  #4
-        #                  "Prediction on testing set (probabilities)",     #5
-        #                  "Observation testing set",                       #6
-        #                  "Likelihood testing set",                        #7
-        #                  "Testing performance",                           #8
-        #                  "Confusion matrix")                              #9
+
         temp.list <- vector(mode = 'list', length = length(output.names))
         names(temp.list) <- output.names
         
         temp.train <- na.omit(data.train[, c("SiteId", "SampId", "X", "Y", list.taxa[j], env.fact)]) # create a temporary training dataset with the taxon and env fact, to 
         temp.test <- na.omit(data.test[, c("SiteId", "SampId", "X", "Y", list.taxa[j], env.fact)])
         temp.sets <- list(temp.train, temp.test)
-        f <- reformulate(env.fact, list.taxa[j]) # not obligatory, just if we want to express it as a fct
+        f <- reformulate(env.fact, list.taxa[j]) # write formula (target variable ~ explanatory variables) to apply the model
         
         # Why is train() better than using the algorithm's fct directly ?
         # Because train() does other things like:
@@ -107,6 +99,21 @@ apply.ml.model <- function(splitted.data, list.taxa, env.fact, algorithm, selec.
         # 2. Tune the hyper parameters for optimal model performance
         # 3. Choose the optimal model based on a given evaluation metric
         # 4. Preprocess the predictors (what we did so far using preProcess())
+        
+        folds <- groupKFold(temp.train$SiteId, 3) # create 3 folds, grouped by SiteId
+        
+        # Define the training control
+        train.control <- trainControl(
+            method = 'cv',                   # k-fold cross validation
+            number = 3,                      # number of folds
+            index = folds,                   # provide indices computed with groupKFold for the k-fold CV
+            # repeats = 1,                   # for repeated k-fold cross-validation 'repeatedcv' only: the number of complete sets of folds to compute
+            # savePredictions = 'final',     # saves predictions for optimal tuning parameter
+            classProbs = T,                  # should class probabilities be returned
+            #summaryFunction = twoClassSummary, # default metric function choosen (accuracy, ROC)
+            summaryFunction = stand.dev ,
+            selectionFunction = lowest       # we want to minimize the metric
+        )
         
         # model <- train(x = temp.train[,env.fact], y = temp.train[,list.taxa[j]], method = algorithm, trControl = train.control)
         model <- train(f, data = temp.train, metric = selec.metric, method = algorithm, trControl = train.control)
@@ -138,31 +145,7 @@ apply.ml.model <- function(splitted.data, list.taxa, env.fact, algorithm, selec.
                                                                data = temp.list[[paste(out[2],which.set[n])]], mode='everything', positive='present')
             
         }
-            # # temp.list[[2]] <- NA
-            # temp.list[["Training performance"]] <- min(model$results[,selec.metric], na.rm = T)
-            #     # model$results[which(model$results[,selec.metric] == model$bestTune[,1]), selec.metric]
-            # # ?? not sure its the right final standerdized deviance of the model ####
-            # 
-            # if (nrow(temp.test)>0){ # if there is a testing set we predict on it, else all predictions are empty
-            # 
-            #     temp.list[["Prediction on testing set (presence/absence)"]] <- predict(model, temp.test)
-            #     temp.list[["Prediction on testing set (probabilities)"]] <- predict(model, temp.test, type = 'prob')
-            #     temp.list[["Observation testing set"]] <- temp.test
-            #     
-            #     likeli <- 1:nrow(temp.test)
-            #     for(i in 1:nrow(temp.test)){
-            #         if(temp.test[i,list.taxa[j]] == "present"){
-            #             likeli[i] <- temp.list[["Prediction on testing set (probabilities)"]][i, "present"]
-            #         } else if (temp.test[i,list.taxa[j]] == "absent" ){
-            #             likeli[i] <- temp.list[["Prediction on testing set (probabilities)"]][i, "absent"]
-            #         }
-            #     }
-            #     
-            #     temp.list[["Likelihood testing set"]] <- likeli
-            #     temp.list[["Testing performance"]] <- -2 * sum(log(likeli)) / nrow(temp.test)
-            #     temp.list[["Confusion matrix"]] <- confusionMatrix(reference = temp.test[,list.taxa[j]], 
-            #                                       data = temp.list[["Prediction on testing set (presence/absence)"]], mode='everything', positive='present')
-            # }
+        
         list.outputs[[j]] <- temp.list
     }
     
