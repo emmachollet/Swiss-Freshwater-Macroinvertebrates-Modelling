@@ -1,4 +1,4 @@
-*.rds
+Analysis/Intermediate results/Trained models/*
 *.RData
 .Rhistory
 Data/Original data/*
