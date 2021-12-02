@@ -4,7 +4,7 @@
 ## 
 ## --- "Bridging gap in macroinvertebrates community assembly" -- Project ---
 ## 
-## --- Deptember 9, 2021 -- Emma Chollet ---
+## --- December 1, 2021 -- Emma Chollet ---
 ##
 ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -31,21 +31,22 @@ if ( !require("sf") ) { install.packages("sf"); library("sf") } # to read layers
 
 # ml
 if ( !require("caret") ) { install.packages("caret"); library("caret") } # comprehensive framework to build machine learning models
-if ( !require("mgcv") ) { install.packages("mgcv"); library("mgcv") } # to run GAM ml algorithm
+if ( !require("mgcv") ) { install.packages("mgcv"); library("mgcv") } # to run generalized additive model (GAM) algorithm
 # if ( !require("fastAdaboost") ) { install.packages("fastAdaboost"); library("fastAdaboost") } # to run adaboost ml algorithm
-# if ( !require("kernlab") ) { install.packages("kernlab"); library("kernlab") }
+if ( !require("kernlab") ) { install.packages("kernlab"); library("kernlab") } # to run support vector machine (svm) algorithm
 # if ( !require("earth") ) { install.packages("earth"); library("earth") } # to run MARS ml algorithm
-if ( !require("randomForestSRC") ) { install.packages("randomForestSRC"); library("randomForestSRC") } # to run RF and additional features
+if ( !require("randomForest") ) { install.packages("randomForest"); library("randomForest") } # to run random forest (RF)
+# if ( !require("randomForestSRC") ) { install.packages("randomForestSRC"); library("randomForestSRC") } # to run RF and additional features
 # if ( !require("keras") ) { devtools::install_github("rstudio/keras"); library("keras") } # to run Neural Networks
 # if ( !require("tensorflow") ) { devtools::install_github("rstudio/tensorflow"); library("tensorflow") } # to run Neural Networks
 # use_condaenv("r-tensorflow")
 
 # # needed for ANN
-# if( !require("reticulate")){ 
-#   # remotes::install_github("rstudio/reticulate"); # this tried to install reticulate in a inaccessible folder 
-#   install.packages("reticulate"); 
-#   library("reticulate")}
-# # use_condaenv("r-reticulate")
+if( !require("reticulate")){
+  # remotes::install_github("rstudio/reticulate"); # this tried to install reticulate in a inaccessible folder
+  install.packages("reticulate");
+  library("reticulate")}
+use_condaenv()
 # 
 # if( !require("tensorflow")){
 #   # devtools::install_github("rstudio/tensorflow");
@@ -55,10 +56,10 @@ if ( !require("randomForestSRC") ) { install.packages("randomForestSRC"); librar
 # 
 # install_tensorflow()
 # 
-# if( !require("keras")){ 
-#   devtools::install_github("rstudio/keras");
-#   # install.packages("keras");
-#   library(keras)}
+if( !require("keras")){
+  devtools::install_github("rstudio/keras");
+  # install.packages("keras");
+  library(keras)}
 # 
 # # library("tensorflow")
 # # library("keras")
@@ -190,9 +191,9 @@ cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
  
 # Replace "0" and "1" by "absent" and "present" and convert them to factors
 for (i in cind.taxa ) {
-#     data.inv[which(data.inv[,i] == 0),i] <- "absent"
-#     data.inv[which(data.inv[,i] == 1),i] <- "present"
-     data.inv[,i] = as.factor(data.inv[,i])
+    data.inv[which(data.inv[,i] == 0),i] <- "absent"
+    data.inv[which(data.inv[,i] == 1),i] <- "present"
+    data.inv[,i] = as.factor(data.inv[,i])
 }
 
 # Construct main dataset (with inv and env)
@@ -224,12 +225,12 @@ if (all.taxa == T){
 # Select models to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
 list.algo <- c("#030AE8" = 'glm', # Random Forest
-               "#048504" = 'bam', # Generalized Additive Model using splines
+               # "#048504" = 'bam', # Generalized Additive Model using splines
                # "#948B8B" = 'adaboost',
                # 'earth', # MARS: Multivariate Adaptive Regression Splines
                # "#A84E05" = 'elm', # Extreme Learning Machine (Neural Network)
                # 'bayesglm') #, # Bayesian Generalized Linear Model
-               # "#DB1111" = 'svmRadial', # Support Vector Machine
+               "#DB1111" = 'svmRadial', # Support Vector Machine
                "#790FBF" = 'rf') # Random Forest
 
 # Assemble information to insert in file names
@@ -287,32 +288,54 @@ centered.splits <- lapply(splits, FUN = center.splits, cv = T)
 #pp <- preProcess(splits[[]])
 
 
-#####~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# #1) No cross validation ####
-# centered.occ.data <- center.splits(list(inv.occ), cv = F)
-# #a) No cross validation, no comm corr
-# res.1 <- stat_mod_cv(data.splits = centered.occ.data, cv = F, comm.corr = F)
-# 
-# #b) No cross validation, comm corr
-# res.1 <- stat_mod_cv(data.splits = centered.occ.data, cv = F, comm.corr = T)
-# 
-# #2) Cross validation ####
-# centered.splits <- lapply(splits, FUN = center.splits, cv = T)
-# 
-# #b) Cross validation, no comm corr
-# res.3 <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = F)
-# 
-# #b) Cross validation, comm corr
-# res.4 <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = T)
+## ---- Apply stat model ----
 
 
-## ---- Apply models ----
+# read in results produced by Jonas
+file.name <- paste0(dir.workspace, "Output25112021.rds")
+
+# If the file with the outputs already exist, just read it
+if (file.exists(file.name) == T ){
+    
+    if(exists("outputs") == F){
+        cat("File with statistical model outputs already exists, we read it from", file.name, "and save it in object 'outputs'")
+        stat.outputs <- readRDS(file = file.name)}
+    else{
+        cat("List with statistical model outputs already exists as object 'outputs' in this environment.")
+    }
+} else {
+    
+    cat("No statistical model outputs exist yet, we produce it and save it in", file.name)
+    
+    # #1) No cross validation ####
+    # centered.occ.data <- center.splits(list(inv.occ), cv = F)
+    # #a) No cross validation, no comm corr
+    # res.1 <- stat_mod_cv(data.splits = centered.occ.data, cv = F, comm.corr = F)
+    # 
+    # #b) No cross validation, comm corr
+    # res.1 <- stat_mod_cv(data.splits = centered.occ.data, cv = F, comm.corr = T)
+    # 
+    # #2) Cross validation ####
+    # centered.splits <- lapply(splits, FUN = center.splits, cv = T)
+    # 
+    # #b) Cross validation, no comm corr
+    # res.3 <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = F)
+    # 
+    # #b) Cross validation, comm corr
+    # res.4 <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = T)
+    
+    # cat("Saving outputs of statistical model in", file.name)
+    # saveRDS(stat.outputs, file = file.name)
+    
+}
+
+## ---- Apply ML models ----
 
 ptm <- proc.time() # to calculate time of simulation
 
 ## TEST ANN WITH KERAS ####
 
-# Prepare training and testing set
+# # Prepare training and testing set
 # target <- list.taxa[1]
 # 
 # temp.train <- splits[[1]][[1]][, c(target,env.fact)]
@@ -320,31 +343,31 @@ ptm <- proc.time() # to calculate time of simulation
 # 
 # temp.test <- splits[[1]][[2]][, c(target,env.fact)]
 # temp.test <- na.omit(temp.test)
-
-# Xtrain <- as.matrix(temp.train[, env.fact])
-# Ytrain <- as.matrix(temp.train[, target])
 # 
-# Xtest <- as.matrix(temp.test[, env.fact])
-# Ytest <- as.matrix(temp.test[, target])
-
+# # Xtrain <- as.matrix(temp.train[, env.fact])
+# # Ytrain <- as.matrix(temp.train[, target])
+# # 
+# # Xtest <- as.matrix(temp.test[, env.fact])
+# # Ytest <- as.matrix(temp.test[, target])
+# 
 # Xtrain <- temp.train[, env.fact]
 # Ytrain <- temp.train[, target]
 # 
 # Xtest <- temp.test[, env.fact]
 # Ytest <- temp.test[, target]
-
-# One Hot Encoding
-# Ytraincat <- to_categorical(as.numeric(Ytrain[,1]) -1)
-
-# use_session_with_seed(42)
-
-# # Initialize a sequential model
+# 
+# # One Hot Encoding
+# # Ytraincat <- to_categorical(as.numeric(Ytrain[,1]) -1)
+# 
+# # use_session_with_seed(42)
+# 
+# # # Initialize a sequential model
 # model <- keras_model_sequential()
 # 
 # model %>%
-#   layer_dense(units = 12, activation = 'relu', input_shape = c(20)) %>% 
-#   layer_dense(units = 12, activation = 'relu') %>% 
-#   layer_dense(units = 10, activation = 'sigmoid') 
+#   layer_dense(units = 12, activation = 'relu', input_shape = c(20)) %>%
+#   layer_dense(units = 12, activation = 'relu') %>%
+#   layer_dense(units = 10, activation = 'sigmoid')
 # 
 # model %>% compile(
 #   loss = 'binary_crossentropy',
@@ -359,30 +382,44 @@ ptm <- proc.time() # to calculate time of simulation
 # the ML algorithms running
 splitted.data <- splits[["Split1"]]
 
-# Make a list to store the outputs of each model
-outputs <- vector(mode = 'list', length = no.algo)
-names(outputs) <- list.algo
-
-# Apply the ML models to list.taxa and env.fact
-for(k in 1:no.algo){
-  outputs[[k]] <- apply.ml.model(splitted.data = splitted.data, list.taxa = list.taxa,
-                                        env.fact = env.fact, algorithm = list.algo[k])
-}
 
 # "Apply" null model
 null.model <- apply.null.model(data = data, list.taxa = list.taxa, prev.inv = prev.inv)
 
+file.name <- paste0(dir.workspace, no.algo, "MLAlgoTrained.rds")
+
+# If the file with the outputs already exist, just read it
+if (file.exists(file.name) == T ){
+    
+    if(exists("outputs") == F){
+        cat("File with ML outputs already exists, we read it from", file.name, "and save it in object 'outputs'")
+        outputs <- readRDS(file = file.name)}
+    else{
+        cat("List with ML outputs already exists as object 'outputs' in this environment.")
+    }
+} else {
+    
+    cat("No ML outputs exist yet, we produce it and save it in", file.name)
+    # Make a list to store the outputs of each model
+    outputs <- vector(mode = 'list', length = no.algo)
+    names(outputs) <- list.algo
+    
+    # Apply the ML models to list.taxa and env.fact
+    for(k in 1:no.algo){
+        outputs[[k]] <- apply.ml.model(splitted.data = splitted.data, list.taxa = list.taxa,
+                                       env.fact = env.fact, algorithm = list.algo[k])
+    }
+    cat("Saving outputs of algorithms in", file.name)
+    saveRDS(outputs, file = file.name)
+    
+}
+
 print(paste("Simulation time of different models ", info.file.name))
 print(proc.time()-ptm)
 
+# Training GAM bam for 6 taxa: 5 hours
 
-# WORKSPACE: BDM, 55 env.fact, 29 taxa, 4 algo : 18 hours, saved 18.08.2021
-# BDM, 6 env.fact, 2 taxa, 4 algo : 3 min
-# WORKSPACE: BDM, 55 env.fact, 29 taxa, 1 algo (rf) : 15 hours, saved 11.08.2021
-# WORKSPACE: BDM, 9 env.fact, 9 taxa, 4 algo : 1 hours, saved 01.09.2021
-# Don't forget to reload the functions if we upload old workspace
-
-# source("model_functions.r")
+# source("ml_model_functions.r")
 # source("plot_functions.r")
 # rm(list=ls())
 # graphics.off()
@@ -396,7 +433,21 @@ list.plots <- model.comparison(outputs = outputs, null.model = null.model, list.
 
 # Print the plots in a pdf file
 file.name <- "ModelsCompar.pdf"
-print.pdf.plots(list.plots = list.plots, width = 9, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
+
+print(paste(file.name, "printing:"))
+print(proc.time()-ptm)
+
+## ---- Plot trained model performance against hyperparameters ----
+
+ptm <- proc.time() # to calculate time of pdf production
+
+# Compute plots
+list.plots <- plot.perf.hyperparam(outputs = outputs, list.algo = list.algo[2:3], list.taxa = list.taxa)
+
+# Print the plots in a pdf file
+file.name <- "PerfvsHyperparam.pdf"
+print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
@@ -409,7 +460,7 @@ ptm <- proc.time() # to calculate time of simulation
 list.plots <- plot.varimp(outputs = outputs, list.algo = list.algo, list.taxa = list.taxa)
 
 file.name <- "VarImp.pdf"
-print.pdf.plots(list.plots = list.plots, width = 7, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, width = 10, height = 10, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
 
 # print directly table with variable importance for each algo and taxa (too complicated to put in a fct)
 file.name <- "TableVarImp.pdf"
@@ -462,6 +513,8 @@ for(l in 1:no.algo){
   }
 }
 
+
+# DON'T WORK FROM HERE ####
 ## ---- Plot PDP ----
 
 ptm <- proc.time() # to calculate time of simulation
@@ -474,8 +527,9 @@ ptm <- proc.time() # to calculate time of simulation
 # print.pdf.plots(list.plots = list.plots, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
 
 # PDP of all models
+# We sub-select taxa and env.fact because it takes a lot of time
 list.plots <- plot.pdp(outputs = outputs, list.algo = list.algo,
-                       list.taxa = list.taxa, env.fact = env.fact)
+                       list.taxa = list.taxa[1:2], env.fact = env.fact)
 
 file.name <- "allPDP.pdf"
 print.pdf.plots(list.plots = list.plots, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
@@ -487,9 +541,9 @@ print(proc.time()-ptm)
 
 ptm <- proc.time() # to calculate time of simulation
 
-# PDP of one model
-list.plots <- plot.ice(outputs = outputs, algo = list.algo[1], list.algo = list.algo,
-                       list.taxa = list.taxa, env.fact = env.fact)
+# ICE of one model
+list.plots <- plot.ice(outputs = outputs, algo = 'rf', list.algo = list.algo,
+                       list.taxa = list.taxa[1:2], env.fact = env.fact[1:2])
 
 file.name <- "ICE.pdf"
 print.pdf.plots(list.plots = list.plots, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
@@ -503,7 +557,7 @@ print(proc.time()-ptm)
 
 ptm <- proc.time() # to calculate time of simulation
 
-# Multpiple predictors PDP (of one model) for now just for 1 algo and 1 taxa
+# Multiple (2) predictors PDP (of one model) for now just for 1 algo and 1 taxa
 list.plots <- plot.mult.pred.pdp(outputs = outputs, list.algo = list.algo,
                        list.taxa = list.taxa, env.fact = env.fact)
 
@@ -516,8 +570,8 @@ print(proc.time()-ptm)
 print("hey")
 # Stop execution if there is no (prediction on) testing set
 # stopifnot(ratio != 1)
-if( ratio == 1 ){
-  exit
+if( length(outputs[[1]][[1]]) < 7){
+  break
 }
 print("salut")
 
@@ -529,7 +583,8 @@ map.inputs <- map.inputs(dir.env.data = dir.env.data, data.env = data.env)
 
 # make a list with all plots and plot them in a pdf
 list.plots <- map.ml.pred.taxa(inputs = map.inputs, outputs = outputs,
-                               list.taxa = list.taxa, list.algo = list.algo)
+                               data.env = data.env, # for now it needs data.env to bind columns X and Y, but maybe delete later
+                               list.taxa = list.taxa, list.algo = list.algo,)
 
 file.name <- "ObsvsPred_map.pdf"
 print.pdf.plots(list.plots = list.plots, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)

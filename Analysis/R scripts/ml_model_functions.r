@@ -44,7 +44,7 @@ stand.dev <- function(data, lev = c("present","absent"), model = NULL){
     likeli[which(data$obs == lev[1])] <- data[which(data$obs == lev[1]), lev[1]]
     likeli[which(data$obs == lev[2])] <- data[which(data$obs == lev[2]), lev[2]]
     
-    # likeli[which(likeli < 0.01)] <- 0.01
+    likeli[which(likeli < 0.01)] <- 0.01
     
     st.dev <- -2 * sum(log(likeli)) / no.obs
     names(st.dev) <- "StandardizedDeviance"
@@ -88,8 +88,12 @@ apply.ml.model <- function(splitted.data, list.taxa, env.fact, algorithm, selec.
         temp.list <- vector(mode = 'list', length = length(output.names))
         names(temp.list) <- output.names
         
-        temp.train <- na.omit(data.train[, c("SiteId", "SampId", "X", "Y", list.taxa[j], env.fact)]) # create a temporary training dataset with the taxon and env fact, to 
-        temp.test <- na.omit(data.test[, c("SiteId", "SampId", "X", "Y", list.taxa[j], env.fact)])
+        temp.train <- na.omit(data.train[, c("SiteId", "SampId",
+                                             # "X", "Y", 
+                                             list.taxa[j], env.fact)]) # create a temporary training dataset with the taxon and env fact, to 
+        temp.test <- na.omit(data.test[, c("SiteId", "SampId",
+                                           #"X", "Y", 
+                                           list.taxa[j], env.fact)])
         temp.sets <- list(temp.train, temp.test)
         f <- reformulate(env.fact, list.taxa[j]) # write formula (target variable ~ explanatory variables) to apply the model
         

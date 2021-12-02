@@ -2,9 +2,9 @@
 
 ## ---- Produce pdf of a list of plots ----
 
-print.pdf.plots <- function(list.plots, width = 12, dir.output, info.file.name = "", file.name){
+print.pdf.plots <- function(list.plots, width = 12, height = width*3/4, dir.output, info.file.name = "", file.name){
   
-  pdf(paste0(dir.output, info.file.name, file.name), paper = 'special', width = width, height = width*3/4, onefile = TRUE)
+  pdf(paste0(dir.output, info.file.name, file.name), paper = 'special', width = width, height = height, onefile = TRUE)
   
   for (n in 1:length(list.plots)) {
     
@@ -289,6 +289,37 @@ model.comparison <- function(outputs, null.model, list.algo, list.taxa, prev.inv
   return(list.plots)
 }
 
+# Plot model performance against hyperparameters
+
+plot.perf.hyperparam <- function(outputs, list.algo, list.taxa){
+    
+    no.algo <- length(list.algo)
+    no.taxa <- length(list.taxa)
+    
+    list.plots <- list()
+    n = 1
+    
+    for(j in 1:no.taxa){
+        
+        temp.list.plots <- vector(mode = 'list', length = no.algo)
+        names(temp.list.plots) <- list.algo  
+        
+        for (l in list.algo){
+            
+            # Show how the various iterations of hyperparameter search performed
+            temp.list.plots[[l]] <- plot(outputs[[l]][[j]][["Trained model"]], main = l)
+            
+        }
+        
+        title <- paste(list.taxa[j])
+        p <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title))
+        
+        list.plots[[n]] <- p
+        n <- n + 1
+    }
+    return(list.plots)
+}
+
 #  Plot variable importance
 plot.varimp <- function(outputs, list.algo, list.taxa, env.fact){
   
@@ -405,15 +436,17 @@ plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
       p <- p + facet_wrap( ~ factor, scales = "free_x", 
                            #labeller=label_parsed, 
                            strip.position="bottom")
-      p <- p  + labs(x = "",
-                     y = paste("f( environmental factor )"),
+      p <- p  + labs(# title = plot.title,
+                     x = "",
+                     y = plot.title, # paste("f( environmental factor )"),
                      color = "Model")
       p <- p + scale_colour_manual(values=col.vect)
       p <- p + theme_bw(base_size = 20)
       p <- p + theme(axis.text=element_text(size=14),
                        plot.title = element_blank())
       p <- p + guides(colour = guide_legend(override.aes = list(size=6)))
-      p <- p + ggtitle(plot.title)
+      p <- p + coord_cartesian(ylim = c(-2,2))
+      # p <- p + ggtitle(plot.title)
       # print(p)
       list.plots[[j]] <- p
     }
@@ -429,6 +462,7 @@ plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
         p <- autoplot(p, smooth = TRUE, ylab = paste("f(", env.fact[k], ")")) +
           theme_light() +
           ggtitle(plot.title)
+        p <- p + coord_cartesian(ylim = c(-2,2))
         temp.list.plots[[k]] <- p
         
       }
@@ -456,31 +490,31 @@ plot.mult.pred.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.
   
   # For now set number of env fact, algo and taxa to minimum
   # Later can be looped but computationally heavy
-  k1 = 1
-  k2 = 2
-  l = 1
+  k1 = 5
+  k2 = 6
+  l = 2
   j = 1
   
   p <- outputs[[l]][[j]][["Trained model"]] %>%
     partial(pred.var = c(env.fact[k1], env.fact[k2]))
   
-  p1 <- plotPartial(p,# default 2 fact. PDP
-                    main = "Basic 2 predictors PDP")
+  # p1 <- plotPartial(p,# default 2 fact. PDP
+  #                   main = "Basic 2 predictors PDP")
   
-  rwb <- colorRampPalette(c("red", "white", "blue"))
+  rwb <- colorRampPalette(c("blue", "white", "red"))
   p2 <- plotPartial(p, contour = TRUE, # add contour lines and colors
                     col.regions = rwb,
-                    main = "Tuned 2 predictors PDP")
+                    main = paste(list.algo[l], "applied to", list.taxa[j], "\nPDP with two predictors"))
   
-  p3 <- plotPartial(p, levelplot = FALSE, # 3D surface
-                    zlab = "bruh", colorkey = TRUE,
-                    screen = list(z = -20, x = -60),
-                    main = "3D surface 2 predict. PDP")
+  # p3 <- plotPartial(p, levelplot = FALSE, # 3D surface
+  #                   zlab = "bruh", colorkey = TRUE,
+  #                   screen = list(z = -20, x = -60),
+  #                   main = "3D surface 2 predict. PDP")
   
-  title <- paste(list.algo[l], "applied to", list.taxa[j])
-  p <- as_ggplot(grid.arrange(p1, p2, p3, ncol = 3, top = title))
+  # title <- paste(list.algo[l], "applied to", list.taxa[j])
+  # p <- as_ggplot(grid.arrange(p1, p2, p3, ncol = 3, top = title))
     
-  list.plots[[n]] <- p
+  list.plots[[n]] <- p2
   n <- n + 1
   
   return(list.plots)
@@ -492,7 +526,7 @@ plot.ice <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
   
   no.algo <- length(list.algo)
   no.taxa <- length(list.taxa)
-  no.env.taxa <- length(env.fact)
+  no.env.fact <- length(env.fact)
   
   list.plots <- list()
   n = 1
@@ -511,6 +545,7 @@ plot.ice <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
           p <- autoplot(p, smooth = TRUE, ylab = paste("f(", env.fact[k], ")")) +
             theme_light() +
             ggtitle(plot.title)
+          p <- p + coord_cartesian(ylim = c(-2,2))
           temp.list.plots[[k]] <- p
           
         }
@@ -528,12 +563,15 @@ plot.ice <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
         names(temp.list.plots) <- env.fact  
         
         for (k in 1:no.env.fact) {
-          plot.title <- paste("ICE of", env.fact[k])
+            
+            print(paste("Producing ICE of", k, env.fact[k], "for", j,  list.taxa[j]))
+            plot.title <- paste("ICE of", env.fact[k])
           
           p <- partial(outputs[[algo]][[j]][["Trained model"]], pred.var = env.fact[k], ice = TRUE, alpha = 0.5)
           p <- autoplot(p, smooth = TRUE, ylab = paste("f(", env.fact[k], ")")) +
             theme_light() +
-            ggtitle(plot.title)
+            ggtitle(plot.title) +
+            coord_cartesian(ylim = c(-2,2))
           temp.list.plots[[k]] <- p
           
         }
@@ -547,7 +585,7 @@ plot.ice <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
   return(list.plots)
 }
 
-map.ml.pred.taxa <- function(inputs, outputs, list.taxa, list.algo, algo = list.algo[1]){
+map.ml.pred.taxa <- function(inputs, outputs, list.taxa, list.algo, algo = list.algo[1], data.env){
     
     list.plots <- vector(mode = 'list', length = length(list.taxa))
     names(list.plots) <- list.taxa
@@ -559,6 +597,10 @@ map.ml.pred.taxa <- function(inputs, outputs, list.taxa, list.algo, algo = list.
         
         plot.data <- outputs[[algo]][[list.taxa[j]]][["Observation testing set"]]
         plot.data$pred <- outputs[[algo]][[list.taxa[j]]][["Prediction probabilities testing set"]][,"present"]
+        
+        plot.data <- plot.data %>%
+            left_join(data.env[, c("SiteId", "SampId", "X", "Y")], by = c("SiteId", "SampId"))
+        
         
         # Map geometries
         g <- ggplot()
