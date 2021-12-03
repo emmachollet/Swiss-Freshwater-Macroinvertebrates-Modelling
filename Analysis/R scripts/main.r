@@ -89,9 +89,9 @@ graphics.off()
 # Define directory and files
 dir.env.data      <- "../../Data/Processed data/Environmental data/"
 dir.inv.data      <- "../../Data/Processed data/Invertebrate data/"
-dir.models.output        <- "../Plots/Models analysis plots/"
 dir.workspace     <- "../Intermediate results/"
-dir.models.output  <- "../Intermediate results/Trained models/"
+dir.plots.output  <- "../Plots/Models analysis plots/"
+dir.models.output <- "../Intermediate results/Trained models/"
 
 file.inv.data     <- "All_occ_data_2020-06-25.dat"
 file.inv.BDM.data <- "BDM_occ_data_2020-06-25.dat"
@@ -451,7 +451,7 @@ list.plots <- model.comparison(outputs = outputs, null.model = null.model, list.
 
 # Print the plots in a pdf file
 file.name <- "ModelsCompar.pdf"
-print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
@@ -465,7 +465,7 @@ list.plots <- plot.perf.hyperparam(outputs = outputs, list.algo = list.algo[2:3]
 
 # Print the plots in a pdf file
 file.name <- "PerfvsHyperparam.pdf"
-print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
@@ -478,11 +478,11 @@ ptm <- proc.time() # to calculate time of simulation
 list.plots <- plot.varimp(outputs = outputs, list.algo = list.algo, list.taxa = list.taxa)
 
 file.name <- "VarImp.pdf"
-print.pdf.plots(list.plots = list.plots, width = 10, height = 10, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, width = 10, height = 10, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # print directly table with variable importance for each algo and taxa (too complicated to put in a fct)
 file.name <- "TableVarImp.pdf"
-pdf(paste0(dir.models.output, info.file.name, file.name), paper = 'special', width = 12, height = 9, onefile = TRUE)
+pdf(paste0(dir.plots.output, info.file.name, file.name), paper = 'special', width = 12, height = 9, onefile = TRUE)
 temp.df <- data.frame(matrix(ncol = no.algo*no.taxa, nrow = no.env.fact))
 colnames(temp.df) <- c(outer(list.algo, list.taxa, FUN = paste))
 rownames(temp.df) <- env.fact
@@ -542,7 +542,7 @@ ptm <- proc.time() # to calculate time of simulation
 #                       list.taxa = list.taxa, env.fact = env.fact)
 # 
 # file.name <- "PDP.pdf"
-# print.pdf.plots(list.plots = list.plots, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
+# print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # PDP of all models
 # We sub-select taxa and env.fact because it takes a lot of time
@@ -550,7 +550,7 @@ list.plots <- plot.pdp(outputs = outputs, list.algo = list.algo,
                        list.taxa = list.taxa[1:2], env.fact = env.fact)
 
 file.name <- "allPDP.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
@@ -564,7 +564,7 @@ list.plots <- plot.ice(outputs = outputs, algo = 'rf', list.algo = list.algo,
                        list.taxa = list.taxa[1:2], env.fact = env.fact[1:2])
 
 file.name <- "ICE.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
@@ -580,7 +580,7 @@ list.plots <- plot.mult.pred.pdp(outputs = outputs, list.algo = list.algo,
                        list.taxa = list.taxa, env.fact = env.fact)
 
 file.name <- "multpredPDP.pdf"
-print.pdf.plots(list.plots = list.plots, width = 17, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, width = 17, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
@@ -605,7 +605,7 @@ list.plots <- map.ml.pred.taxa(inputs = map.inputs, outputs = outputs,
                                list.taxa = list.taxa, list.algo = list.algo,)
 
 file.name <- "ObsvsPred_map.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
@@ -619,7 +619,7 @@ list.plots <- response.ml.pred.taxa(outputs = outputs, list.algo = list.algo,
                               list.taxa = list.taxa, env.fact = env.fact)
 
 file.name <- "Resp_EnvFactvsTax.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 print("Producing PDF time:")
 print(proc.time()-ptm)

@@ -1,10 +1,10 @@
 ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ##
-## ---- TRAINING ML MODELS ON INVERTEBRATE AND ENVIRONMENTAL DATA ----
+## ---- TRAINING ANN MODELS ON INVERTEBRATE AND ENVIRONMENTAL DATA ----
 ## 
 ## --- "Bridging gap in macroinvertebrates community assembly" -- Project ---
 ## 
-## --- Deptember 9, 2021 -- Emma Chollet ---
+## --- December 6, 2021 -- Emma Chollet and Jonas Wydler ---
 ##
 ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -16,54 +16,42 @@
 if ( !require("dplyr") ) { install.packages("dplyr"); library("dplyr") } # to sort, join, merge data
 if ( !require("tidyr") ) { install.packages("tidyr"); library("tidyr") } # to sort, join, merge data
 
-# plots
-if ( !require("ggplot2") ) { install.packages("ggplot2"); library("ggplot2") } # to do nice plots
-if ( !require("ggpubr") ) { install.packages("ggpubr"); library("ggpubr") } # to arrange multiple plots on a page
-if ( !require("gridExtra") ) { install.packages("gridExtra"); library("gridExtra") } # to arrange multiple plots on a page
-if ( !require("cowplot") ) { install.packages("cowplot"); library("cowplot") } # to arrange multiple plots on a page
-if ( !require("pdp") ) { install.packages("pdp"); library("pdp") } # to plot partial dependance plots
-if ( !require("gt") ) { install.packages("gt"); library("gt") } # to plot nice tables
-if ( !require("plot.matrix") ) { install.packages("plot.matrix"); library("plot.matrix") } # to plot nice tables
-if(!require(viridis)) {install.packages("viridis", repos="http://cloud.r-project.org"); library(viridis)} # to do even nicer plots
-if ( !require("sf") ) { install.packages("sf"); library("sf") } # to read layers for map
+# # plots
+# if ( !require("ggplot2") ) { install.packages("ggplot2"); library("ggplot2") } # to do nice plots
+# if ( !require("ggpubr") ) { install.packages("ggpubr"); library("ggpubr") } # to arrange multiple plots on a page
+# if ( !require("gridExtra") ) { install.packages("gridExtra"); library("gridExtra") } # to arrange multiple plots on a page
+# if ( !require("cowplot") ) { install.packages("cowplot"); library("cowplot") } # to arrange multiple plots on a page
+# if ( !require("pdp") ) { install.packages("pdp"); library("pdp") } # to plot partial dependance plots
+# if ( !require("gt") ) { install.packages("gt"); library("gt") } # to plot nice tables
+# if ( !require("plot.matrix") ) { install.packages("plot.matrix"); library("plot.matrix") } # to plot nice tables
+# if(!require(viridis)) {install.packages("viridis", repos="http://cloud.r-project.org"); library(viridis)} # to do even nicer plots
+# if ( !require("sf") ) { install.packages("sf"); library("sf") } # to read layers for map
 
-# ml
-if ( !require("caret") ) { install.packages("caret"); library("caret") } # comprehensive framework to build machine learning models
-if ( !require("mgcv") ) { install.packages("mgcv"); library("mgcv") } # to run GAM ml algorithm
-# if ( !require("fastAdaboost") ) { install.packages("fastAdaboost"); library("fastAdaboost") } # to run adaboost ml algorithm
-# if ( !require("kernlab") ) { install.packages("kernlab"); library("kernlab") }
-# if ( !require("earth") ) { install.packages("earth"); library("earth") } # to run MARS ml algorithm
-if ( !require("randomForestSRC") ) { install.packages("randomForestSRC"); library("randomForestSRC") } # to run RF and additional features
+# # ml
+# if ( !require("caret") ) { install.packages("caret"); library("caret") } # comprehensive framework to build machine learning models
+# if ( !require("mgcv") ) { install.packages("mgcv"); library("mgcv") } # to run GAM ml algorithm
+# # if ( !require("fastAdaboost") ) { install.packages("fastAdaboost"); library("fastAdaboost") } # to run adaboost ml algorithm
+# # if ( !require("kernlab") ) { install.packages("kernlab"); library("kernlab") }
+# # if ( !require("earth") ) { install.packages("earth"); library("earth") } # to run MARS ml algorithm
+# if ( !require("randomForestSRC") ) { install.packages("randomForestSRC"); library("randomForestSRC") } # to run RF and additional features
 # if ( !require("keras") ) { devtools::install_github("rstudio/keras"); library("keras") } # to run Neural Networks
 # if ( !require("tensorflow") ) { devtools::install_github("rstudio/tensorflow"); library("tensorflow") } # to run Neural Networks
 # use_condaenv("r-tensorflow")
 #
-library(remotes)
-remotes::install_github("rstudio/reticulate")
-reticulate::install_miniconda()
 
-devtools::install_github("rstudio/tensorflow")
-library("tensorflow")
-install_tensorflow()
+# ANN
 
-devtools::install_github("rstudio/keras")
-library("keras")
-install_keras()
-
-
-#tensorflow::install_tensorflow()
-#tensorflow::tf_config()
-
-
-# install.packages(c('caret', 'skimr', 'RANN', 'randomForest', 'fastAdaboost', 'gbm', 'xgboost', 'caretEnsemble', 'C50', 'earth'))
-# install.packages("ggpubr")
-# library(dplyr) # to sort, join, merge data
-# library(ggplot2) # to do nice plots
-# library(caret) # comprehensive framework to build machine learning models
-# library(skimr) # to show key descriptive stats
-# library(RANN)  # required for knnInpute
-# library(e1071) # to do a recursive feature elimination
-# library(caretEnsemble) # to do ensemble prediction with caret
+# # just needed once
+# install.packages("reticulate")
+# install_miniconda()
+# 
+# install.packages("tensorflow")
+# library("tensorflow")
+# install_tensorflow()
+# 
+# install.packages("keras")
+# library("keras")
+# install_keras()
 
 # Check and set working directory
 getwd() # show working directory
@@ -76,7 +64,9 @@ graphics.off()
 # Define directory and files
 dir.env.data      <- "../../Data/Processed data/Environmental data/"
 dir.inv.data      <- "../../Data/Processed data/Invertebrate data/"
-dir.output        <- "../Plots/Models analysis plots/"
+dir.workspace     <- "../Intermediate results/"
+dir.plots.output  <- "../Plots/Models analysis plots/"
+dir.models.output <- "../Intermediate results/Trained models/"
 
 file.inv.data     <- "All_occ_data_2020-06-25.dat"
 file.inv.BDM.data <- "BDM_occ_data_2020-06-25.dat"
