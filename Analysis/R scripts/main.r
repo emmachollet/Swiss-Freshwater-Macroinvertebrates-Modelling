@@ -44,12 +44,12 @@ if ( !require("randomForest") ) { install.packages("randomForest"); library("ran
 # if ( !require("tensorflow") ) { devtools::install_github("rstudio/tensorflow"); library("tensorflow") } # to run Neural Networks
 # use_condaenv("r-tensorflow")
 
-# # needed for ANN
-if( !require("reticulate")){
-  # remotes::install_github("rstudio/reticulate"); # this tried to install reticulate in a inaccessible folder
-  install.packages("reticulate");
-  library("reticulate")}
-use_condaenv()
+# # # needed for ANN
+# if( !require("reticulate")){
+#   # remotes::install_github("rstudio/reticulate"); # this tried to install reticulate in a inaccessible folder
+#   install.packages("reticulate");
+#   library("reticulate")}
+# use_condaenv()
 # 
 # if( !require("tensorflow")){
 #   # devtools::install_github("rstudio/tensorflow");
@@ -59,10 +59,10 @@ use_condaenv()
 # 
 # install_tensorflow()
 # 
-if( !require("keras")){
-  devtools::install_github("rstudio/keras");
-  # install.packages("keras");
-  library(keras)}
+# if( !require("keras")){
+#   devtools::install_github("rstudio/keras");
+#   # install.packages("keras");
+#   library(keras)}
 # 
 # # library("tensorflow")
 # # library("keras")
@@ -86,8 +86,9 @@ graphics.off()
 # Define directory and files
 dir.env.data      <- "../../Data/Processed data/Environmental data/"
 dir.inv.data      <- "../../Data/Processed data/Invertebrate data/"
-dir.output        <- "../Plots/Models analysis plots/"
+dir.models.output        <- "../Plots/Models analysis plots/"
 dir.workspace     <- "../Intermediate results/"
+dir.models.output  <- "../Intermediate results/Trained models/"
 
 file.inv.data     <- "All_occ_data_2020-06-25.dat"
 file.inv.BDM.data <- "BDM_occ_data_2020-06-25.dat"
@@ -127,6 +128,7 @@ d <- paste0(Sys.Date(), "_")    # date for file names
 # Load functions ####
 
 source("ml_model_functions.r")
+source("stat_model_functions.r")
 source("plot_functions.r")
 source("utilities.r")
 
@@ -186,42 +188,39 @@ env.fact <- env.fact[which(env.fact %in% colnames(data.env))]
 
 # Standardize env. factors ####
 
-preproc.data.env <- preProcess(data.env[,c("SiteId", "SampId", env.fact)], method = c("center", "scale")) 
+# preproc.data.env <- preProcess(data.env[,c("SiteId", "SampId", env.fact)], method = c("center", "scale")) 
 
-#select taxa####
+# Select taxa ####
 cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
 
-# Construct main dataset (with inv and env)
-data <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact)] %>%
-  left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
-dim(data)
-
-
-# Pre-process data ####
-# drop rows with incomplete influence factors: 
-inv.names <- colnames(select(data, contains("Occurrence.group."), contains("Occurrence.")))
-env.names <- colnames(select(data, - all_of(inv.names)))
-ind <- !apply(is.na(data[,env.names]),1,FUN=any)
-ind <- ifelse(is.na(ind),FALSE,ind)
-data <- data[ind,]
-print(paste(sum(!ind),"sites/samples excluded because of incomplete influence factors"))
-
-
-# Select taxa
 all.taxa = F 
 # set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
 # set to TRUE to apply models to all taxa
 
 # Select taxa for prediction
 if (all.taxa == T){
-  list.taxa <- colnames(data.inv)[cind.taxa]
+    list.taxa <- colnames(data.inv)[cind.taxa]
 } else if (all.taxa == F){
-  # list.taxa       <- c("Occurrence.Gammaridae", "Occurrence.Heptageniidae") # two taxa
-  list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55), # few taxa
-                              "Occurrence.taxa"] # Select only few taxa
-  # list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25), # all taxa with intermediate prevalence
-  #                             "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
+    # list.taxa       <- c("Occurrence.Gammaridae", "Occurrence.Heptageniidae") # two taxa
+    list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55), # few taxa
+                                "Occurrence.taxa"] # Select only few taxa
+    # list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25), # all taxa with intermediate prevalence
+    #                             "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
 }
+
+# Construct main dataset (with inv and env)
+data <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact)] %>%
+  left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
+dim(data)
+
+# Pre-process data ####
+# drop rows with incomplete influence factors: 
+# inv.names <- colnames(select(data, contains("Occurrence.group."), contains("Occurrence.")))
+# env.names <- colnames(select(data, - all_of(inv.names)))
+ind <- !apply(is.na(data[,env.fact]),1,FUN=any)
+ind <- ifelse(is.na(ind),FALSE,ind)
+data <- data[ind,]
+print(paste(sum(!ind),"sites/samples excluded because of incomplete influence factors"))
 
 # - - - - 
 
@@ -259,7 +258,6 @@ for ( i in 1:no.taxa){
     cat("Summary of absence, presence and NA for", list.taxa[i], ":", summary(data[, list.taxa[i]]), "\n")
 }
 
-
 # Split (and save) data ####
 
 # Split for ml purpose (e.g. 80% training, 20% testing)
@@ -286,15 +284,12 @@ if (file.exists(file.name) == T ){
 
 }
 
-
-
 # Normalize data ####
 
+# Normalize the folds
 centered.splits <- lapply(splits, FUN = center.splits, cv = T)
-#train1 <- centered.splits[[1]][[1]]
 
-
-#magic :O
+# Normalize the folds but replace '0' ans '1' by factors
 centered.splits.factors <- lapply(centered.splits, function(split){
   #split <- centered.splits[[1]]
   return(lapply(split, function(fold){
@@ -311,14 +306,10 @@ centered.splits.factors <- lapply(centered.splits, function(split){
   )
   })
 
-#pp <- preProcess(splits[[]])
-
-
 ## ---- Apply stat model ----
 
-
 # read in results produced by Jonas
-file.name <- paste0(dir.workspace, "Output25112021.rds")
+file.name <- paste0(dir.models.output, "Output25112021.rds")
 
 # If the file with the outputs already exist, just read it
 if (file.exists(file.name) == T ){
@@ -412,7 +403,7 @@ splitted.data <- splits[["Split1"]]
 # "Apply" null model
 null.model <- apply.null.model(data = data, list.taxa = list.taxa, prev.inv = prev.inv)
 
-file.name <- paste0(dir.workspace, no.algo, "MLAlgoTrained.rds")
+file.name <- paste0(dir.models.output, no.algo, "MLAlgoTrained.rds")
 
 # If the file with the outputs already exist, just read it
 if (file.exists(file.name) == T ){
@@ -459,7 +450,7 @@ list.plots <- model.comparison(outputs = outputs, null.model = null.model, list.
 
 # Print the plots in a pdf file
 file.name <- "ModelsCompar.pdf"
-print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
@@ -473,7 +464,7 @@ list.plots <- plot.perf.hyperparam(outputs = outputs, list.algo = list.algo[2:3]
 
 # Print the plots in a pdf file
 file.name <- "PerfvsHyperparam.pdf"
-print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
@@ -486,11 +477,11 @@ ptm <- proc.time() # to calculate time of simulation
 list.plots <- plot.varimp(outputs = outputs, list.algo = list.algo, list.taxa = list.taxa)
 
 file.name <- "VarImp.pdf"
-print.pdf.plots(list.plots = list.plots, width = 10, height = 10, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, width = 10, height = 10, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
 
 # print directly table with variable importance for each algo and taxa (too complicated to put in a fct)
 file.name <- "TableVarImp.pdf"
-pdf(paste0(dir.output, info.file.name, file.name), paper = 'special', width = 12, height = 9, onefile = TRUE)
+pdf(paste0(dir.models.output, info.file.name, file.name), paper = 'special', width = 12, height = 9, onefile = TRUE)
 temp.df <- data.frame(matrix(ncol = no.algo*no.taxa, nrow = no.env.fact))
 colnames(temp.df) <- c(outer(list.algo, list.taxa, FUN = paste))
 rownames(temp.df) <- env.fact
@@ -550,7 +541,7 @@ ptm <- proc.time() # to calculate time of simulation
 #                       list.taxa = list.taxa, env.fact = env.fact)
 # 
 # file.name <- "PDP.pdf"
-# print.pdf.plots(list.plots = list.plots, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
+# print.pdf.plots(list.plots = list.plots, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
 
 # PDP of all models
 # We sub-select taxa and env.fact because it takes a lot of time
@@ -558,7 +549,7 @@ list.plots <- plot.pdp(outputs = outputs, list.algo = list.algo,
                        list.taxa = list.taxa[1:2], env.fact = env.fact)
 
 file.name <- "allPDP.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
@@ -572,7 +563,7 @@ list.plots <- plot.ice(outputs = outputs, algo = 'rf', list.algo = list.algo,
                        list.taxa = list.taxa[1:2], env.fact = env.fact[1:2])
 
 file.name <- "ICE.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
@@ -588,7 +579,7 @@ list.plots <- plot.mult.pred.pdp(outputs = outputs, list.algo = list.algo,
                        list.taxa = list.taxa, env.fact = env.fact)
 
 file.name <- "multpredPDP.pdf"
-print.pdf.plots(list.plots = list.plots, width = 17, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, width = 17, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
@@ -613,7 +604,7 @@ list.plots <- map.ml.pred.taxa(inputs = map.inputs, outputs = outputs,
                                list.taxa = list.taxa, list.algo = list.algo,)
 
 file.name <- "ObsvsPred_map.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
@@ -627,7 +618,7 @@ list.plots <- response.ml.pred.taxa(outputs = outputs, list.algo = list.algo,
                               list.taxa = list.taxa, env.fact = env.fact)
 
 file.name <- "Resp_EnvFactvsTax.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, dir.output = dir.models.output, info.file.name = info.file.name, file.name = file.name)
 
 print("Producing PDF time:")
 print(proc.time()-ptm)
