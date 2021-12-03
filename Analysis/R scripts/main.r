@@ -4,9 +4,12 @@
 ## 
 ## --- "Bridging gap in macroinvertebrates community assembly" -- Project ---
 ## 
-## --- December 1, 2021 -- Emma Chollet ---
+## --- December 1, 2021 -- Emma Chollet and Jonas Wydler---
 ##
 ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#next two lines are for jonas, dont run these
+# setwd("Q:/Abteilungsprojekte/siam/Jonas Wydler/Swiss-Freshwater-Macroinvertebrates-Modelling/Analysis/R scripts")
+# .libPaths(c("T:/My Documents//R/R-4.1.1/library", "C:/Program Files/R/R-4.1.1/library"))
 
 
 ## ---- PRELIMINARIES ----
@@ -185,21 +188,23 @@ env.fact <- env.fact[which(env.fact %in% colnames(data.env))]
 
 preproc.data.env <- preProcess(data.env[,c("SiteId", "SampId", env.fact)], method = c("center", "scale")) 
 
-# Select taxa ####
-
+#select taxa####
 cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
- 
-# Replace "0" and "1" by "absent" and "present" and convert them to factors
-for (i in cind.taxa ) {
-    data.inv[which(data.inv[,i] == 0),i] <- "absent"
-    data.inv[which(data.inv[,i] == 1),i] <- "present"
-    data.inv[,i] = as.factor(data.inv[,i])
-}
 
 # Construct main dataset (with inv and env)
-data <- data.env[, c("SiteId", "SampId", env.fact)] %>%
+data <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact)] %>%
   left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
 dim(data)
+
+
+# Pre-process data ####
+# drop rows with incomplete influence factors: 
+inv.names <- colnames(select(data, contains("Occurrence.group."), contains("Occurrence.")))
+env.names <- colnames(select(data, - all_of(inv.names)))
+ind <- !apply(is.na(data[,env.names]),1,FUN=any)
+ind <- ifelse(is.na(ind),FALSE,ind)
+data <- data[ind,]
+print(paste(sum(!ind),"sites/samples excluded because of incomplete influence factors"))
 
 
 # Select taxa
@@ -263,7 +268,7 @@ for ( i in 1:no.taxa){
 # splitted.data <- split.data(data = data, training.ratio = ratio, variable = split.var)
 
 # Split for CV
-file.name <- paste0(dir.workspace,"SplitsForCV.rds")
+file.name <- paste0(dir.workspace,"SplitsForCV_031221.rds")
 
 # If the file with the three different splits already exist, just read it
 if (file.exists(file.name) == T ){
@@ -281,9 +286,30 @@ if (file.exists(file.name) == T ){
 
 }
 
+
+
 # Normalize data ####
 
 centered.splits <- lapply(splits, FUN = center.splits, cv = T)
+#train1 <- centered.splits[[1]][[1]]
+
+
+#magic :O
+centered.splits.factors <- lapply(centered.splits, function(split){
+  #split <- centered.splits[[1]]
+  return(lapply(split, function(fold){
+   
+    cind.taxa <- which(grepl("Occurrence.",colnames(fold)))
+    #Replace "0" and "1" by "absent" and "present" and convert them to factors
+    for (i in cind.taxa ) {
+      fold[which(fold[,i] == 0),i] <- "absent"
+      fold[which(fold[,i] == 1),i] <- "present"
+      fold[,i] = as.factor(fold[,i])
+    }
+    return(fold)
+  })
+  )
+  })
 
 #pp <- preProcess(splits[[]])
 
@@ -319,7 +345,7 @@ if (file.exists(file.name) == T ){
     # centered.splits <- lapply(splits, FUN = center.splits, cv = T)
     # 
     # #b) Cross validation, no comm corr
-    # res.3 <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = F)
+    #res.3 <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = F)
     # 
     # #b) Cross validation, comm corr
     # res.4 <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = T)
