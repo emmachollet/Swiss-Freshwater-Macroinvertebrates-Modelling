@@ -32,6 +32,9 @@ if ( !require("plot.matrix") ) { install.packages("plot.matrix"); library("plot.
 if(!require(viridis)) {install.packages("viridis", repos="http://cloud.r-project.org"); library(viridis)} # to do even nicer plots
 if ( !require("sf") ) { install.packages("sf"); library("sf") } # to read layers for map
 
+# stat model
+if ( !require("rstan") ) { install.packages("rstan"); library("rstan") } # to read layers for map
+
 # ml
 if ( !require("caret") ) { install.packages("caret"); library("caret") } # comprehensive framework to build machine learning models
 if ( !require("mgcv") ) { install.packages("mgcv"); library("mgcv") } # to run generalized additive model (GAM) algorithm
@@ -193,7 +196,7 @@ env.fact <- env.fact[which(env.fact %in% colnames(data.env))]
 # Select taxa ####
 cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
 
-all.taxa = F 
+all.taxa = F
 # set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
 # set to TRUE to apply models to all taxa
 
@@ -202,10 +205,10 @@ if (all.taxa == T){
     list.taxa <- colnames(data.inv)[cind.taxa]
 } else if (all.taxa == F){
     # list.taxa       <- c("Occurrence.Gammaridae", "Occurrence.Heptageniidae") # two taxa
-    list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55), # few taxa
-                                "Occurrence.taxa"] # Select only few taxa
-    # list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25), # all taxa with intermediate prevalence
-    #                             "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
+    # list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55), # few taxa
+    #                            "Occurrence.taxa"] # Select only few taxa
+    list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25), # all taxa with intermediate prevalence
+                                "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
 }
 
 # Construct main dataset (with inv and env)
@@ -229,12 +232,12 @@ print(paste(sum(!ind),"sites/samples excluded because of incomplete influence fa
 # Select models to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
 list.algo <- c("#030AE8" = 'glm', # Random Forest
-               # "#048504" = 'bam', # Generalized Additive Model using splines
+               "#048504" = 'bam', # Generalized Additive Model using splines
                # "#948B8B" = 'adaboost',
                # 'earth', # MARS: Multivariate Adaptive Regression Splines
                # "#A84E05" = 'elm', # Extreme Learning Machine (Neural Network)
                # 'bayesglm') #, # Bayesian Generalized Linear Model
-               "#DB1111" = 'svmRadial', # Support Vector Machine
+               # "#DB1111" = 'svmRadial', # Support Vector Machine
                "#790FBF" = 'rf') # Random Forest
 
 # Assemble information to insert in file names
@@ -316,7 +319,8 @@ if (file.exists(file.name) == T ){
     
     if(exists("outputs") == F){
         cat("File with statistical model outputs already exists, we read it from", file.name, "and save it in object 'outputs'")
-        stat.outputs <- readRDS(file = file.name)}
+        stat.outputs <- readRDS(file = file.name)
+        }
     else{
         cat("List with statistical model outputs already exists as object 'outputs' in this environment.")
     }
@@ -397,7 +401,7 @@ ptm <- proc.time() # to calculate time of simulation
 
 # intermediately, we need to store one of the splits in splitted data to make 
 # the ML algorithms running
-splitted.data <- splits[["Split1"]]
+splitted.data <- centered.splits.factors[["Split1"]]
 
 
 # "Apply" null model
@@ -417,18 +421,15 @@ if (file.exists(file.name) == T ){
 } else {
     
     cat("No ML outputs exist yet, we produce it and save it in", file.name)
-    # Make a list to store the outputs of each model
-    outputs <- vector(mode = 'list', length = no.algo)
-    names(outputs) <- list.algo
     
-    # Apply the ML models to list.taxa and env.fact
-    for(k in 1:no.algo){
-        outputs[[k]] <- apply.ml.model(splitted.data = splitted.data, list.taxa = list.taxa,
-                                       env.fact = env.fact, algorithm = list.algo[k])
-    }
+    # Compute one split after the other
+    outputs <- lapply(centered.splits.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
+    
+    # Compute three splits in paralel (should be run on the server)
+    # outputs <- mclapply(centered.splits.factors, mc.cores = 3, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
+    
     cat("Saving outputs of algorithms in", file.name)
     saveRDS(outputs, file = file.name)
-    
 }
 
 print(paste("Simulation time of different models ", info.file.name))
