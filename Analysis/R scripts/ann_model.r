@@ -46,11 +46,11 @@ if ( !require("tidyr") ) { install.packages("tidyr"); library("tidyr") } # to so
 # install_miniconda()
 # 
 # install.packages("tensorflow")
-# library("tensorflow")
+library("tensorflow")
 # install_tensorflow()
 # 
 # install.packages("keras")
-# library("keras")
+library("keras")
 # install_keras()
 
 # Check and set working directory
@@ -103,46 +103,16 @@ if( BDM == TRUE){
 
 d <- paste0(Sys.Date(), "_")    # date for file names
 
-# Load functions
-source("model_functions.r")
+# Load functions ####
+
+source("ml_model_functions.r")
+source("stat_model_functions.r")
 source("plot_functions.r")
+source("utilities.r")
 
-## ---- Construct datasets  ----
+## ---- DATA WRANGLING  ----
 
-# Replace "0" and "1" by "absent" and "present" and convert them to factors
-cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
-
-for (i in cind.taxa ) {
-    data.inv[which(data.inv[,i] == 0),i] <- "absent"
-    data.inv[which(data.inv[,i] == 1),i] <- "present"
-    data.inv[,i] = as.factor(data.inv[,i])
-}
-
-# Construct main dataset (with inv and env)
-data <- data.env %>%
-    left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
-dim(data)
-
-# make a list of taxa we want to predict
-
-a.lot = F     # set to FALSE if it's for exploration (few taxa)
-# set to TRUE for a proper simulation (all taxa with intermadiate prevalence)
-
-# Select taxa for prediction
-if (a.lot == T){
-  list.taxa <- colnames(data.inv)[cind.taxa]
-} else if (a.lot == F){
-  # list.taxa       <- c("Occurrence.Gammaridae", "Occurrence.Heptageniidae") # two taxa
-    list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55), # few taxa
-                              "Occurrence.taxa"] # Select only few taxa
-  # list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25), # all taxa with intermediate prevalence
-  #                             "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
-}
-
-
-# - - - - 
-
-# Select environmental factors for prediction
+# Select env. factors ####
 
 # Replace "_" and " " by "." in colnames to be consistent
 colnames(rank.env) <- gsub("_", ".", colnames(rank.env))
@@ -159,46 +129,34 @@ excl    <- colnames(rank.env)[which(rank.env[1,] == 0)]
 select = T    
 
 if (select == F){
-  
-  env.fact <- prio
-  
+    
+    env.fact <- prio
+    
 } else if (select == T){
-  
-  env.fact <- c("temperature", # Temp
-                "velocity", # FV
-                "A10m", # A10m
-                "cow.density", # LUD
-                "IAR", # IAR
-                "urban.area", # Urban
-                "FRI", # FRI
-                "bFRI", # bFRI
-                "width.variability")# , # WV
-  # "bed.modification",
-  # "morphology",
-  # "A.EDO",
-  # "F.EDO",
-  # "ARA.fraction",
-  # "agri.land",
-  # "Slope",
-  # "fields",
-  # "saprobic.cond",
-  # "normcov.mobile.blocks",
-  # "normcov.coarse.inorganic.sediments",
-  # "normcov.gravel",
-  # "normcov.sand.silt",
-  # "normcov.fine.sediments")
+    
+    env.fact <- c("temperature",       # Temp
+                  "velocity",          # FV
+                  "A10m",              # A10m
+                  "cow.density",       # LUD
+                  "IAR",               # IAR
+                  "urban.area",        # Urban
+                  "FRI",               # FRI
+                  "bFRI",              # bFRI
+                  "width.variability", # WV
+                  "temperature2",
+                  "velocity2")
 }
 
 if(BDM != TRUE) {
-  # remove InS env. fact.
-  cind <- c(grep("InS.",env.fact),
-            grep("covclass.",env.fact),
-            grep("normcov.",env.fact),
-            grep("sfract.",env.fact),
-            grep("v.",env.fact, fixed = TRUE)) # has to match exactly, to avoid to remove .variability or .vegetation
-  if(length(cind) != 0){
-    env.fact <- env.fact[-cind]
-  }
+    # remove InS env. fact.
+    cind <- c(grep("InS.",env.fact),
+              grep("covclass.",env.fact),
+              grep("normcov.",env.fact),
+              grep("sfract.",env.fact),
+              grep("v.",env.fact, fixed = TRUE)) # has to match exactly, to avoid to remove .variability or .vegetation
+    if(length(cind) != 0){
+        env.fact <- env.fact[-cind]
+    }
 }
 
 # Remove env. fact. missing in data.env
@@ -206,17 +164,50 @@ env.fact <- env.fact[which(env.fact %in% colnames(data.env))]
 # env.fact[-which(env.fact %in% colnames(data.env))] # which selected factors are not in data.env ?
 # [1] "A.EDO" "F.EDO" are missing
 
-# Construct training and testing datasets (randomly or according to an env. fact.)
-ratio <- 1 # set a ratio for training dataset (can be 1)
-split.var <- "IAR" # data splitted according to this variable (default is "random")
-splitted.data <- split.data(data = data, training.ratio = ratio, variable = split.var)
+# Standardize env. factors ####
+
+# preproc.data.env <- preProcess(data.env[,c("SiteId", "SampId", env.fact)], method = c("center", "scale")) 
+
+# Select taxa ####
+cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
+
+all.taxa = F
+# set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
+# set to TRUE to apply models to all taxa
+
+# Select taxa for prediction
+if (all.taxa == T){
+    list.taxa <- colnames(data.inv)[cind.taxa]
+} else if (all.taxa == F){
+    # list.taxa       <- c("Occurrence.Gammaridae", "Occurrence.Heptageniidae") # two taxa
+    # list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55), # few taxa
+    #                            "Occurrence.taxa"] # Select only few taxa
+    list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25), # all taxa with intermediate prevalence
+                                "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
+}
+
+# Construct main dataset (with inv and env)
+data <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact)] %>%
+    left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
+dim(data)
+
+# Pre-process data ####
+# drop rows with incomplete influence factors: 
+# inv.names <- colnames(select(data, contains("Occurrence.group."), contains("Occurrence.")))
+# env.names <- colnames(select(data, - all_of(inv.names)))
+ind <- !apply(is.na(data[,env.fact]),1,FUN=any)
+ind <- ifelse(is.na(ind),FALSE,ind)
+data <- data[ind,]
+print(paste(sum(!ind),"sites/samples excluded because of incomplete influence factors"))
 
 # - - - - 
+
+# Select ml algorithms ####
 
 # Select models to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
 list.algo <- c("#030AE8" = 'glm', # Random Forest
-               # "#048504" = 'gam', # Generalized Additive Model using splines
+               "#048504" = 'bam', # Generalized Additive Model using splines
                # "#948B8B" = 'adaboost',
                # 'earth', # MARS: Multivariate Adaptive Regression Splines
                # "#A84E05" = 'elm', # Extreme Learning Machine (Neural Network)
@@ -224,317 +215,165 @@ list.algo <- c("#030AE8" = 'glm', # Random Forest
                # "#DB1111" = 'svmRadial', # Support Vector Machine
                "#790FBF" = 'rf') # Random Forest
 
-# color.vect <- c("Null model" = "#000000",
-#                 "glm" = "#030AE8",
-#                 "gam" = "#048504",
-#                 "rf" = "#790FBF",
-#                 "svmRadial" = "#DB1111",
-#                 "adaboost" = "#948B8B",
-#                 "elm" = "#A84E05",
-#                 "absent" = "#c2141b", 
-#                 "present" = "#007139")
-
 # Assemble information to insert in file names
 no.env.fact <- length(env.fact)
 no.taxa <- length(list.taxa)
 no.algo <- length(list.algo)
 
-percentage.train.set <- ratio * 100
+# Write information for file names
+# percentage.train.set <- ratio * 100
 info.file.name <- paste0(file.prefix, 
                          # d, # don't need to include the date
                          no.taxa, "taxa_", 
                          no.env.fact, "envfact_",
                          no.algo, "algo_",
-                         "trainset", percentage.train.set, 
-                         if( ratio != 1) {split.var}, 
+                         # "trainset", percentage.train.set, 
+                         # if( ratio != 1) {split.var}, 
                          "_")
 
 # Summary of prevalence of chosen taxa
 for ( i in 1:no.taxa){
-    cat("Summary of absence and presence for", list.taxa[i], ":", summary(data[, list.taxa[i]]), "\n")
+    cat("Summary of absence, presence and NA for", list.taxa[i], ":", summary(data[, list.taxa[i]]), "\n")
 }
 
-## ---- Feature selection (rfe) ----
+# Split (and save) data ####
 
-# We might need a rigorous way to determine the important variables first before feeding them to the ML algorithm.
-# RFE works in 3 broad steps:
-# Step 1: Build a ML model on a training dataset and estimate the feature importances on the test dataset.
-# Step 2: Keeping priority to the most important variables, iterate through by building models of given subset sizes, that is, 
-#         subgroups of most important predictors determined from step 1. Ranking of the predictors is recalculated in each iteration.
-# Step 3: The model performances are compared across different subset sizes to arrive at the optimal number and list of final predictors.
+# Split for ml purpose (e.g. 80% training, 20% testing)
+# ratio <- 0.8 # set a ratio for training dataset (can be 1)
+# split.var <- "random" # data splitted according to this variable (default is "random")
+# splitted.data <- split.data(data = data, training.ratio = ratio, variable = split.var)
 
-# ptm <- proc.time() # to calculate time of calculation
-# 
-# ctrl <- rfeControl(functions = rfFuncs, # based on random forest algorithm
-#                    method = "repeatedcv", # method of cross-validation
-#                    repeats = 2,
-#                    verbose = FALSE)
-# 
-# subsets <- c(1:5, round(no.env.fact/2), round(3/4*no.env.fact)) # select size of subsets of env. fact. to be tested
-# 
-# # Make a list with the different predictive performance for each taxon in list.taxa
-# rfe.result <- vector(mode = 'list', length = no.taxa)
-# names(rfe.result) <- list.taxa
-# 
-# for (j in 1:no.taxa){
-#   
-#   temp.data <- na.omit(data[, c(list.taxa[j],env.fact)])
-#   
-#   rfe.result[[j]] <- rfe(x=temp.data[, env.fact], y=temp.data[, list.taxa[j]], # receives the output of the rfeControl() as values
-#                          sizes = subsets, # what all model sizes (the number of most important features) the rfe should consider.
-#                          rfeControl = ctrl)
-#   
-# }
-# 
-# print(paste(no.env.fact, "rfe calculation time:"))
-# print(proc.time()-ptm)
+# Split for CV
+file.name <- paste0(dir.workspace,"SplitsForCV_031221.rds")
 
-# WORKSPACE: BDM, 55 env.fact, 29 taxa : 1:30 hours, saved 12.08.2021
-
-## ---- Apply models ----
-
-# # test with other package for RF
-# j = 1
-# data.train <- splitted.data[["Training data"]]
-# data.test <- splitted.data[["Testing data"]]
-# temp.train <- na.omit(data.train[, c("SiteId", "SampId", "X", "Y", list.taxa[j], env.fact)]) # create a temporary training dataset with the taxon and env fact, to 
-# temp.test <- na.omit(data.test[, c("SiteId", "SampId", "X", "Y", list.taxa[j], env.fact)])
-# f <- reformulate(env.fact, list.taxa[j]) # not obligatory, just if we want to express it as a fct
-# my.rf <- rfsrc(f, mtry=5, ntree=2000, importance = "random",
-#               data=temp.train) # function to run RF
-# plot(my.rf)
-# # selection of the best stressor candidates
-# md.obj <- max.subtree (my.rf)
-# md.obj$topvars # extracts the names of the variables in the object md.obj
-# # rank interactions only for the most important predictors, 
-# # for example, those hypothesised a priori or those delivered by max.subtree (my.rf) using the argument xvar.names
-# my.rf.interaction <- find.interaction (my.rf, xvar.names=md.obj$topvars,
-#                                        importance="random", method= "vimp", nrep=3) # method= "vimp"
-#                                         # computes the additive and combined (paired) effects of each pair of stressors in
-#                                         # the response variable
-# # Large positive or negative numbers of difference (between additive and paired stressor effects) 
-# # can indicate a potential interaction effect
-
-ptm <- proc.time() # to calculate time of simulation
-
-
-# ## TEST ANN WITH KERAS ####
-#  
-# # Prepare training and testing set
-# target <- list.taxa[1]
-# 
-# temp.train <- splitted.data$`Training data`[, c(target,env.fact)]
-# temp.train <- na.omit(temp.train)
-# 
-# temp.test <- splitted.data$`Testing data`[, c(target,env.fact)]
-# temp.test <- na.omit(temp.test)
-# 
-# Xtrain <- as.matrix(temp.train[, env.fact])
-# Ytrain <- as.matrix(temp.train[, target])
-# 
-# Xtest <- as.matrix(temp.test[, env.fact])
-# Ytest <- as.matrix(temp.test[, target])
-# 
-# # One Hot Encoding
-# # Ytraincat <- to_categorical(as.numeric(Ytrain[,1]) -1)
-# 
-# # Initialize a sequential model
-# model <- keras_model_sequential() 
-# 
-# # Add layers to the model
-# model %>% 
-#   layer_dense(units = 8, activation = 'relu', input_shape = c(4)) %>% 
-#   layer_dense(units = 3, activation = 'softmax')
-
-
-# Make a list to store the outputs of each model
-outputs <- vector(mode = 'list', length = no.algo)
-names(outputs) <- list.algo
-
-# Apply the ML models to list.taxa and env.fact
-for(k in 1:no.algo){
-  outputs[[k]] <- apply.ml.model(splitted.data = splitted.data, list.taxa = list.taxa,
-                                        env.fact = env.fact, algorithm = list.algo[k])
-}
-
-# "Apply" null model
-null.model <- apply.null.model(data = data, list.taxa = list.taxa, prev.inv = prev.inv)
-
-print(paste("Simulation time of different models ", info.file.name))
-print(proc.time()-ptm)
-
-
-# WORKSPACE: BDM, 55 env.fact, 29 taxa, 4 algo : 18 hours, saved 18.08.2021
-# BDM, 6 env.fact, 2 taxa, 4 algo : 3 min
-# WORKSPACE: BDM, 55 env.fact, 29 taxa, 1 algo (rf) : 15 hours, saved 11.08.2021
-# WORKSPACE: BDM, 9 env.fact, 9 taxa, 4 algo : 1 hours, saved 01.09.2021
-# Don't forget to reload the functions if we upload old workspace
-
-# source("model_functions.r")
-# source("plot_functions.r")
-# rm(list=ls())
-# graphics.off()
-
-## ---- Plot models comparison ----
-
-ptm <- proc.time() # to calculate time of pdf production
-
-# Compute plots
-list.plots <- model.comparison(outputs = outputs, null.model = null.model, list.algo = list.algo, list.taxa = list.taxa, prev.inv = prev.inv)
-
-# Print the plots in a pdf file
-file.name <- "ModelsCompar.pdf"
-print.pdf.plots(list.plots = list.plots, width = 9, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
-
-print(paste(file.name, "printing:"))
-print(proc.time()-ptm)
-
-
-## ---- Plot variable importance ----
-
-ptm <- proc.time() # to calculate time of simulation
-
-list.plots <- plot.varimp(outputs = outputs, list.algo = list.algo, list.taxa = list.taxa)
-
-file.name <- "VarImp.pdf"
-print.pdf.plots(list.plots = list.plots, width = 7, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
-
-# print directly table with variable importance for each algo and taxa (too complicated to put in a fct)
-file.name <- "TableVarImp.pdf"
-pdf(paste0(dir.output, info.file.name, file.name), paper = 'special', width = 12, height = 9, onefile = TRUE)
-temp.df <- data.frame(matrix(ncol = no.algo*no.taxa, nrow = no.env.fact))
-colnames(temp.df) <- c(outer(list.algo, list.taxa, FUN = paste))
-rownames(temp.df) <- env.fact
-for (j in 1:no.taxa) {
-  for (l in 1:no.algo) {
-    for (k in 1:no.env.fact) {
-      temp.df[env.fact[k],paste(list.algo[l], list.taxa[j])] <- outputs[[l]][[j]][["Variable importance"]][["importance"]][env.fact[k],1]
+# If the file with the three different splits already exist, just read it
+if (file.exists(file.name) == T ){
+    
+    if(exists("splits") == F){ splits <- readRDS(file = file.name)
+    cat("File with data splits already exists, we read it from", file.name, "and save it in object 'splits'")}
+    else{
+        cat("List with data splits already exists as object 'splits' in this environment.")
     }
-  }
-}
-temp.df$mean.imp <- rowMeans(temp.df)
-temp.df <- as.matrix(temp.df)
-par(mar=c(1,5,15,3)+ 0.2, xaxt = "n")
-plot(temp.df, 
-     #key = NULL,
-     digits = 2, text.cell=list(cex=0.5),
-     # axis.col=list(side=3, las=2), 
-     axis.row = list(side=2, las=1),
-     col = viridis,
-     xlab = "",
-     ylab = "",
-     cex.axis = 0.5,
-     srt = 45,
-     main = "Variable importance for ML algorithm applied to taxa"
-     )
-axis(1, at=seq(1:ncol(temp.df)+1), labels = FALSE)
-text(seq(1:ncol(temp.df)+1), par("usr")[4] + 0.15, srt = 50, 
-     labels = colnames(temp.df), adj= 0, cex = 0.5, xpd = T)
-
-dev.off()
-
-print(paste(file.name, "printing:"))
-print(proc.time()-ptm)
-
-# For BDM Dataset, only 55 env fact (priority) : 3 sec
-
-
-## ---- Print accuracy ----
-
-for(l in 1:no.algo){
-  for(j in 1:no.taxa){
-      # cat("Accuracy on training for",list.taxa[j], "is :",
-      #    output[[j]][["Trained model"]][["resample"]][["Accuracy"]], "\n")
-      cat("Accuracy on prediction for",list.taxa[j],"with", list.algo[l], "is :",
-          outputs[[l]][[j]][["Confusion matrix testing set"]][["overall"]][["Accuracy"]], "\n")
-  }
+} else {
+    
+    cat("No data splits exist yet, we produce it and save it in", file.name)
+    splits <- split.data(data, 1)
+    saveRDS(splits, file = file.name)
+    
 }
 
-## ---- Plot PDP ----
+# Normalize data ####
 
-ptm <- proc.time() # to calculate time of simulation
+# Normalize the folds
+centered.splits <- lapply(splits, FUN = center.splits, cv = T)
 
-# PDP of one model
-# list.plots <- plot.pdp(outputs = outputs, algo = "rf", list.algo = list.algo,
-#                       list.taxa = list.taxa, env.fact = env.fact)
-# 
-# file.name <- "PDP.pdf"
-# print.pdf.plots(list.plots = list.plots, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
+# Normalize the folds but replace '0' ans '1' by factors
+centered.splits.factors <- lapply(centered.splits, function(split){
+    #split <- centered.splits[[1]]
+    return(lapply(split, function(fold){
+        
+        cind.taxa <- which(grepl("Occurrence.",colnames(fold)))
+        #Replace "0" and "1" by "absent" and "present" and convert them to factors
+        for (i in cind.taxa ) {
+            fold[which(fold[,i] == 0),i] <- "absent"
+            fold[which(fold[,i] == 1),i] <- "present"
+            fold[,i] = as.factor(fold[,i])
+        }
+        return(fold)
+    })
+    )
+})
 
-# PDP of all models
-list.plots <- plot.pdp(outputs = outputs, list.algo = list.algo,
-                       list.taxa = list.taxa, env.fact = env.fact)
 
-file.name <- "allPDP.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
+## TEST ANN WITH KERAS ####
 
-print(paste(file.name, "printing:"))
-print(proc.time()-ptm)
+# Prepare training and testing set
 
-## ---- Plot single predictor ICE ----
+splitted.data <- centered.splits[[1]]
 
-ptm <- proc.time() # to calculate time of simulation
+temp.train <- splitted.data$`Training data`[, c(list.taxa,env.fact)]
+# temp.train <- na.omit(temp.train)
 
-# PDP of one model
-list.plots <- plot.ice(outputs = outputs, algo = list.algo[1], list.algo = list.algo,
-                       list.taxa = list.taxa, env.fact = env.fact)
+temp.test <- splitted.data$`Testing data`[, c(list.taxa,env.fact)]
+# temp.test <- na.omit(temp.test)
 
-file.name <- "ICE.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
+Xtrain <- as.matrix(temp.train[, env.fact])
+Ytrain <- as.matrix(temp.train[, list.taxa])
 
-print(paste(file.name, "printing:"))
-print(proc.time()-ptm)
+Xtest <- as.matrix(temp.test[, env.fact])
+Ytest <- as.matrix(temp.test[, list.taxa])
 
-## ---- Plot PDP (multiple predictors) ----
+# One Hot Encoding
+# Ytraincat <- to_categorical(as.numeric(Ytrain[,1]) -1)
 
-# We just make one example because it's computationally heavy
+# Learning rate
+lr <- 0.01
 
-ptm <- proc.time() # to calculate time of simulation
+# Number of epochs
+ne <- 100
 
-# Multpiple predictors PDP (of one model) for now just for 1 algo and 1 taxa
-list.plots <- plot.mult.pred.pdp(outputs = outputs, list.algo = list.algo,
-                       list.taxa = list.taxa, env.fact = env.fact)
+# Batch size
+bs <-  512
 
-file.name <- "multpredPDP.pdf"
-print.pdf.plots(list.plots = list.plots, width = 17, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
-
-print(paste(file.name, "printing:"))
-print(proc.time()-ptm)
-
-print("hey")
-# Stop execution if there is no (prediction on) testing set
-# stopifnot(ratio != 1)
-if( ratio == 1 ){
-  exit
+build_and_train_model <- function (data = temp.train,
+                                   Xtrain = Xtrain,
+                                   Ytrain = Ytrain,
+                                   learning_rate = lr, 
+                                   num_epochs = ne, 
+                                   batch_size = bs, 
+                                   num_layers = 1, 
+                                   num_units_per_layer = 2,
+                                   print_model_summary = F
+){
+    
+    # Most models are so-called 'sequential' models
+    model <- keras_model_sequential()
+    
+    # Keras makes building neural networks as simple as adding layer upon layer with simple sequential 
+    # calls to the function "layer_dense". Take a moment to appreciate how easy that makes things.
+    
+    # The input layer is the only layer that requires the user to specify its shape. The shape of all
+    # subsequent layers is automatically determined based on the output of the preceding layer. Let's
+    # use a ReLU activation function in each node in the input and hidden layers.
+    model <- model %>% layer_dense(units = num_units_per_layer, 
+                                   input_shape = ncol(Xtrain), 
+                                   activation = "relu")
+    
+    # Add the hidden layers. Note this requires just a simple for loop that calls the function "layer_dense"
+    # again and again.
+    if (num_layers>1){
+        for (i in 1:(num_layers-1)){
+            model <- model %>% layer_dense(units = num_units_per_layer, 
+                                           activation = "relu")
+        }
+    }
+    
+    # Add the output layer. Note that it uses a sigmoid activation function. Make sure you know why.
+    model <- model %>% layer_dense(units = 1, activation = "sigmoid")    
+    
+    # Print the model description
+    if (print_model_summary){
+        
+        summary(model)        
+    }
+    
+    #  Specify the learning rate for stochastic gradient descent
+    opt <- optimizer_adam(lr = learning_rate)
+    
+    # Compile the model, using binary cross-entropy to define loss. Measure accuracy during training.
+    # Note how easy Keras makes this. Did you have to write any functions for loss or for measuring model
+    # performance during training? No, Keras takes care of all of this for you.
+    model %>% compile(optimizer = opt, 
+                      loss ='binary_crossentropy', 
+                      metrics = list('accuracy'))         
+    
+    # Fit the model
+    history <- model %>% fit(x = Xtrain,
+                             y = Ytrain,
+                             epochs = num_epochs,
+                             batch_size = batch_size,
+    )
+    
+    # Return the model and the training history
+    return(list(model = model, history = history))                                      
 }
-print("salut")
-
-## ---- Plot map prediction ----
-
-ptm <- proc.time() # to calculate time of pdf production
-
-map.inputs <- map.inputs(dir.env.data = dir.env.data, data.env = data.env)
-
-# make a list with all plots and plot them in a pdf
-list.plots <- map.ml.pred.taxa(inputs = map.inputs, outputs = outputs,
-                               list.taxa = list.taxa, list.algo = list.algo)
-
-file.name <- "ObsvsPred_map.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
-
-print(paste(file.name, "printing:"))
-print(proc.time()-ptm)
-
-## ---- Plot env fact vs taxa prediction ----
-
-ptm <- proc.time() # to calculate time of pdf production
-
-# source("plot_functions.r")
-list.plots <- response.ml.pred.taxa(outputs = outputs, list.algo = list.algo,
-                              list.taxa = list.taxa, env.fact = env.fact)
-
-file.name <- "Resp_EnvFactvsTax.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.output, info.file.name = info.file.name, file.name = file.name)
-
-print("Producing PDF time:")
-print(proc.time()-ptm)

@@ -399,11 +399,6 @@ ptm <- proc.time() # to calculate time of simulation
 #   x = Xtrain, y = Ytrain, epochs = 20, batch_size = 32
 # )
 
-# intermediately, we need to store one of the splits in splitted data to make 
-# the ML algorithms running
-splitted.data <- centered.splits.factors[["Split1"]]
-
-
 # "Apply" null model
 null.model <- apply.null.model(data = data, list.taxa = list.taxa, prev.inv = prev.inv)
 
@@ -418,6 +413,7 @@ if (file.exists(file.name) == T ){
     else{
         cat("List with ML outputs already exists as object 'outputs' in this environment.")
     }
+
 } else {
     
     cat("No ML outputs exist yet, we produce it and save it in", file.name)
