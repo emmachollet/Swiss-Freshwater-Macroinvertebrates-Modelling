@@ -48,11 +48,11 @@ library("reticulate")
 # 
 # install.packages("tensorflow")
 library("tensorflow")
-# install_tensorflow()
+install_tensorflow()
 # 
 # install.packages("keras")
 library("keras")
-# install_keras()
+install_keras()
 
 # Check and set working directory
 getwd() # show working directory
@@ -311,13 +311,13 @@ Ytest <- as.matrix(temp.test[, list.taxa])
 lr <- 0.01
 
 # Number of epochs
-ne <- 100
+ne <- 1000
 
 # Batch size
 bs <-  512
 
-num_layers = 1
-num_units_per_layer = 2
+num_layers = 3
+num_units_per_layer = 32
 
 # Most models are so-called 'sequential' models
 model <- keras_model_sequential()
@@ -342,7 +342,7 @@ if (num_layers>1){
 }
 
 # Add the output layer. Note that it uses a sigmoid activation function. Make sure you know why.
-model <- model %>% layer_dense(units = 1, activation = "sigmoid")
+model <- model %>% layer_dense(units = ncol(Ytrain), activation = "sigmoid")
 
 #  Specify the learning rate for stochastic gradient descent
 opt <- optimizer_adam(lr = lr)
