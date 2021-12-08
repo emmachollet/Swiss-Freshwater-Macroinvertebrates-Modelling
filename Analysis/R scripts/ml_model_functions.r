@@ -1,9 +1,5 @@
 
 
-exit <- function() { invokeRestart("abort") }  
-
-
-
 # Split data in training and testing datasets
 split.data <- function(data, training.ratio, variable = "random", bottom = T){
     
@@ -97,10 +93,10 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
             names(temp.list) <- output.names
             
             temp.train <- na.omit(data.train[, c("SiteId", "SampId",
-                                                 # "X", "Y", 
+                                                 "X", "Y", 
                                                  list.taxa[j], env.fact)]) # create a temporary training dataset with the taxon and env fact, to 
             temp.test <- na.omit(data.test[, c("SiteId", "SampId",
-                                               #"X", "Y", 
+                                               "X", "Y", 
                                                list.taxa[j], env.fact)])
             temp.sets <- list(temp.train, temp.test)
             f <- reformulate(env.fact, list.taxa[j]) # write formula (target variable ~ explanatory variables) to apply the model
@@ -185,8 +181,8 @@ apply.null.model <- function(data, list.taxa, prev.inv){
         temp.list <- vector(mode = 'list', length = length(temp.output))
         names(temp.list) <- temp.output
         
-        no.pres <- sum(data[, list.taxa[j]] == "present", na.rm = TRUE)
-        no.abs  <- sum(data[, list.taxa[j]] == "absent", na.rm = TRUE)
+        no.pres <- sum(data[, list.taxa[j]] == 1, na.rm = TRUE)
+        no.abs  <- sum(data[, list.taxa[j]] == 0, na.rm = TRUE)
         no.obs  <- no.pres + no.abs
         prev    <- prev.inv[prev.inv$Occurrence.taxa == list.taxa[j],"Prevalence"]
         likeli <- rep(c(prev, 1-prev),c(no.pres,no.abs))

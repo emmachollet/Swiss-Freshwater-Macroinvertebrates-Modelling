@@ -9,8 +9,7 @@
 ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #next two lines are for jonas, dont run these
 # setwd("Q:/Abteilungsprojekte/siam/Jonas Wydler/Swiss-Freshwater-Macroinvertebrates-Modelling/Analysis/R scripts")
-# .libPaths(c("T:/My Documents//R/R-4.1.1/library", "C:/Program Files/R/R-4.1.1/library"))
-
+ #.libPaths("C:/Program Files/R/R-4.1.1/library")
 
 ## ---- PRELIMINARIES ----
 
@@ -47,29 +46,19 @@ if ( !require("randomForest") ) { install.packages("randomForest"); library("ran
 # if ( !require("tensorflow") ) { devtools::install_github("rstudio/tensorflow"); library("tensorflow") } # to run Neural Networks
 # use_condaenv("r-tensorflow")
 
-# # # needed for ANN
-# if( !require("reticulate")){
-#   # remotes::install_github("rstudio/reticulate"); # this tried to install reticulate in a inaccessible folder
-#   install.packages("reticulate");
-#   library("reticulate")}
-# use_condaenv()
+# # ANN
 # 
-# if( !require("tensorflow")){
-#   # devtools::install_github("rstudio/tensorflow");
-#   install.packages("tensorflow");
-#   library(tensorflow)}
-# # tf_version()
+# # just needed once
+# install.packages("reticulate")
+# library("reticulate")
+# install_miniconda()
 # 
+# install.packages("tensorflow")
+# library("tensorflow")
 # install_tensorflow()
 # 
-# if( !require("keras")){
-#   devtools::install_github("rstudio/keras");
-#   # install.packages("keras");
-#   library(keras)}
-# 
-# # library("tensorflow")
-# # library("keras")
-# 
+# install.packages("keras")
+# library("keras")
 # install_keras()
 
 ## Run this to prompt miniconda installation request!
@@ -208,7 +197,7 @@ if (all.taxa == T){
     # list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55), # few taxa
     #                            "Occurrence.taxa"] # Select only few taxa
     list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25), # all taxa with intermediate prevalence
-                                "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
+                                 "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
 }
 
 # Construct main dataset (with inv and env)
@@ -267,6 +256,18 @@ for ( i in 1:no.taxa){
 # ratio <- 0.8 # set a ratio for training dataset (can be 1)
 # split.var <- "random" # data splitted according to this variable (default is "random")
 # splitted.data <- split.data(data = data, training.ratio = ratio, variable = split.var)
+
+
+# folds <- groupKFold(data$SiteId, 3) # create 3 folds, grouped by SiteId
+# 
+# train1 <- data[folds$Fold1,]
+# test1 <- data[-folds$Fold1,]
+# 
+# train2 <- data[folds$Fold2,]
+# test2 <- data[-folds$Fold2,]
+# 
+# train3 <- data[folds$Fold3,]
+# test3 <- data[-folds$Fold3,]
 
 # Split for CV
 file.name <- paste0(dir.workspace,"SplitsForCV_031221.rds")
@@ -354,62 +355,20 @@ if (file.exists(file.name) == T ){
 
 ptm <- proc.time() # to calculate time of simulation
 
-## TEST ANN WITH KERAS ####
-
-# # Prepare training and testing set
-# target <- list.taxa[1]
-# 
-# temp.train <- splits[[1]][[1]][, c(target,env.fact)]
-# temp.train <- na.omit(temp.train)
-# 
-# temp.test <- splits[[1]][[2]][, c(target,env.fact)]
-# temp.test <- na.omit(temp.test)
-# 
-# # Xtrain <- as.matrix(temp.train[, env.fact])
-# # Ytrain <- as.matrix(temp.train[, target])
-# # 
-# # Xtest <- as.matrix(temp.test[, env.fact])
-# # Ytest <- as.matrix(temp.test[, target])
-# 
-# Xtrain <- temp.train[, env.fact]
-# Ytrain <- temp.train[, target]
-# 
-# Xtest <- temp.test[, env.fact]
-# Ytest <- temp.test[, target]
-# 
-# # One Hot Encoding
-# # Ytraincat <- to_categorical(as.numeric(Ytrain[,1]) -1)
-# 
-# # use_session_with_seed(42)
-# 
-# # # Initialize a sequential model
-# model <- keras_model_sequential()
-# 
-# model %>%
-#   layer_dense(units = 12, activation = 'relu', input_shape = c(20)) %>%
-#   layer_dense(units = 12, activation = 'relu') %>%
-#   layer_dense(units = 10, activation = 'sigmoid')
-# 
-# model %>% compile(
-#   loss = 'binary_crossentropy',
-#   optimizer = optimizer_rmsprop()
-# )
-# 
-# model %>% fit(
-#   x = Xtrain, y = Ytrain, epochs = 20, batch_size = 32
-# )
-
 # "Apply" null model
 null.model <- apply.null.model(data = data, list.taxa = list.taxa, prev.inv = prev.inv)
 
-file.name <- paste0(dir.models.output, no.algo, "MLAlgoTrained.rds")
+file.name <- paste0(dir.models.output, "output_glm_rf_gam_test_06_12.rds")
+
+# file.name <- paste0("Q:/Abteilungsprojekte/siam/Jonas Wydler/Swiss-Freshwater-Macroinvertebrates-Modelling/Analysis/Intermediate results/Trained models/", no.algo, "MLAlgoTrained.rds")
 
 # If the file with the outputs already exist, just read it
 if (file.exists(file.name) == T ){
     
     if(exists("outputs") == F){
         cat("File with ML outputs already exists, we read it from", file.name, "and save it in object 'outputs'")
-        outputs <- readRDS(file = file.name)}
+        outputs <- readRDS(file = file.name)
+        }
     else{
         cat("List with ML outputs already exists as object 'outputs' in this environment.")
     }
@@ -425,7 +384,7 @@ if (file.exists(file.name) == T ){
     # outputs <- mclapply(centered.splits.factors, mc.cores = 3, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
     
     cat("Saving outputs of algorithms in", file.name)
-    saveRDS(outputs, file = file.name)
+    saveRDS(outputs, file = file.name, version = 2)
 }
 
 print(paste("Simulation time of different models ", info.file.name))
@@ -439,6 +398,10 @@ print(proc.time()-ptm)
 # graphics.off()
 
 ## ---- Plot models comparison ----
+
+saved.outputs <- outputs
+outputs <- saved.outputs[[1]]
+# outputs <- outputs2algo[[1]]
 
 ptm <- proc.time() # to calculate time of pdf production
 
@@ -457,7 +420,7 @@ print(proc.time()-ptm)
 ptm <- proc.time() # to calculate time of pdf production
 
 # Compute plots
-list.plots <- plot.perf.hyperparam(outputs = outputs, list.algo = list.algo[2:3], list.taxa = list.taxa)
+list.plots <- plot.perf.hyperparam(outputs = outputs, list.algo = list.algo, list.taxa = list.taxa)
 
 # Print the plots in a pdf file
 file.name <- "PerfvsHyperparam.pdf"
