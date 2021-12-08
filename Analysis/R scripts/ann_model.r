@@ -308,7 +308,7 @@ Ytest <- as.matrix(temp.test[, list.taxa])
 # Ytraincat <- to_categorical(as.numeric(Ytrain[,1]) -1)
 
 # Learning rate
-lr <- 0.01
+learning.rate <- 0.01
 
 # Number of epochs
 ne <- 1000
@@ -316,113 +316,123 @@ ne <- 1000
 # Batch size
 bs <-  512
 
-num_layers = 3
-num_units_per_layer = 32
 
-# Most models are so-called 'sequential' models
-model <- keras_model_sequential()
-
-# Keras makes building neural networks as simple as adding layer upon layer with simple sequential
-# calls to the function "layer_dense". Take a moment to appreciate how easy that makes things.
-
-# The input layer is the only layer that requires the user to specify its shape. The shape of all
-# subsequent layers is automatically determined based on the output of the preceding layer. Let's
-# use a ReLU activation function in each node in the input and hidden layers.
-model <- model %>% layer_dense(units = num_units_per_layer,
-                               input_shape = ncol(Xtrain),
-                               activation = "relu")
-
-# Add the hidden layers. Note this requires just a simple for loop that calls the function "layer_dense"
-# again and again.
-if (num_layers>1){
-    for (i in 1:(num_layers-1)){
-        model <- model %>% layer_dense(units = num_units_per_layer,
-                                       activation = "relu")
-    }
-}
-
-# Add the output layer. Note that it uses a sigmoid activation function. Make sure you know why.
-model <- model %>% layer_dense(units = ncol(Ytrain), activation = "sigmoid")
-
-#  Specify the learning rate for stochastic gradient descent
-opt <- optimizer_adam(lr = lr)
-
-# Compile the model, using binary cross-entropy to define loss. Measure accuracy during training.
-# Note how easy Keras makes this. Did you have to write any functions for loss or for measuring model
-# performance during training? No, Keras takes care of all of this for you.
-model %>% compile(optimizer = opt,
-                  loss ='binary_crossentropy',
-                  metrics = list('accuracy'))
-
-# Fit the model
-history <- model %>% fit(x = Xtrain,
-                         y = Ytrain,
-                         epochs = ne,
-                         batch_size = bs)
-
-
+# # Most models are so-called 'sequential' models
+# model <- keras_model_sequential()
 # 
+# # Keras makes building neural networks as simple as adding layer upon layer with simple sequential
+# # calls to the function "layer_dense". Take a moment to appreciate how easy that makes things.
 # 
-# build_and_train_model <- function (data = temp.train,
-#                                    Xtrain = Xtrain,
-#                                    Ytrain = Ytrain,
-#                                    learning_rate = lr,
-#                                    num_epochs = ne,
-#                                    batch_size = bs,
-#                                    num_layers = 1,
-#                                    num_units_per_layer = 2,
-#                                    print_model_summary = F){
+# # The input layer is the only layer that requires the user to specify its shape. The shape of all
+# # subsequent layers is automatically determined based on the output of the preceding layer. Let's
+# # use a ReLU activation function in each node in the input and hidden layers.
+# model <- model %>% layer_dense(units = num.units.per.layer,
+#                                input_shape = ncol(Xtrain),
+#                                activation = "relu")
 # 
-#     # Most models are so-called 'sequential' models
-#     model <- keras_model_sequential()
-# 
-#     # Keras makes building neural networks as simple as adding layer upon layer with simple sequential
-#     # calls to the function "layer_dense". Take a moment to appreciate how easy that makes things.
-# 
-#     # The input layer is the only layer that requires the user to specify its shape. The shape of all
-#     # subsequent layers is automatically determined based on the output of the preceding layer. Let's
-#     # use a ReLU activation function in each node in the input and hidden layers.
-#     model <- model %>% layer_dense(units = num_units_per_layer,
-#                                    input_shape = ncol(Xtrain),
-#                                    activation = "relu")
-# 
-#     # Add the hidden layers. Note this requires just a simple for loop that calls the function "layer_dense"
-#     # again and again.
-#     if (num_layers>1){
-#         for (i in 1:(num_layers-1)){
-#             model <- model %>% layer_dense(units = num_units_per_layer,
-#                                            activation = "relu")
-#         }
+# # Add the hidden layers. Note this requires just a simple for loop that calls the function "layer_dense"
+# # again and again.
+# if (num.layers>1){
+#     for (i in 1:(num.layers-1)){
+#         model <- model %>% layer_dense(units = num.units.per.layer,
+#                                        activation = "relu")
 #     }
-# 
-#     # Add the output layer. Note that it uses a sigmoid activation function. Make sure you know why.
-#     model <- model %>% layer_dense(units = 1, activation = "sigmoid")
-# 
-#     # Print the model description
-#     if (print_model_summary){
-# 
-#         summary(model)
-#     }
-# 
-#     #  Specify the learning rate for stochastic gradient descent
-#     opt <- optimizer_adam(lr = learning_rate)
-# 
-#     # Compile the model, using binary cross-entropy to define loss. Measure accuracy during training.
-#     # Note how easy Keras makes this. Did you have to write any functions for loss or for measuring model
-#     # performance during training? No, Keras takes care of all of this for you.
-#     model %>% compile(optimizer = opt,
-#                       loss ='binary_crossentropy',
-#                       metrics = list('accuracy'))
-# 
-#     # Fit the model
-#     history <- model %>% fit(x = Xtrain,
-#                              y = Ytrain,
-#                              epochs = num_epochs,
-#                              batch_size = batch_size,
-#     )
-# 
-#     # Return the model and the training history
-#     return(list(model = model, history = history))
 # }
 # 
-# ann.outputs <- build_and_train_model
+# # Add the output layer. Note that it uses a sigmoid activation function. Make sure you know why.
+# model <- model %>% layer_dense(units = ncol(Ytrain), activation = "sigmoid")
+# 
+# #  Specify the learning rate for stochastic gradient descent
+# opt <- optimizer_adam(lr = lr)
+# 
+# # Compile the model, using binary cross-entropy to define loss. Measure accuracy during training.
+# # Note how easy Keras makes this. Did you have to write any functions for loss or for measuring model
+# # performance during training? No, Keras takes care of all of this for you.
+# model %>% compile(optimizer = opt,
+#                   loss ='binary_crossentropy',
+#                   metrics = list('accuracy'))
+# 
+# # Fit the model
+# history <- model %>% fit(x = Xtrain,
+#                          y = Ytrain,
+#                          epochs = ne,
+#                          batch.size = bs)
+
+
+build_and_train_model <- function (# data = temp.train,
+                                   hyper.param = hyper.param,
+                                   no.env.fact = no.env.fact,
+                                   Xtrain = Xtrain,
+                                   Ytrain = Ytrain,
+                                   Xtest = Xtest,
+                                   learning.rate = learning.rate,
+                                   num_epochs = ne,
+                                   batch.size = bs#,
+                                   #print.model.summary = F
+                                   ){
+    num.layers <- hyper.param[1]
+    num.units.per.layer <- hyper.param[2]
+    
+    # Most models are so-called 'sequential' models
+    model <- keras_model_sequential()
+
+    # Keras makes building neural networks as simple as adding layer upon layer with simple sequential
+    # calls to the function "layer_dense". Take a moment to appreciate how easy that makes things.
+
+    # The input layer is the only layer that requires the user to specify its shape. The shape of all
+    # subsequent layers is automatically determined based on the output of the preceding layer. Let's
+    # use a ReLU activation function in each node in the input and hidden layers.
+    model <- model %>% layer_dense(units = num.units.per.layer,
+                                   input_shape = no.env.fact,
+                                   activation = "relu")
+
+    # Add the hidden layers. Note this requires just a simple for loop that calls the function "layer_dense"
+    # again and again.
+    if (num.layers>1){
+        for (i in 1:(num.layers-1)){
+            model <- model %>% layer_dense(units = num.units.per.layer,
+                                           activation = "relu")
+        }
+    }
+
+    # Add the output layer. Note that it uses a sigmoid activation function. Make sure you know why.
+    model <- model %>% layer_dense(units = 1, activation = "sigmoid")
+
+    # Print the model description
+    # if (print.model.summary){
+    # 
+    #     summary(model)
+    # }
+
+    #  Specify the learning rate for stochastic gradient descent
+    opt <- optimizer_adam(learning_rate = learning.rate)
+
+    # Compile the model, using binary cross-entropy to define loss. Measure accuracy during training.
+    # Note how easy Keras makes this. Did you have to write any functions for loss or for measuring model
+    # performance during training? No, Keras takes care of all of this for you.
+    model %>% compile(#optimizer = opt,
+                      loss ='binary_crossentropy',
+                      metrics = list('accuracy'))
+
+    # Fit the model
+    history <- model %>% fit(x = Xtrain,
+                             y = Ytrain,
+                             epochs = num_epochs,
+                             batch.size = batch.size,
+    )
+
+    # Predict on testing set
+    pred <- model %>% predict(Xtest)
+    
+    # Return the model and the training history
+    return(list(model = model, history = history, prediction = pred))
+}
+
+list.hyper.param <- list("hyper1" = c(3, 32), "hyper2" = c(3, 64), "hyper3" = c(5, 32))
+
+ann.outputs <- lapply(list.hyper.param, FUN = build_and_train_model, Xtrain, Ytrain, Xtest, lr, ne, bs)
+
+file.name <- paste0(dir.models.output, "output_ANN_07_12.rds")
+saveRDS(ann.outputs, file = file.name, version = 2)
+
+

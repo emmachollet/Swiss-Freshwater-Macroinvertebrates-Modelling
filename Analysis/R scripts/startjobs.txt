@@ -1,1 +1,1 @@
-R --vanilla <ann_model.r &> 06122021_consoleoutput.txt &
+R --vanilla <ann_model.r &> 07122021_consoleoutput.txt &
