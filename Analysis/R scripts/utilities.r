@@ -88,11 +88,11 @@ center.splits <- function(split,cv){
         #i = 6
         #message(i)
         #Bit ugly good, check that the indices are right (i.e. the ones for the env data)
-        training.data[i+2] <- as.matrix(training.data[i+2]) - mean.env.cond[i]
+        training.data[i+4] <- as.matrix(training.data[i+4]) - mean.env.cond[i]
     }
     for(i in 1:length(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
         #i = 6
-        training.data[i+2] <- as.matrix(training.data[i+2]) / sd.env.cond[i]
+        training.data[i+4] <- as.matrix(training.data[i+4]) / sd.env.cond[i]
     }
     
     if(cv == F){
@@ -111,11 +111,11 @@ center.splits <- function(split,cv){
             #i = 6
             #message(i)
             #Bit ugly good, check that the indices are right (i.e. the ones for the env data)
-            testing.data[i+2] <- as.matrix(testing.data[i+2]) - mean.env.cond[i]
+            testing.data[i+4] <- as.matrix(testing.data[i+4]) - mean.env.cond[i]
         }
         for(i in 1:length(select(testing.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
             #i = 6
-            testing.data[i+2] <- as.matrix(testing.data[i+2]) / sd.env.cond[i]
+            testing.data[i+4] <- as.matrix(testing.data[i+4]) / sd.env.cond[i]
         }
         
         
