@@ -1,0 +1,11 @@
+Summary of invertebrate data processed:
+ Number of records:  117157 
+ Number of stations: 2399 
+ Time span:          2010 - 2019 
+ Altitude range:     195 - 2631 m
+ Phylum:             10 
+ Class:              13 
+ Order:              34 
+ Family:             137 
+ Genus:              241 
+ Species:            337 

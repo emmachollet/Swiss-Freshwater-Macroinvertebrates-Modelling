@@ -1,0 +1,7 @@
+
+> warning.list.BDM.fam
+[[1]]
+NULL
+
+
+> sink()

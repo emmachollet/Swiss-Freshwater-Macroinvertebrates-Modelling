@@ -1,0 +1,1060 @@
+
+> warning.list.BDM
+$Baetis
+$Baetis$case
+[1] "Baetis"
+
+$Baetis$tax.level
+
+  genus species 
+      1      13 
+
+$Baetis$taxa
+            Baetis     Baetis_alpinus   Baetis_buceratus    Baetis_fuscatus  Baetis_liebenauae     Baetis_lutheri   Baetis_melanonyx     Baetis_muticus 
+                 4                609                  9                  1                  3                118                  7                429 
+      Baetis_nexus       Baetis_niger Baetis_nubecularis     Baetis_rhodani Baetis_vardarensis      Baetis_vernus 
+                 3                  4                  1                590                  8                 16 
+
+$Baetis$keeplower
+[1] TRUE
+
+
+$Ecdyonurus
+$Ecdyonurus$case
+[1] "Ecdyonurus"
+
+$Ecdyonurus$tax.level
+
+  genus species 
+      1       5 
+
+$Ecdyonurus$taxa
+           Ecdyonurus    Ecdyonurus_alpinus Ecdyonurus_helveticus    Ecdyonurus_picteti  Ecdyonurus_torrentis    Ecdyonurus_venosus 
+                  197                    47                   249                    97                    42                   125 
+
+$Ecdyonurus$keeplower
+[1] TRUE
+
+
+$Electrogena
+$Electrogena$case
+[1] "Electrogena"
+
+$Electrogena$tax.level
+
+  genus species 
+      1       2 
+
+$Electrogena$taxa
+          Electrogena Electrogena_lateralis  Electrogena_ujhelyii 
+                    1                    15                    70 
+
+$Electrogena$keeplower
+[1] TRUE
+
+
+$Epeorus
+$Epeorus$case
+[1] "Epeorus"
+
+$Epeorus$tax.level
+
+  genus species 
+      1       2 
+
+$Epeorus$taxa
+          Epeorus  Epeorus_alpicola Epeorus_assimilis 
+                3               143               138 
+
+$Epeorus$keeplower
+[1] TRUE
+
+
+$Rhithrogena
+$Rhithrogena$case
+[1] "Rhithrogena"
+
+$Rhithrogena$tax.level
+
+  genus species 
+      1      15 
+
+$Rhithrogena$taxa
+                 Rhithrogena      Rhithrogena_allobrogica        Rhithrogena_alpestris    Rhithrogena_carpatoalpina        Rhithrogena_degrangei 
+                         214                            3                           96                            1                           40 
+         Rhithrogena_dorieri Rhithrogena_gratianopolitana        Rhithrogena_grischuna          Rhithrogena_hybrida           Rhithrogena_landai 
+                          27                           22                           22                           40                            4 
+        Rhithrogena_loyolaea           Rhithrogena_nivata          Rhithrogena_picteti           Rhithrogena_puthzi        Rhithrogena_puytoraci 
+                         136                           41                           95                          109                            1 
+    Rhithrogena_semicolorata 
+                          33 
+
+$Rhithrogena$keeplower
+[1] TRUE
+
+
+$Habroleptoides
+$Habroleptoides$case
+[1] "Habroleptoides"
+
+$Habroleptoides$tax.level
+
+  genus species 
+      1       2 
+
+$Habroleptoides$taxa
+        Habroleptoides Habroleptoides_auberti Habroleptoides_confusa 
+                     1                     96                    262 
+
+$Habroleptoides$keeplower
+[1] TRUE
+
+
+$Habrophlebia
+$Habrophlebia$case
+[1] "Habrophlebia"
+
+$Habrophlebia$tax.level
+
+  genus species 
+      1       3 
+
+$Habrophlebia$taxa
+      Habrophlebia Habrophlebia_eldae Habrophlebia_fusca Habrophlebia_lauta 
+                 1                  3                  3                152 
+
+$Habrophlebia$keeplower
+[1] TRUE
+
+
+$Capnia
+$Capnia$case
+[1] "Capnia"
+
+$Capnia$tax.level
+
+  genus species 
+      1       2 
+
+$Capnia$taxa
+        Capnia Capnia_bifrons   Capnia_vidua 
+             1              6              1 
+
+$Capnia$keeplower
+[1] FALSE
+
+
+$Chloroperla
+$Chloroperla$case
+[1] "Chloroperla"
+
+$Chloroperla$tax.level
+
+  genus species 
+      1       2 
+
+$Chloroperla$taxa
+            Chloroperla Chloroperla_susemicheli Chloroperla_tripunctata 
+                     23                      99                      20 
+
+$Chloroperla$keeplower
+[1] TRUE
+
+
+$Siphonoperla
+$Siphonoperla$case
+[1] "Siphonoperla"
+
+$Siphonoperla$tax.level
+
+  genus species 
+      1       2 
+
+$Siphonoperla$taxa
+           Siphonoperla    Siphonoperla_montana Siphonoperla_torrentium 
+                     11                      51                      74 
+
+$Siphonoperla$keeplower
+[1] TRUE
+
+
+$Leuctra
+$Leuctra$case
+[1] "Leuctra"
+
+$Leuctra$tax.level
+
+  genus species 
+      1      10 
+
+$Leuctra$taxa
+                Leuctra          Leuctra_armata         Leuctra_braueri        Leuctra_hippopus         Leuctra_inermis           Leuctra_major 
+                    653                       3                     138                      13                       8                      45 
+          Leuctra_nigra Leuctra_pseudosignifera       Leuctra_rauscheri         Leuctra_rosinae         Leuctra_schmidi 
+                     73                       1                       1                       5                      13 
+
+$Leuctra$keeplower
+[1] TRUE
+
+
+$Amphinemura
+$Amphinemura$case
+[1] "Amphinemura"
+
+$Amphinemura$tax.level
+
+  genus species 
+      1       2 
+
+$Amphinemura$taxa
+             Amphinemura  Amphinemura_sulcicollis Amphinemura_triangularis 
+                     173                       31                       11 
+
+$Amphinemura$keeplower
+[1] TRUE
+
+
+$Nemoura
+$Nemoura$case
+[1] "Nemoura"
+
+$Nemoura$tax.level
+
+  genus species 
+      1       6 
+
+$Nemoura$taxa
+          Nemoura  Nemoura_cambrica   Nemoura_cinerea  Nemoura_flexuosa Nemoura_marginata    Nemoura_minima   Nemoura_mortoni 
+              444                 2                 3                22                15               173               268 
+
+$Nemoura$keeplower
+[1] TRUE
+
+
+$Protonemura
+$Protonemura$case
+[1] "Protonemura"
+
+$Protonemura$tax.level
+
+  genus species 
+      1       9 
+
+$Protonemura$taxa
+           Protonemura    Protonemura_auberti Protonemura_brevistyla  Protonemura_intricata  Protonemura_lateralis     Protonemura_meyeri Protonemura_nimborella 
+                   334                      4                     83                     71                    273                      4                      3 
+  Protonemura_nimborum    Protonemura_praecox       Protonemura_risi 
+                    65                     11                      1 
+
+$Protonemura$keeplower
+[1] TRUE
+
+
+$Dinocras
+$Dinocras$case
+[1] "Dinocras"
+
+$Dinocras$tax.level
+
+  genus species 
+      1       3 
+
+$Dinocras$taxa
+            Dinocras  Dinocras_cephalotes     Dinocras_ferreri Dinocras_megacephala 
+                   8                   15                    4                    1 
+
+$Dinocras$keeplower
+[1] FALSE
+
+
+$Perla
+$Perla$case
+[1] "Perla"
+
+$Perla$tax.level
+
+  genus species 
+      1       2 
+
+$Perla$taxa
+          Perla   Perla_grandis Perla_marginata 
+             12              54              37 
+
+$Perla$keeplower
+[1] TRUE
+
+
+$Dictyogenus
+$Dictyogenus$case
+[1] "Dictyogenus"
+
+$Dictyogenus$tax.level
+
+  genus species 
+      1       2 
+
+$Dictyogenus$taxa
+        Dictyogenus Dictyogenus_alpinum Dictyogenus_fontium 
+                136                  33                   8 
+
+$Dictyogenus$keeplower
+[1] TRUE
+
+
+$Isoperla
+$Isoperla$case
+[1] "Isoperla"
+
+$Isoperla$tax.level
+
+  genus species 
+      1       4 
+
+$Isoperla$taxa
+           Isoperla Isoperla_carbonaria Isoperla_grammatica     Isoperla_lugens  Isoperla_rivulorum 
+                327                   5                  51                   1                  51 
+
+$Isoperla$keeplower
+[1] TRUE
+
+
+$Perlodes
+$Perlodes$case
+[1] "Perlodes"
+
+$Perlodes$tax.level
+
+  genus species 
+      1       3 
+
+$Perlodes$taxa
+              Perlodes    Perlodes_intricatus    Perlodes_jurassicus Perlodes_microcephalus 
+                     8                     16                      8                     24 
+
+$Perlodes$keeplower
+[1] FALSE
+
+
+$Brachyptera
+$Brachyptera$case
+[1] "Brachyptera"
+
+$Brachyptera$tax.level
+
+  genus species 
+      1       2 
+
+$Brachyptera$taxa
+           Brachyptera       Brachyptera_risi Brachyptera_seticornis 
+                     3                    234                     26 
+
+$Brachyptera$keeplower
+[1] TRUE
+
+
+$Rhabdiopteryx
+$Rhabdiopteryx$case
+[1] "Rhabdiopteryx"
+
+$Rhabdiopteryx$tax.level
+
+  genus species 
+      1       2 
+
+$Rhabdiopteryx$taxa
+         Rhabdiopteryx   Rhabdiopteryx_alpina Rhabdiopteryx_neglecta 
+                    65                      1                      5 
+
+$Rhabdiopteryx$keeplower
+[1] TRUE
+
+
+$Ernodes
+$Ernodes$case
+[1] "Ernodes"
+
+$Ernodes$tax.level
+
+  genus species 
+      1       1 
+
+$Ernodes$taxa
+        Ernodes Ernodes_vicinus 
+              4               2 
+
+$Ernodes$keeplower
+[1] FALSE
+
+
+$Agapetus
+$Agapetus$case
+[1] "Agapetus"
+
+$Agapetus$tax.level
+
+  genus species 
+      1       2 
+
+$Agapetus$taxa
+         Agapetus Agapetus_fuscipes Agapetus_ochripes 
+                3                10                 2 
+
+$Agapetus$keeplower
+[1] FALSE
+
+
+$Silo
+$Silo$case
+[1] "Silo"
+
+$Silo$tax.level
+
+  genus species 
+      1       3 
+
+$Silo$taxa
+            Silo Silo_nigricornis    Silo_pallipes      Silo_piceus 
+              10               16               42                3 
+
+$Silo$keeplower
+[1] TRUE
+
+
+$Hydropsyche
+$Hydropsyche$case
+[1] "Hydropsyche"
+
+$Hydropsyche$tax.level
+
+  genus species 
+      1       9 
+
+$Hydropsyche$taxa
+              Hydropsyche Hydropsyche_angustipennis Hydropsyche_contubernalis      Hydropsyche_dinarica     Hydropsyche_incognita    Hydropsyche_instabilis 
+                      357                         1                         1                         3                         3                        16 
+  Hydropsyche_pellucidula      Hydropsyche_saxonica      Hydropsyche_siltalai        Hydropsyche_tenuis 
+                        1                         2                        86                        21 
+
+$Hydropsyche$keeplower
+[1] TRUE
+
+
+$Stactobia
+$Stactobia$case
+[1] "Stactobia"
+
+$Stactobia$tax.level
+
+  genus species 
+      1       1 
+
+$Stactobia$taxa
+        Stactobia Stactobia_moselyi 
+                7                 1 
+
+$Stactobia$keeplower
+[1] FALSE
+
+
+$Athripsodes
+$Athripsodes$case
+[1] "Athripsodes"
+
+$Athripsodes$tax.level
+
+  genus species 
+      1       2 
+
+$Athripsodes$taxa
+           Athripsodes  Athripsodes_albifrons Athripsodes_bilineatus 
+                     4                      1                      1 
+
+$Athripsodes$keeplower
+[1] FALSE
+
+
+$Mystacides
+$Mystacides$case
+[1] "Mystacides"
+
+$Mystacides$tax.level
+
+  genus species 
+      1       2 
+
+$Mystacides$taxa
+            Mystacides      Mystacides_azurea Mystacides_longicornis 
+                     1                      4                      1 
+
+$Mystacides$keeplower
+[1] FALSE
+
+
+$Drusus
+$Drusus$case
+[1] "Drusus"
+
+$Drusus$tax.level
+
+  genus species 
+      1      10 
+
+$Drusus$taxa
+             Drusus      Drusus_alpinus    Drusus_annulatus   Drusus_biguttatus    Drusus_chrysotus     Drusus_discolor Drusus_melanchaetes       Drusus_mixtus 
+                 19                   5                  54                  40                   1                 145                  20                   2 
+   Drusus_monticola     Drusus_muelleri   Drusus_nigrescens 
+                  7                  11                   9 
+
+$Drusus$keeplower
+[1] TRUE
+
+
+$Halesus
+$Halesus$case
+[1] "Halesus"
+
+$Halesus$tax.level
+
+  genus species 
+      1       2 
+
+$Halesus$taxa
+            Halesus    Halesus_radiatus Halesus_rubricollis 
+                 20                   7                   6 
+
+$Halesus$keeplower
+[1] FALSE
+
+
+$Metanoea
+$Metanoea$case
+[1] "Metanoea"
+
+$Metanoea$tax.level
+
+  genus species 
+      1       2 
+
+$Metanoea$taxa
+            Metanoea Metanoea_flavipennis    Metanoea_rhaetica 
+                   5                   44                   35 
+
+$Metanoea$keeplower
+[1] TRUE
+
+
+$Philopotamus
+$Philopotamus$case
+[1] "Philopotamus"
+
+$Philopotamus$tax.level
+
+  genus species 
+      1       2 
+
+$Philopotamus$taxa
+            Philopotamus Philopotamus_ludificatus  Philopotamus_variegatus 
+                       3                      137                        6 
+
+$Philopotamus$keeplower
+[1] TRUE
+
+
+$Wormaldia
+$Wormaldia$case
+[1] "Wormaldia"
+
+$Wormaldia$tax.level
+
+  genus species 
+      1       2 
+
+$Wormaldia$taxa
+            Wormaldia     Wormaldia_copiosa Wormaldia_occipitalis 
+                   64                     2                     1 
+
+$Wormaldia$keeplower
+[1] TRUE
+
+
+$Plectrocnemia
+$Plectrocnemia$case
+[1] "Plectrocnemia"
+
+$Plectrocnemia$tax.level
+
+  genus species 
+      1       1 
+
+$Plectrocnemia$taxa
+          Plectrocnemia Plectrocnemia_conspersa 
+                    170                       9 
+
+$Plectrocnemia$keeplower
+[1] TRUE
+
+
+$Polycentropus
+$Polycentropus$case
+[1] "Polycentropus"
+
+$Polycentropus$tax.level
+
+  genus species 
+      1       1 
+
+$Polycentropus$taxa
+               Polycentropus Polycentropus_flavomaculatus 
+                          33                            3 
+
+$Polycentropus$keeplower
+[1] FALSE
+
+
+$Lype
+$Lype$case
+[1] "Lype"
+
+$Lype$tax.level
+
+  genus species 
+      1       1 
+
+$Lype$taxa
+        Lype Lype_reducta 
+           3           37 
+
+$Lype$keeplower
+[1] FALSE
+
+
+$Tinodes
+$Tinodes$case
+[1] "Tinodes"
+
+$Tinodes$tax.level
+
+  genus species 
+      1       2 
+
+$Tinodes$taxa
+         Tinodes Tinodes_unicolor  Tinodes_waeneri 
+             205               11                4 
+
+$Tinodes$keeplower
+[1] TRUE
+
+
+$Rhyacophila
+$Rhyacophila$case
+[1] "Rhyacophila"
+
+$Rhyacophila$tax.level
+
+  genus species 
+      1      13 
+
+$Rhyacophila$taxa
+            Rhyacophila  Rhyacophila_aquitanica    Rhyacophila_dorsalis    Rhyacophila_fasciata    Rhyacophila_glareosa Rhyacophila_hirticornis 
+                    300                       1                       2                       4                       9                      56 
+ Rhyacophila_intermedia   Rhyacophila_praemorsa   Rhyacophila_pubescens  Rhyacophila_rectispina  Rhyacophila_simulatrix  Rhyacophila_stigmatica 
+                     38                      13                      19                       7                       2                       7 
+ Rhyacophila_torrentium     Rhyacophila_tristis 
+                     13                     235 
+
+$Rhyacophila$keeplower
+[1] TRUE
+
+
+$Baetidae
+$Baetidae$case
+[1] "Baetidae"
+
+$Baetidae$tax.level
+
+ family   genus species 
+      1       1      15 
+
+$Baetidae$taxa
+             Baetidae                Baetis        Baetis_alpinus      Baetis_buceratus       Baetis_fuscatus     Baetis_liebenauae        Baetis_lutheri 
+                    1                     4                   609                     9                     1                     3                   118 
+     Baetis_melanonyx        Baetis_muticus          Baetis_nexus          Baetis_niger    Baetis_nubecularis        Baetis_rhodani    Baetis_vardarensis 
+                    7                   429                     3                     4                     1                   590                     8 
+        Baetis_vernus Centroptilum_luteolum       Cloeon_dipterum 
+                   16                   128                     4 
+
+$Baetidae$keeplower
+[1] TRUE
+
+
+$Heptageniidae
+$Heptageniidae$case
+[1] "Heptageniidae"
+
+$Heptageniidae$tax.level
+
+ family   genus species 
+      1       4      25 
+
+$Heptageniidae$taxa
+               Heptageniidae                   Ecdyonurus           Ecdyonurus_alpinus        Ecdyonurus_helveticus           Ecdyonurus_picteti 
+                           9                          197                           47                          249                           97 
+        Ecdyonurus_torrentis           Ecdyonurus_venosus                  Electrogena        Electrogena_lateralis         Electrogena_ujhelyii 
+                          42                          125                            1                           15                           70 
+                     Epeorus             Epeorus_alpicola            Epeorus_assimilis         Heptagenia_sulphurea                  Rhithrogena 
+                           3                          143                          138                            3                          214 
+     Rhithrogena_allobrogica        Rhithrogena_alpestris    Rhithrogena_carpatoalpina        Rhithrogena_degrangei          Rhithrogena_dorieri 
+                           3                           96                            1                           40                           27 
+Rhithrogena_gratianopolitana        Rhithrogena_grischuna          Rhithrogena_hybrida           Rhithrogena_landai         Rhithrogena_loyolaea 
+                          22                           22                           40                            4                          136 
+          Rhithrogena_nivata          Rhithrogena_picteti           Rhithrogena_puthzi        Rhithrogena_puytoraci     Rhithrogena_semicolorata 
+                          41                           95                          109                            1                           33 
+
+$Heptageniidae$keeplower
+[1] TRUE
+
+
+$Chloroperlidae
+$Chloroperlidae$case
+[1] "Chloroperlidae"
+
+$Chloroperlidae$tax.level
+
+ family   genus species 
+      1       2       4 
+
+$Chloroperlidae$taxa
+         Chloroperlidae             Chloroperla Chloroperla_susemicheli Chloroperla_tripunctata            Siphonoperla    Siphonoperla_montana 
+                     17                      23                      99                      20                      11                      51 
+Siphonoperla_torrentium 
+                     74 
+
+$Chloroperlidae$keeplower
+[1] TRUE
+
+
+$Leuctridae
+$Leuctridae$case
+[1] "Leuctridae"
+
+$Leuctridae$tax.level
+
+ family   genus species 
+      1       1      10 
+
+$Leuctridae$taxa
+             Leuctridae                 Leuctra          Leuctra_armata         Leuctra_braueri        Leuctra_hippopus         Leuctra_inermis 
+                      9                     653                       3                     138                      13                       8 
+          Leuctra_major           Leuctra_nigra Leuctra_pseudosignifera       Leuctra_rauscheri         Leuctra_rosinae         Leuctra_schmidi 
+                     45                      73                       1                       1                       5                      13 
+
+$Leuctridae$keeplower
+[1] TRUE
+
+
+$Nemouridae
+$Nemouridae$case
+[1] "Nemouridae"
+
+$Nemouridae$tax.level
+
+ family   genus species 
+      1       3      18 
+
+$Nemouridae$taxa
+              Nemouridae              Amphinemura  Amphinemura_sulcicollis Amphinemura_triangularis                  Nemoura         Nemoura_cambrica 
+                     106                      173                       31                       11                      444                        2 
+         Nemoura_cinerea         Nemoura_flexuosa        Nemoura_marginata           Nemoura_minima          Nemoura_mortoni       Nemurella_pictetii 
+                       3                       22                       15                      173                      268                       30 
+             Protonemura      Protonemura_auberti   Protonemura_brevistyla    Protonemura_intricata    Protonemura_lateralis       Protonemura_meyeri 
+                     334                        4                       83                       71                      273                        4 
+  Protonemura_nimborella     Protonemura_nimborum      Protonemura_praecox         Protonemura_risi 
+                       3                       65                       11                        1 
+
+$Nemouridae$keeplower
+[1] TRUE
+
+
+$Perlidae
+$Perlidae$case
+[1] "Perlidae"
+
+$Perlidae$tax.level
+
+ family   genus species 
+      1       2       5 
+
+$Perlidae$taxa
+            Perlidae             Dinocras  Dinocras_cephalotes     Dinocras_ferreri Dinocras_megacephala                Perla        Perla_grandis 
+                  11                    8                   15                    4                    1                   12                   54 
+     Perla_marginata 
+                  37 
+
+$Perlidae$keeplower
+[1] TRUE
+
+
+$Perlodidae
+$Perlodidae$case
+[1] "Perlodidae"
+
+$Perlodidae$tax.level
+
+ family   genus species 
+      1       3      10 
+
+$Perlodidae$taxa
+            Perlodidae       Besdolus_imhoffi            Dictyogenus    Dictyogenus_alpinum    Dictyogenus_fontium               Isoperla    Isoperla_carbonaria 
+                    24                      2                    136                     33                      8                    327                      5 
+   Isoperla_grammatica        Isoperla_lugens     Isoperla_rivulorum               Perlodes    Perlodes_intricatus    Perlodes_jurassicus Perlodes_microcephalus 
+                    51                      1                     51                      8                     16                      8                     24 
+
+$Perlodidae$keeplower
+[1] TRUE
+
+
+$Taeniopterygidae
+$Taeniopterygidae$case
+[1] "Taeniopterygidae"
+
+$Taeniopterygidae$tax.level
+
+ family   genus species 
+      1       2       4 
+
+$Taeniopterygidae$taxa
+      Taeniopterygidae            Brachyptera       Brachyptera_risi Brachyptera_seticornis          Rhabdiopteryx   Rhabdiopteryx_alpina Rhabdiopteryx_neglecta 
+                     2                      3                    234                     26                     65                      1                      5 
+
+$Taeniopterygidae$keeplower
+[1] TRUE
+
+
+$Glossosomatidae
+$Glossosomatidae$case
+[1] "Glossosomatidae"
+
+$Glossosomatidae$tax.level
+
+ family   genus species 
+      1       2       5 
+
+$Glossosomatidae$taxa
+        Glossosomatidae                Agapetus       Agapetus_fuscipes       Agapetus_ochripes     Catagapetus_nigrans              Glossosoma 
+                     12                       3                      10                       2                      12                      80 
+   Synagapetus_dubitans Synagapetus_iridipennis 
+                      5                       5 
+
+$Glossosomatidae$keeplower
+[1] TRUE
+
+
+$Goeridae
+$Goeridae$case
+[1] "Goeridae"
+
+$Goeridae$tax.level
+
+ family   genus species 
+      1       1       5 
+
+$Goeridae$taxa
+        Goeridae     Goera_pilosa     Lithax_niger             Silo Silo_nigricornis    Silo_pallipes      Silo_piceus 
+               5                3               12               10               16               42                3 
+
+$Goeridae$keeplower
+[1] TRUE
+
+
+$Hydroptilidae
+$Hydroptilidae$case
+[1] "Hydroptilidae"
+
+$Hydroptilidae$tax.level
+
+ family   genus species 
+      1       2       1 
+
+$Hydroptilidae$taxa
+    Hydroptilidae        Hydroptila         Stactobia Stactobia_moselyi 
+               11                43                 7                 1 
+
+$Hydroptilidae$keeplower
+[1] TRUE
+
+
+$Lepidostomatidae
+$Lepidostomatidae$case
+[1] "Lepidostomatidae"
+
+$Lepidostomatidae$tax.level
+
+ family species 
+      1       3 
+
+$Lepidostomatidae$taxa
+  Lepidostomatidae Crunoecia_irrorata Lepidostoma_basale Lepidostoma_hirtum 
+                 1                 16                  2                  9 
+
+$Lepidostomatidae$keeplower
+[1] FALSE
+
+
+$Leptoceridae
+$Leptoceridae$case
+[1] "Leptoceridae"
+
+$Leptoceridae$tax.level
+
+ family   genus species 
+      1       2       8 
+
+$Leptoceridae$taxa
+          Leptoceridae            Athripsodes  Athripsodes_albifrons Athripsodes_bilineatus  Ceraclea_annulicornis    Ceraclea_dissimilis             Mystacides 
+                     1                      4                      1                      1                      1                      1                      1 
+     Mystacides_azurea Mystacides_longicornis         Oecetis_notata       Oecetis_testacea 
+                     4                      1                      1                      1 
+
+$Leptoceridae$keeplower
+[1] FALSE
+
+
+$Limnephilidae
+$Limnephilidae$case
+[1] "Limnephilidae"
+
+$Limnephilidae$tax.level
+
+ family   genus species 
+      1       4      30 
+
+$Limnephilidae$taxa
+           Limnephilidae     Allogamus_auricollis                 Anabolia     Anisogamus_difformis       Chaetopteryx_major     Chaetopteryx_villosa 
+                     671                       11                        3                        1                        2                        4 
+   Consorophylax_consors   Cryptothrix_nebulicola                   Drusus           Drusus_alpinus         Drusus_annulatus        Drusus_biguttatus 
+                       5                       52                       19                        5                       54                       40 
+        Drusus_chrysotus          Drusus_discolor      Drusus_melanchaetes            Drusus_mixtus         Drusus_monticola          Drusus_muelleri 
+                       1                      145                       20                        2                        7                       11 
+       Drusus_nigrescens  Ecclisopteryx_guttulata     Ecclisopteryx_madida Glyphotaelius_pellucidus                  Halesus         Halesus_radiatus 
+                       9                        5                       24                        4                       20                        7 
+     Halesus_rubricollis      Limnephilus_lunatus   Melampophylax_melampus   Melampophylax_mucoreus                 Metanoea     Metanoea_flavipennis 
+                       6                        2                        5                       20                        5                       44 
+       Metanoea_rhaetica   Micropterna_nycterobia       Micropterna_sequax  Potamophylax_cingulatus    Stenophylax_permistus 
+                      35                        1                        2                       25                        2 
+
+$Limnephilidae$keeplower
+[1] TRUE
+
+
+$Philopotamidae
+$Philopotamidae$case
+[1] "Philopotamidae"
+
+$Philopotamidae$tax.level
+
+ family   genus species 
+      1       2       4 
+
+$Philopotamidae$taxa
+          Philopotamidae             Philopotamus Philopotamus_ludificatus  Philopotamus_variegatus                Wormaldia        Wormaldia_copiosa 
+                       5                        3                      137                        6                       64                        2 
+   Wormaldia_occipitalis 
+                       1 
+
+$Philopotamidae$keeplower
+[1] TRUE
+
+
+$Polycentropodidae
+$Polycentropodidae$case
+[1] "Polycentropodidae"
+
+$Polycentropodidae$tax.level
+
+ family   genus species 
+      1       3       2 
+
+$Polycentropodidae$taxa
+           Polycentropodidae                Holocentropus                Plectrocnemia      Plectrocnemia_conspersa                Polycentropus 
+                           5                            2                          170                            9                           33 
+Polycentropus_flavomaculatus 
+                           3 
+
+$Polycentropodidae$keeplower
+[1] TRUE
+
+
+$Psychomyiidae
+$Psychomyiidae$case
+[1] "Psychomyiidae"
+
+$Psychomyiidae$tax.level
+
+ family   genus species 
+      1       2       4 
+
+$Psychomyiidae$taxa
+     Psychomyiidae               Lype       Lype_reducta Psychomyia_pusilla            Tinodes   Tinodes_unicolor    Tinodes_waeneri 
+                 1                  3                 37                 14                205                 11                  4 
+
+$Psychomyiidae$keeplower
+[1] TRUE
+
+
+$Rhyacophilidae
+$Rhyacophilidae$case
+[1] "Rhyacophilidae"
+
+$Rhyacophilidae$tax.level
+
+ family   genus species 
+      1       1      13 
+
+$Rhyacophilidae$taxa
+         Rhyacophilidae             Rhyacophila  Rhyacophila_aquitanica    Rhyacophila_dorsalis    Rhyacophila_fasciata    Rhyacophila_glareosa 
+                    271                     300                       1                       2                       4                       9 
+Rhyacophila_hirticornis  Rhyacophila_intermedia   Rhyacophila_praemorsa   Rhyacophila_pubescens  Rhyacophila_rectispina  Rhyacophila_simulatrix 
+                     56                      38                      13                      19                       7                       2 
+ Rhyacophila_stigmatica  Rhyacophila_torrentium     Rhyacophila_tristis 
+                      7                      13                     235 
+
+$Rhyacophilidae$keeplower
+[1] TRUE
+
+
+$Sericostomatidae
+$Sericostomatidae$case
+[1] "Sericostomatidae"
+
+$Sericostomatidae$tax.level
+
+ family   genus species 
+      1       1       1 
+
+$Sericostomatidae$taxa
+  Sericostomatidae Notidobia_ciliaris        Sericostoma 
+                14                  2                270 
+
+$Sericostomatidae$keeplower
+[1] TRUE
+
+
+$Planorbidae
+$Planorbidae$case
+[1] "Planorbidae"
+
+$Planorbidae$tax.level
+
+family  genus 
+     1      1 
+
+$Planorbidae$taxa
+Planorbidae     Ancylus 
+          9          28 
+
+$Planorbidae$keeplower
+[1] FALSE
+
+
+
+> sink()

@@ -1,0 +1,254 @@
+
+> warning.list.ALL
+$Coleoptera
+$Coleoptera$case
+[1] "Coleoptera"
+
+$Coleoptera$tax.level
+
+family  order 
+    14      1 
+
+$Coleoptera$taxa
+    Coleoptera  Chrysomelidae  Curculionidae      Dryopidae     Dytiscidae        Elmidae      Gyrinidae     Haliplidae    Hydraenidae  Hydrophilidae Hydroscaphidae 
+            10              5              3             38            518           2357            264            100            979            100              1 
+   Hygrobiidae    Psephenidae      Scirtidae  Staphylinidae 
+             2              6            606              1 
+
+$Coleoptera$keeplower
+[1] TRUE
+
+
+$Diptera
+$Diptera$case
+[1] "Diptera"
+
+$Diptera$tax.level
+
+family  order 
+    26      1 
+
+$Diptera$taxa
+        Diptera    Anthomyiidae     Athericidae Blephariceridae Ceratopogonidae     Chaoboridae    Chironomidae       Culicidae Cylindrotomidae         Dixidae 
+             10             198            1090             347            1845               8            3046               2               1             267 
+ Dolichopodidae       Empididae      Ephydridae      Limoniidae        Muscidae      Pediciidae     Psychodidae  Ptychopteridae     Rhagionidae  Scathophagidae 
+             31            2110               8            2631              17             216            1577             132              83              10 
+    Sciomyzidae      Simuliidae   Stratiomyidae       Syrphidae       Tabanidae    Thaumaleidae       Tipulidae 
+             11            2817             518              12             233              86             818 
+
+$Diptera$keeplower
+[1] TRUE
+
+
+$Hemiptera
+$Hemiptera$case
+[1] "Hemiptera"
+
+$Hemiptera$tax.level
+
+family  order 
+     9      1 
+
+$Hemiptera$taxa
+      Hemiptera Aphelocheiridae       Corixidae        Gerridae   Hydrometridae    Mesoveliidae         Nepidae    Notonectidae         Pleidae        Veliidae 
+              4              62              67              23               1              11               6               4               2              25 
+
+$Hemiptera$keeplower
+[1] FALSE
+
+
+$Lepidoptera
+$Lepidoptera$case
+[1] "Lepidoptera"
+
+$Lepidoptera$tax.level
+
+genus order 
+    1     1 
+
+$Lepidoptera$taxa
+Lepidoptera    Acentria 
+          9           1 
+
+$Lepidoptera$keeplower
+[1] FALSE
+
+
+$Odonata
+$Odonata$case
+[1] "Odonata"
+
+$Odonata$tax.level
+
+family  order 
+     9      1 
+
+$Odonata$taxa
+         Odonata        Aeshnidae   Calopterygidae   Coenagrionidae Cordulegastridae      Corduliidae        Gomphidae         Lestidae     Libellulidae 
+               9                1              236               23              212                4               77                4               12 
+ Platycnemididae 
+              45 
+
+$Odonata$keeplower
+[1] TRUE
+
+
+$Plecoptera
+$Plecoptera$case
+[1] "Plecoptera"
+
+$Plecoptera$tax.level
+
+family  order 
+     7      1 
+
+$Plecoptera$taxa
+      Plecoptera        Capniidae   Chloroperlidae       Leuctridae       Nemouridae         Perlidae       Perlodidae Taeniopterygidae 
+               2              329              530             2058             2137              434             1321             1359 
+
+$Plecoptera$keeplower
+[1] TRUE
+
+
+$Trichoptera
+$Trichoptera$case
+[1] "Trichoptera"
+
+$Trichoptera$tax.level
+
+family  order 
+    20      1 
+
+$Trichoptera$taxa
+      Trichoptera         Beraeidae   Brachycentridae         Ecnomidae   Glossosomatidae          Goeridae   Helicopsychidae    Hydropsychidae     Hydroptilidae 
+                1                18                39                 2               364               294                 6              2107               482 
+ Lepidostomatidae      Leptoceridae     Limnephilidae        Molannidae     Odontoceridae    Philopotamidae      Phryganeidae Polycentropodidae     Psychomyiidae 
+              189               238              2538                 1               751               275                 5               796              1046 
+   Ptilocolepidae    Rhyacophilidae  Sericostomatidae 
+                7              2456               861 
+
+$Trichoptera$keeplower
+[1] TRUE
+
+
+$Hirudinea
+$Hirudinea$case
+[1] "Hirudinea"
+
+$Hirudinea$tax.level
+
+  class  family species 
+      1       4       1 
+
+$Hirudinea$taxa
+          Hirudinea       Erpobdellidae Haemopis_sanguisuga         Hirudinidae     Glossiphoniidae        Piscicolidae 
+                  6                 655                   1                   1                 345                  29 
+
+$Hirudinea$keeplower
+[1] TRUE
+
+
+$Oligochaeta
+$Oligochaeta$case
+[1] "Oligochaeta"
+
+$Oligochaeta$tax.level
+
+  class  family species 
+      1       4       1 
+
+$Oligochaeta$taxa
+          Oligochaeta Haplotaxis_gordioides         Lumbriculidae           Lumbricidae              Naididae           Tubificidae 
+                 2687                     5                    92                   187                    20                    40 
+
+$Oligochaeta$keeplower
+[1] TRUE
+
+
+$Arachnida
+$Arachnida$case
+[1] "Arachnida"
+
+$Arachnida$tax.level
+
+class order 
+    1     1 
+
+$Arachnida$taxa
+  Arachnida Prostigmata 
+        257        1655 
+
+$Arachnida$keeplower
+[1] TRUE
+
+
+$Gastropoda
+$Gastropoda$case
+[1] "Gastropoda"
+
+$Gastropoda$tax.level
+
+ class family 
+     1      8 
+
+$Gastropoda$taxa
+ Gastropoda  Valvatidae Bithyniidae Hydrobiidae   Neritidae Acroloxidae  Lymnaeidae    Physidae Planorbidae 
+          1          61          53         436           2           5         666         186         426 
+
+$Gastropoda$keeplower
+[1] TRUE
+
+
+$Nematomorpha
+$Nematomorpha$case
+[1] "Nematomorpha"
+
+$Nematomorpha$tax.level
+
+family phylum 
+     1      1 
+
+$Nematomorpha$taxa
+Nematomorpha    Gordiidae 
+           7            2 
+
+$Nematomorpha$keeplower
+[1] FALSE
+
+
+$Platyhelminthes
+$Platyhelminthes$case
+[1] "Platyhelminthes"
+
+$Platyhelminthes$tax.level
+
+family phylum 
+     3      1 
+
+$Platyhelminthes$taxa
+Platyhelminthes  Dendrocoelidae      Dugesiidae     Planariidae 
+             17              46             682             969 
+
+$Platyhelminthes$keeplower
+[1] TRUE
+
+
+$Porifera
+$Porifera$case
+[1] "Porifera"
+
+$Porifera$tax.level
+
+family phylum 
+     1      1 
+
+$Porifera$taxa
+    Porifera Spongillidae 
+           5            2 
+
+$Porifera$keeplower
+[1] FALSE
+
+
+
+> sink()
