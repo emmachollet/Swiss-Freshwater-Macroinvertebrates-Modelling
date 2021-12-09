@@ -420,11 +420,11 @@ plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
         
       for (k in 1:no.env.fact) {
         print(paste("Producing PDP of", k, env.fact[k], "for", j,  list.taxa[j]))
-        temp.df <- data.frame(pdp::partial(outputs[[1]][[j]][["Trained model"]], pred.var = env.fact[k])[,env.fact[k]])
+        temp.df <- data.frame(pdp::partial(outputs[[1]][[j]][["Trained model"]][["finalModel"]], pred.var = env.fact[k])[,env.fact[k]])
         colnames(temp.df) <- "value"
         temp.df$factor <- env.fact[k]
         for (l in 1:no.algo){ 
-        temp.df[,list.algo[l]] <- pdp::partial(outputs[[l]][[j]][["Trained model"]], pred.var = env.fact[k])[,"yhat"]
+        temp.df[,list.algo[l]] <- pdp::partial(outputs[[l]][[j]][["Trained model"]][["finalModel"]], pred.var = env.fact[k])[,"yhat"]
         }
         temp.df <- gather(temp.df, key = model, value = fct, -value, - factor)
         plot.data <- union(plot.data,temp.df)
@@ -456,9 +456,10 @@ plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
       names(temp.list.plots) <- env.fact  
       
       for (k in 1:no.env.fact) {
-        plot.title <- paste("PDP of", env.fact[k])
+          print(paste("Producing PDP of", k, env.fact[k], "for", j,  list.taxa[j]))
+          plot.title <- paste("PDP of", env.fact[k])
         
-        p <- partial(outputs[[algo]][[j]][["Trained model"]], pred.var = env.fact[k])
+        p <- partial(outputs[[algo]][[j]][["Trained model"]][["finalModel"]], pred.var = env.fact[k])
         p <- autoplot(p, smooth = TRUE, ylab = paste("f(", env.fact[k], ")")) +
           theme_light() +
           ggtitle(plot.title)
@@ -541,7 +542,7 @@ plot.ice <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
         for (k in 1:no.env.fact) {
           plot.title <- paste("ICE of", env.fact[k])
           
-          p <- partial(outputs[[l]][[j]][["Trained model"]], pred.var = env.fact[k], ice = TRUE, alpha = 0.5)
+          p <- partial(outputs[[l]][[j]][["Trained model"]], pred.var = env.fact[k], ice = TRUE, alpha = 0.1)
           p <- autoplot(p, smooth = TRUE, ylab = paste("f(", env.fact[k], ")")) +
             theme_light() +
             ggtitle(plot.title)
@@ -567,7 +568,7 @@ plot.ice <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
             print(paste("Producing ICE of", k, env.fact[k], "for", j,  list.taxa[j]))
             plot.title <- paste("ICE of", env.fact[k])
           
-          p <- partial(outputs[[algo]][[j]][["Trained model"]], pred.var = env.fact[k], ice = TRUE, alpha = 0.5)
+          p <- partial(outputs[[algo]][[j]][["Trained model"]], pred.var = env.fact[k], ice = TRUE, alpha = 0.1)
           p <- autoplot(p, smooth = TRUE, ylab = paste("f(", env.fact[k], ")")) +
             theme_light() +
             ggtitle(plot.title) +
@@ -585,21 +586,18 @@ plot.ice <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
   return(list.plots)
 }
 
-map.ml.pred.taxa <- function(inputs, outputs, list.taxa, list.algo, algo = list.algo[1], data.env){
-    
-    list.plots <- vector(mode = 'list', length = length(list.taxa))
-    names(list.plots) <- list.taxa
-    
-    for(j in 1:length(list.taxa)){
+
+map.ml.pred.taxa <- function(taxa, inputs, outputs, list.algo, algo = list.algo[1]){
         
-        taxon <- sub("Occurrence.", "", list.taxa[j])
+        taxon <- sub("Occurrence.", "", taxa)
         cat("Constructing ggplot for:", taxon, "\n")
         
-        plot.data <- outputs[[algo]][[list.taxa[j]]][["Observation testing set"]]
-        plot.data$pred <- outputs[[algo]][[list.taxa[j]]][["Prediction probabilities testing set"]][,"present"]
+        plot.data <- outputs[[algo]][[taxa]][["Observation testing set"]]
+        plot.data$pred <- outputs[[algo]][[taxa]][["Prediction probabilities testing set"]][,"present"]
+        # plot.data <- na.omit(plot.data)
         
-        plot.data <- plot.data %>%
-            left_join(data.env[, c("SiteId", "SampId", "X", "Y")], by = c("SiteId", "SampId"))
+        # plot.data <- plot.data %>%
+        # left_join(data.env[, c("SiteId", "SampId", "X", "Y")], by = c("SiteId", "SampId"))
         
         
         # Map geometries
@@ -607,10 +605,10 @@ map.ml.pred.taxa <- function(inputs, outputs, list.taxa, list.algo, algo = list.
         g <- g + geom_sf(data = inputs$ch, fill=NA, color="black")
         g <- g + geom_sf(data = inputs$rivers.major, fill=NA, color="lightblue", show.legend = FALSE)
         g <- g + geom_sf(data = inputs$lakes.major, fill="lightblue", color="lightblue", show.legend = FALSE)
-        g <- g + geom_point(data = plot.data, aes(X, Y, size = pred, 
-                                                  color = plot.data[,list.taxa[j]]), 
+        g <- g + geom_point(data = plot.data, aes(plot.data[,"X"], plot.data[,"Y"], size = plot.data[,"pred"], 
+                                                  color = plot.data[,taxa]), 
                             alpha =0.7) #alpha = Alpha, color = Obs, stroke = Stroke, shape = Shape))
-
+        
         # Configure themes and labels
         g <- g + theme_void()
         g <- g + theme(plot.title = element_text(size = 16),#, hjust = 0.5),
@@ -633,26 +631,21 @@ map.ml.pred.taxa <- function(inputs, outputs, list.taxa, list.algo, algo = list.
         g <- g + scale_color_manual(values=c(absent = "#c2141b", present = "#007139"), labels=c("Absence", "Presence"))
         g <- g + scale_shape_identity() # Plot the shape according to the data
         
-        list.plots[[j]] <- g
-    }
-    return(list.plots)
+        
+    return(g)
+    
 }
 
-response.ml.pred.taxa <- function(outputs, list.algo, list.taxa, env.fact, algo = list.algo[1]){
+response.ml.pred.taxa <- function(taxa, outputs, list.algo, env.fact, algo = list.algo[1]){
     
-    list.plots <- vector(mode = 'list', length = length(list.taxa))
-    names(list.plots) <- list.taxa
-    
-    for(j in 1:length(list.taxa)){
-        
-        taxon <- sub("Occurrence.", "", list.taxa[j])
+        taxon <- sub("Occurrence.", "", taxa)
         cat("Constructing ggplot for:", taxon, "\n")
         
-        plot.data <- outputs[[algo]][[list.taxa[j]]][["Observation testing set"]]
-        plot.data$pred <- outputs[[algo]][[list.taxa[j]]][["Prediction probabilities testing set"]][,"present"]
-        plot.data <- gather(plot.data, key = factors, value = value, -SiteId, -SampId, -X, -Y, -list.taxa[j], -pred)
+        plot.data <- outputs[[algo]][[taxa]][["Observation testing set"]]
+        plot.data$pred <- outputs[[algo]][[taxa]][["Prediction probabilities testing set"]][,"present"]
+        plot.data <- gather(plot.data, key = factors, value = value, -SiteId, -SampId, -X, -Y, -taxa, -pred)
         
-        g <- ggplot(data = plot.data, aes(x = value, y = pred, color = plot.data[,list.taxa[j]]))
+        g <- ggplot(data = plot.data, aes(x = value, y = pred, color = plot.data[,taxa]))
         
         g <- g + geom_point(alpha = 0.35)
         g <- g + theme_bw(base_size=15)
@@ -670,7 +663,6 @@ response.ml.pred.taxa <- function(outputs, list.algo, list.taxa, env.fact, algo 
                        plot.title = element_text(size=10))
         g <- g + ylim(0,1)
         g <- g + guides(colour = guide_legend(override.aes = list(size=6)))
-        list.plots[[j]] <- g
-    }
-    return(list.plots)
+       
+    return(g)
 }

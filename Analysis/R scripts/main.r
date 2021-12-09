@@ -37,6 +37,7 @@ if ( !require("rstan") ) { install.packages("rstan"); library("rstan") } # to re
 # ml
 if ( !require("caret") ) { install.packages("caret"); library("caret") } # comprehensive framework to build machine learning models
 if ( !require("mgcv") ) { install.packages("mgcv"); library("mgcv") } # to run generalized additive model (GAM) algorithm
+if ( !require("gam") ) { install.packages("gam"); library("gam") } # to run generalized additive model (GAM) algorithm
 # if ( !require("fastAdaboost") ) { install.packages("fastAdaboost"); library("fastAdaboost") } # to run adaboost ml algorithm
 if ( !require("kernlab") ) { install.packages("kernlab"); library("kernlab") } # to run support vector machine (svm) algorithm
 # if ( !require("earth") ) { install.packages("earth"); library("earth") } # to run MARS ml algorithm
@@ -221,8 +222,8 @@ print(paste(sum(!ind),"sites/samples excluded because of incomplete influence fa
 # Select models to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
 list.algo <- c("#030AE8" = 'glm', # Random Forest
-               "#048504" = 'bam', # Generalized Additive Model using splines
-               # "#948B8B" = 'adaboost',
+               # "#048504" = 'bam', # Generalized Additive Model using splines
+               "#948B8B" = 'gamSpline',
                # 'earth', # MARS: Multivariate Adaptive Regression Splines
                # "#A84E05" = 'elm', # Extreme Learning Machine (Neural Network)
                # 'bayesglm') #, # Bayesian Generalized Linear Model
@@ -310,6 +311,10 @@ centered.splits.factors <- lapply(centered.splits, function(split){
   )
   })
 
+## ---- APPLY MODELS ----
+
+ # :)
+
 ## ---- Apply stat model ----
 
 # read in results produced by Jonas
@@ -358,7 +363,7 @@ ptm <- proc.time() # to calculate time of simulation
 # "Apply" null model
 null.model <- apply.null.model(data = data, list.taxa = list.taxa, prev.inv = prev.inv)
 
-file.name <- paste0(dir.models.output, "output_glm_rf_gam_test_06_12.rds")
+file.name <- paste0(dir.models.output, "output_glm_rf_gamSpline_22taxa.rds")
 
 # file.name <- paste0("Q:/Abteilungsprojekte/siam/Jonas Wydler/Swiss-Freshwater-Macroinvertebrates-Modelling/Analysis/Intermediate results/Trained models/", no.algo, "MLAlgoTrained.rds")
 
@@ -386,6 +391,8 @@ if (file.exists(file.name) == T ){
     cat("Saving outputs of algorithms in", file.name)
     saveRDS(outputs, file = file.name, version = 2)
 }
+
+# test.gam <- apply.ml.model(splitted.data = centered.splits.factors[[1]], list.algo = c("gamSpline"), list.taxa = list.taxa[1], env.fact = env.fact)
 
 print(paste("Simulation time of different models ", info.file.name))
 print(proc.time()-ptm)
@@ -420,7 +427,9 @@ print(proc.time()-ptm)
 ptm <- proc.time() # to calculate time of pdf production
 
 # Compute plots
-list.plots <- plot.perf.hyperparam(outputs = outputs, list.algo = list.algo, list.taxa = list.taxa)
+list.plots <- plot.perf.hyperparam(outputs = outputs, 
+                                   list.algo = list.algo[2:length(list.algo)], # GLM algo doesn't have hyperparameters
+                                   list.taxa = list.taxa)
 
 # Print the plots in a pdf file
 file.name <- "PerfvsHyperparam.pdf"
@@ -494,6 +503,8 @@ for(l in 1:no.algo){
 # DON'T WORK FROM HERE ####
 ## ---- Plot PDP ----
 
+source("plot_functions.r")
+
 ptm <- proc.time() # to calculate time of simulation
 
 # PDP of one model
@@ -506,7 +517,7 @@ ptm <- proc.time() # to calculate time of simulation
 # PDP of all models
 # We sub-select taxa and env.fact because it takes a lot of time
 list.plots <- plot.pdp(outputs = outputs, list.algo = list.algo,
-                       list.taxa = list.taxa[1:2], env.fact = env.fact)
+                       list.taxa = list.taxa, env.fact = env.fact)
 
 file.name <- "allPDP.pdf"
 print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
@@ -519,7 +530,7 @@ print(proc.time()-ptm)
 ptm <- proc.time() # to calculate time of simulation
 
 # ICE of one model
-list.plots <- plot.ice(outputs = outputs, algo = 'rf', list.algo = list.algo,
+list.plots <- plot.ice(outputs = outputs, algo = list.algo[2], list.algo = list.algo,
                        list.taxa = list.taxa[1:2], env.fact = env.fact[1:2])
 
 file.name <- "ICE.pdf"
@@ -554,14 +565,14 @@ print("salut")
 
 ## ---- Plot map prediction ----
 
+source("plot_functions.r")
+
 ptm <- proc.time() # to calculate time of pdf production
 
-map.inputs <- map.inputs(dir.env.data = dir.env.data, data.env = data.env)
+inputs <- map.inputs(dir.env.data = dir.env.data, data.env = data.env)
 
 # make a list with all plots and plot them in a pdf
-list.plots <- map.ml.pred.taxa(inputs = map.inputs, outputs = outputs,
-                               data.env = data.env, # for now it needs data.env to bind columns X and Y, but maybe delete later
-                               list.taxa = list.taxa, list.algo = list.algo,)
+list.plots <- lapply(list.taxa, FUN = map.ml.pred.taxa, inputs, outputs, algo = list.algo[3], list.algo)
 
 file.name <- "ObsvsPred_map.pdf"
 print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
@@ -573,12 +584,16 @@ print(proc.time()-ptm)
 
 ptm <- proc.time() # to calculate time of pdf production
 
-# source("plot_functions.r")
-list.plots <- response.ml.pred.taxa(outputs = outputs, list.algo = list.algo,
-                              list.taxa = list.taxa, env.fact = env.fact)
+# select an algorithm to plot
+algo <- list.algo[1]
 
-file.name <- "Resp_EnvFactvsTax.pdf"
+# make a list with all plots and plot them in a pdf
+list.plots <- lapply(list.taxa, FUN = response.ml.pred.taxa, outputs, list.algo, env.fact, algo)
+
+
+file.name <- paste0(algo, "_Resp_EnvFactvsTax.pdf")
 print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 print("Producing PDF time:")
 print(proc.time()-ptm)
+
