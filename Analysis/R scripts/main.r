@@ -227,7 +227,7 @@ list.algo <- c("#030AE8" = 'glm', # Random Forest
                # 'earth', # MARS: Multivariate Adaptive Regression Splines
                # "#A84E05" = 'elm', # Extreme Learning Machine (Neural Network)
                # 'bayesglm') #, # Bayesian Generalized Linear Model
-               # "#DB1111" = 'svmRadial', # Support Vector Machine
+               "#DB1111" = 'svmRadial', # Support Vector Machine
                "#790FBF" = 'rf') # Random Forest
 
 # Assemble information to insert in file names
@@ -392,10 +392,10 @@ if (file.exists(file.name) == T ){
     saveRDS(outputs, file = file.name, version = 2)
 }
 
-# test.gam <- apply.ml.model(splitted.data = centered.splits.factors[[1]], list.algo = c("gamSpline"), list.taxa = list.taxa[1], env.fact = env.fact)
-
 print(paste("Simulation time of different models ", info.file.name))
 print(proc.time()-ptm)
+
+# COMMENT FROM HERE ####
 
 # Training GAM bam for 6 taxa: 5 hours
 
@@ -403,6 +403,35 @@ print(proc.time()-ptm)
 # source("plot_functions.r")
 # rm(list=ls())
 # graphics.off()
+
+# make mean over splits for final cross validation
+outputs.cv <- vector(mode = "list", length = length(list.algo))
+names(outputs.cv) <- list.algo
+
+for (l in 1:no.algo) {
+    
+    temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
+    names(temp.list.st.dev) <- list.taxa
+    
+    for( j in 1:no.taxa){
+        
+        temp.vect <- vector(mode ="numeric", length = length(saved.outputs)) 
+        for (n in 1:length(saved.outputs)) {
+            temp.vect[n] <- saved.outputs[[n]][[l]][[j]][["Performance testing set"]]
+        }
+        temp.list.st.dev[[j]] <- mean(temp.vect)
+    }
+
+    outputs.cv[[l]] <- temp.list.st.dev
+}
+# outputs.cv
+
+# plot it
+list.plots <- model.comparison.cv(outputs = outputs, outputs.cv = outputs.cv, null.model = null.model, list.algo = list.algo, list.taxa = list.taxa, prev.inv = prev.inv)
+
+file.name <- "ModelsComparCV.pdf"
+print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
 
 ## ---- Plot models comparison ----
 
