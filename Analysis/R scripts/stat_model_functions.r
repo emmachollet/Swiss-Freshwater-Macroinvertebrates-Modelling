@@ -1,10 +1,34 @@
 stat_mod_cv <- function (data.splits, cv, comm.corr){
+    #comm.corr <- T
+    #cv <- T
+    # global parameters ####
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    site.effects    <- F
+    n.latent        <- 0
+    lat.site        <- F
+    
+    frac.occ.lat    <- 0   # taxa only considered for latent variable if relative frequency of occurrence > frac.occ.lat
+    
+    generate.res    <- F
+    
+    sampsize        <- 40 #10000
+    thin            <- 5 #
+    n.chain         <- 1 #2
+    prob.defpri     <- 0.02
+    thresh.sig      <- 1
+    fact.sd         <- 1  
+  
+    
     #data.splits <- centered.splits[[1]] # to test
-    output <- list("deviance" = tibble(), "probability" = tibble(), "parameters" = tibble())
-    env.cond <- data.splits[[1]]
-    occur.taxa <- data.splits[[2]]
+    training.data <- data.splits[[1]]
+    
+    inv.names <- colnames(select(training.data, SiteId, SampId, contains("Occurrence.group."), contains("Occurrence.")))
+    env.names <- colnames(select(training.data, colnames(training.data), -contains("Occurrence.group."), -contains("Occurrence.")))
+    
+    env.cond <- training.data[,env.names]
+    occur.taxa <- training.data[,inv.names]
     # comm.corr = comm.corr
-    inf.fact <- colnames(select(env.cond.orig, -SiteId, -SampId))
+    inf.fact <- colnames(select(env.cond, -SiteId, -SampId, -X, -Y))
     # 
     # # join the environmental conditions to the occurrence data
     # env.cond <- left_join(occur.taxa[, c("SiteId", "SampId")], env.cond.orig, by = c("SiteId", "SampId"))
