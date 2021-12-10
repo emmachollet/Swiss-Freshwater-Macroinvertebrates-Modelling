@@ -46,6 +46,7 @@ if ( !require("randomForest") ) { install.packages("randomForest"); library("ran
 # if ( !require("keras") ) { devtools::install_github("rstudio/keras"); library("keras") } # to run Neural Networks
 # if ( !require("tensorflow") ) { devtools::install_github("rstudio/tensorflow"); library("tensorflow") } # to run Neural Networks
 # use_condaenv("r-tensorflow")
+if ( !require("parallel") ) { install.packages("parallel"); library("parallel") } # to run support vector machine (svm) algorithm
 
 # # ANN
 # 
@@ -221,15 +222,15 @@ print(paste(sum(!ind),"sites/samples excluded because of incomplete influence fa
 
 # Select models to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
-list.algo <- c(#"#030AE8" = 'glm', # Random Forest
+list.algo <- c("#030AE8" = 'glm', # Random Forest
               #"#048504" = 'bam', # Generalized Additive Model using splines
-               "#948B8B" = 'gamSpline'#,
+               "#948B8B" = 'gamSpline',#
                # 'earth', # MARS: Multivariate Adaptive Regression Splines
                # "#A84E05" = 'elm', # Extreme Learning Machine (Neural Network)
                # 'bayesglm') #, # Bayesian Generalized Linear Model
-               #"#DB1111" = 'svmRadial', # Support Vector Machine
-               #"#790FBF" = 'rf') # Random Forest
-)
+               "#DB1111" = 'svmRadial', # Support Vector Machine
+               "#790FBF" = 'rf') # Random Forest
+
 # Assemble information to insert in file names
 no.env.fact <- length(env.fact)
 no.taxa <- length(list.taxa)
