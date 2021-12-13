@@ -95,7 +95,7 @@ if( BDM == TRUE){
 }
 
 # set if we want to fit models to whole dataset or perform cross-validation (CV)
-CV <- F
+CV <- T
 
 # set date for file names
 d <- Sys.Date()    # e.g. 2021-12-17
@@ -349,7 +349,7 @@ if (file.exists(file.name) == T ){
     # centered.splits <- lapply(splits, FUN = center.splits, cv = T)
     # 
     # #b) Cross validation, no comm corr
-    #res.3 <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = F)
+    #stat_cv_nocorr_res <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = F)
     # 
     # #b) Cross validation, comm corr
     # res.4 <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = T)
@@ -358,6 +358,29 @@ if (file.exists(file.name) == T ){
     # saveRDS(stat.outputs, file = file.name)
     
 }
+
+# ## ---- Process output from stat models ----
+
+#exract neeeded output (std.deviance from the testing set in this case) from the output of the stat models.
+stat_cv_nocorr <- stat.outputs
+stat_cv_nocorr_res <- lapply(stat_cv_nocorr, function(split){
+  #split <- stat_cv_nocorr[[1]]
+  dev_temp <- split[[2]]$deviance
+  dev_temp$std.deviance <- dev_temp$std.deviance
+  dev_temp <- dev_temp[c("Taxon", "Type", "std.deviance")]
+  tmp_dev_test <- subset(dev_temp, Type = "Testing")
+  return(tmp_dev_test)
+})
+
+#bind rows for all three splits
+stat_cv_nocorr_res_table <- stat_cv_nocorr_res[[1]]
+for(i in 2:length(stat_cv_nocorr_res)){
+  stat_cv_nocorr_res_table <- rbind(stat_cv_nocorr_res_table, stat_cv_nocorr_res[[i]])
+  
+}
+
+#calculate mean std.deviance across splits
+stat_cv_nocorr_res_table <- as.list(stat_cv_nocorr_res_table %>% group_by(Taxon) %>% summarise(performance = mean(std.deviance, na.rm = T)))
 
 # ML models ####
 
@@ -376,7 +399,7 @@ if (file.exists(file.name) == T ){
     
     if(exists("outputs") == F){
         cat("File with ML outputs already exists, we read it from", file.name, "and save it in object 'outputs'")
-        outputs.CV <- readRDS(file = file.name)
+        outputs <- readRDS(file = file.name)
         }
     else{
         cat("List with ML outputs already exists as object 'outputs' in this environment.")
@@ -448,6 +471,22 @@ if(CV == T){
         outputs.cv[[l]] <- temp.list.st.dev
     }
     # outputs.cv
+    temp.list.stat <- vector(mode = "list", length = length(stat_cv_nocorr_res_table$Taxon))
+    names(temp.list.stat) <- stat_cv_nocorr_res_table$Taxon
+    
+    for( j in 1:length(stat_cv_nocorr_res_table$Taxon)){
+      
+      temp.vect <- vector(mode ="numeric", length = length(stat_cv_nocorr_res_table$Taxon))
+      for (n in 1:length(stat_cv_nocorr_res_table$Taxon)) {
+        temp.list.stat[n] <- stat_cv_nocorr_res_table$performance[[n]]
+      }
+    }
+    FF0 <- as.list(temp.list.stat)
+    FF0 <- FF0[list.taxa]
+    
+    outputs.cv[[5]] <- FF0
+    names(outputs.cv)[[5]] <- "FF0"
+    
     
     # plot it
     list.plots <- model.comparison.cv(outputs = outputs, outputs.cv = outputs.cv, null.model = null.model, list.algo = list.algo, list.taxa = list.taxa, prev.inv = prev.inv)
