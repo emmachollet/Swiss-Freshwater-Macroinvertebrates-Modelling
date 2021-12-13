@@ -448,6 +448,21 @@ if(CV == T){
         outputs.cv[[l]] <- temp.list.st.dev
     }
     # outputs.cv
+    temp.list.stat <- vector(mode = "list", length = length(stat_cv_nocorr_res_table$Taxon))
+    names(temp.list.stat) <- stat_cv_nocorr_res_table$Taxon
+    
+    for( j in 1:length(stat_cv_nocorr_res_table$Taxon)){
+      
+      temp.vect <- vector(mode ="numeric", length = length(stat_cv_nocorr_res_table$Taxon))
+      for (n in 1:length(saved.outputs)) {
+        temp.vect[n] <- stat_cv_nocorr_res_table$performance[[n]]
+      }
+      temp.list.stat[[j]] <- mean(temp.vect)
+    }
+    FF0 <- as.list(temp.list.stat)
+    outputs.cv[[5]] <- FF0
+    names(outputs.cv)[[5]] <- "FF0"
+    
     
     # plot it
     list.plots <- model.comparison.cv(outputs = outputs, outputs.cv = outputs.cv, null.model = null.model, list.algo = list.algo, list.taxa = list.taxa, prev.inv = prev.inv)
