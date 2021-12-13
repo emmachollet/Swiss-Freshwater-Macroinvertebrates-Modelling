@@ -438,6 +438,8 @@ plot.perf.hyperparam <- function(outputs, list.algo, list.taxa){
         
         for (l in list.algo){
             
+            print(paste("Computing performance of hyperparameters of", list.algo[l], "for", j, list.taxa[j]))
+            
             # Show how the various iterations of hyperparameter search performed
             temp.list.plots[[l]] <- plot(outputs[[l]][[j]][["Trained model"]], main = l)
             

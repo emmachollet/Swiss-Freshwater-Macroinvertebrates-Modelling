@@ -461,7 +461,7 @@ if(CV == T){
 # Models comparison ####
 
 # saved.outputs <- outputs
-# outputs <- saved.outputs[[1]]
+outputs <- outputs.fit
 # outputs <- outputs2algo[[1]]
 
 ptm <- proc.time() # to calculate time of pdf production
@@ -470,7 +470,7 @@ ptm <- proc.time() # to calculate time of pdf production
 list.plots <- model.comparison(outputs = outputs, null.model = null.model, list.algo = list.algo, list.taxa = list.taxa, prev.inv = prev.inv)
 
 # Print the plots in a pdf file
-file.name <- "ModelsComparFIT.pdf"
+file.name <- "ModelsCompar.pdf"
 print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
@@ -623,7 +623,7 @@ print(proc.time()-ptm)
 print("hey")
 # Stop execution if there is no (prediction on) testing set
 # stopifnot(ratio != 1)
-if( length(outputs[[1]][[1]]) < 7){
+if( length(outputs[[1]][[1]]) < 9){
   break
 }
 print("salut")
