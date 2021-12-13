@@ -94,7 +94,11 @@ if( BDM == TRUE){
     
 }
 
-d <- paste0(Sys.Date(), "_")    # date for file names
+# set if we want to fit models to whole dataset or perform cross-validation (CV)
+CV <- F
+
+# set date for file names
+d <- Sys.Date()    # e.g. 2021-12-17
 
 # Load functions ####
 
@@ -207,9 +211,10 @@ info.file.name <- paste0(file.prefix,
                          no.taxa, "taxa_", 
                          # no.env.fact, "envfact_",
                          no.algo, "algo_",
+                         ifelse(CV, "CV_", "FIT_"),
                          # "trainset", percentage.train.set, 
                          # if( ratio != 1) {split.var}, 
-                         "_")
+                         "")
 
 # Pre-process data ####
 
@@ -361,7 +366,8 @@ ptm <- proc.time() # to calculate time of simulation
 # "Apply" null model
 null.model <- apply.null.model(data = data, list.taxa = list.taxa, prev.inv = prev.inv)
 
-file.name <- paste0(dir.models.output, "output_glm_rf_gamSpline_22taxa.rds")
+file.name <- paste0(list.algo, collapse = "_")
+file.name <- paste0(dir.models.output, file.name,"_", no.taxa, "taxa_", ifelse(CV, "CV_", "FIT_"), d, ".rds")
 
 # file.name <- paste0("Q:/Abteilungsprojekte/siam/Jonas Wydler/Swiss-Freshwater-Macroinvertebrates-Modelling/Analysis/Intermediate results/Trained models/", no.algo, "MLAlgoTrained.rds")
 
@@ -370,7 +376,7 @@ if (file.exists(file.name) == T ){
     
     if(exists("outputs") == F){
         cat("File with ML outputs already exists, we read it from", file.name, "and save it in object 'outputs'")
-        outputs <- readRDS(file = file.name)
+        outputs.CV <- readRDS(file = file.name)
         }
     else{
         cat("List with ML outputs already exists as object 'outputs' in this environment.")
@@ -378,16 +384,30 @@ if (file.exists(file.name) == T ){
 
 } else {
     
-    cat("No ML outputs exist yet, we produce it and save it in", file.name)
+    if(CV == T){
+        cat("No ML outputs exist yet, we produce it and save it in", file.name)
+        
+        # Compute one split after the other
+        outputs <- lapply(centered.splits.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
+        
+        # Compute three splits in paralel (should be run on the server)
+        # outputs <- mclapply(centered.splits.factors, mc.cores = 3, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
+        
+        cat("Saving outputs of algorithms in", file.name)
+        saveRDS(outputs, file = file.name, version = 2)
     
-    # Compute one split after the other
-    outputs <- lapply(centered.splits.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
-    
-    # Compute three splits in paralel (should be run on the server)
-    # outputs <- mclapply(centered.splits.factors, mc.cores = 3, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
-    
-    cat("Saving outputs of algorithms in", file.name)
-    saveRDS(outputs, file = file.name, version = 2)
+        } else {
+        
+        # apply temporary on training data of Split1, later take whole dataset centered etc
+        splitted.data <- list("Training data" =  centered.splits.factors$Split1$`Training data`, "Testing data" = data.frame())
+        
+        outputs.fit <- apply.ml.model(splitted.data = splitted.data, list.algo = list.algo, list.taxa = list.taxa,
+                                      env.fact = env.fact, CV = F)
+        outputs <- outputs.fit
+        cat("Saving outputs of algorithms in", file.name)
+        saveRDS(outputs, file = file.name, version = 2)
+        
+        }
 }
 
 print(paste("Simulation time of different models ", info.file.name))
@@ -405,39 +425,43 @@ print(proc.time()-ptm)
 # graphics.off()
 
 # make mean over splits for final cross validation
-outputs.cv <- vector(mode = "list", length = length(list.algo))
-names(outputs.cv) <- list.algo
 
-for (l in 1:no.algo) {
+if(CV == T){
     
-    temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
-    names(temp.list.st.dev) <- list.taxa
+    outputs.cv <- vector(mode = "list", length = length(list.algo))
+    names(outputs.cv) <- list.algo
     
-    for( j in 1:no.taxa){
+    for (l in 1:no.algo) {
         
-        temp.vect <- vector(mode ="numeric", length = length(saved.outputs)) 
-        for (n in 1:length(saved.outputs)) {
-            temp.vect[n] <- saved.outputs[[n]][[l]][[j]][["Performance testing set"]]
+        temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
+        names(temp.list.st.dev) <- list.taxa
+        
+        for( j in 1:no.taxa){
+            
+            temp.vect <- vector(mode ="numeric", length = length(outputs)) 
+            for (n in 1:length(outputs)) {
+                temp.vect[n] <- outputs[[n]][[l]][[j]][["Performance testing set"]]
+            }
+            temp.list.st.dev[[j]] <- mean(temp.vect)
         }
-        temp.list.st.dev[[j]] <- mean(temp.vect)
+    
+        outputs.cv[[l]] <- temp.list.st.dev
     }
+    # outputs.cv
+    
+    # plot it
+    list.plots <- model.comparison.cv(outputs = outputs, outputs.cv = outputs.cv, null.model = null.model, list.algo = list.algo, list.taxa = list.taxa, prev.inv = prev.inv)
+    
+    file.name <- "ModelsComparCV.pdf"
+    print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
-    outputs.cv[[l]] <- temp.list.st.dev
-}
-# outputs.cv
-
-# plot it
-list.plots <- model.comparison.cv(outputs = outputs, outputs.cv = outputs.cv, null.model = null.model, list.algo = list.algo, list.taxa = list.taxa, prev.inv = prev.inv)
-
-file.name <- "ModelsComparCV.pdf"
-print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-
+    }
 ## ---- PLOTS ----
 
 # Models comparison ####
 
-saved.outputs <- outputs
-outputs <- saved.outputs[[1]]
+# saved.outputs <- outputs
+# outputs <- saved.outputs[[1]]
 # outputs <- outputs2algo[[1]]
 
 ptm <- proc.time() # to calculate time of pdf production
@@ -446,7 +470,7 @@ ptm <- proc.time() # to calculate time of pdf production
 list.plots <- model.comparison(outputs = outputs, null.model = null.model, list.algo = list.algo, list.taxa = list.taxa, prev.inv = prev.inv)
 
 # Print the plots in a pdf file
-file.name <- "ModelsCompar.pdf"
+file.name <- "ModelsComparFIT.pdf"
 print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))

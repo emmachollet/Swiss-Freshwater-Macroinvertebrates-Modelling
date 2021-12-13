@@ -56,7 +56,7 @@ lowest <- function (x, metric, maximize = F){
 }
 
 # Function to apply ML algorithms
-apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.metric = "StandardizedDeviance", ...){
+apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.metric = "StandardizedDeviance", CV = T, ...){
     
     data.train <- splitted.data[["Training data"]]
     data.test <- splitted.data[["Testing data"]]
@@ -75,7 +75,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
         
         # if testing data set exists, create outputs for results on training and testing data sets
         # else only list outputs for training data set
-        if(nrow(data.test)>0){which.set <- c("training set", "testing set")
+        if(CV == T){which.set <- c("training set", "testing set")
         } else {which.set <- c("training set")}
         out <- c("Observation", #1
                  "Prediction factors", #2 
@@ -87,7 +87,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
         
         for (j in 1:length(list.taxa)){
             
-            print(paste("Applying", algorithm, "to", list.taxa[j]))
+            print(paste("Applying", algorithm, "to", j, list.taxa[j]))
     
             temp.list <- vector(mode = 'list', length = length(output.names))
             names(temp.list) <- output.names
@@ -95,10 +95,10 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
             temp.train <- na.omit(data.train[, c("SiteId", "SampId",
                                                  "X", "Y", 
                                                  list.taxa[j], env.fact)]) # create a temporary training dataset with the taxon and env fact, to 
-            temp.test <- na.omit(data.test[, c("SiteId", "SampId",
-                                               "X", "Y", 
-                                               list.taxa[j], env.fact)])
-            temp.sets <- list(temp.train, temp.test)
+            if(CV == T){temp.test <- na.omit(data.test[, c("SiteId", "SampId",
+                                                   "X", "Y", 
+                                                   list.taxa[j], env.fact)])}
+            temp.sets <- ifelse(CV ==T, list(temp.train, temp.test), list(temp.train))
             f <- reformulate(env.fact, list.taxa[j]) # write formula (target variable ~ explanatory variables) to apply the model
             
             # Why is train() better than using the algorithm's fct directly ?
