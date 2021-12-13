@@ -1,21 +1,21 @@
 ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+## 
+## --- "Bridging gap in macroinvertebrates community assembly" -- PhD Project ---
+## 
+##                          --- December 10, 2021 -- 
 ##
-## ---- TRAINING ML MODELS ON INVERTEBRATE AND ENVIRONMENTAL DATA ----
-## 
-## --- "Bridging gap in macroinvertebrates community assembly" -- Project ---
-## 
-## --- December 1, 2021 -- Emma Chollet and Jonas Wydler---
+## --- Emma Chollet, Jonas Wydler, Andreas Scheidegger and Nele Schuwirth ---
 ##
 ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#next two lines are for jonas, dont run these
+
+# next two lines are for jonas, dont run these
 # setwd("Q:/Abteilungsprojekte/siam/Jonas Wydler/Swiss-Freshwater-Macroinvertebrates-Modelling/Analysis/R scripts")
- #.libPaths("C:/Program Files/R/R-4.1.1/library")
+#.libPaths("C:/Program Files/R/R-4.1.1/library")
 
-## ---- PRELIMINARIES ----
+## ---- PACKAGES, DATA & FCTS ----
 
-# Libraries ####
+# Load libraries ####
 
-# Load packages
 # data management
 if ( !require("dplyr") ) { install.packages("dplyr"); library("dplyr") } # to sort, join, merge data
 if ( !require("tidyr") ) { install.packages("tidyr"); library("tidyr") } # to sort, join, merge data
@@ -28,13 +28,13 @@ if ( !require("cowplot") ) { install.packages("cowplot"); library("cowplot") } #
 if ( !require("pdp") ) { install.packages("pdp"); library("pdp") } # to plot partial dependance plots
 if ( !require("gt") ) { install.packages("gt"); library("gt") } # to plot nice tables
 if ( !require("plot.matrix") ) { install.packages("plot.matrix"); library("plot.matrix") } # to plot nice tables
-if(!require(viridis)) {install.packages("viridis", repos="http://cloud.r-project.org"); library(viridis)} # to do even nicer plots
+if ( !require("viridis")) {install.packages("viridis", repos="http://cloud.r-project.org"); library("viridis")} # to do even nicer plots
 if ( !require("sf") ) { install.packages("sf"); library("sf") } # to read layers for map
 
 # stat model
 if ( !require("rstan") ) { install.packages("rstan"); library("rstan") } # to read layers for map
 
-# ml
+# ml algorithms
 if ( !require("caret") ) { install.packages("caret"); library("caret") } # comprehensive framework to build machine learning models
 if ( !require("mgcv") ) { install.packages("mgcv"); library("mgcv") } # to run generalized additive model (GAM) algorithm
 if ( !require("gam") ) { install.packages("gam"); library("gam") } # to run generalized additive model (GAM) algorithm
@@ -43,28 +43,6 @@ if ( !require("kernlab") ) { install.packages("kernlab"); library("kernlab") } #
 # if ( !require("earth") ) { install.packages("earth"); library("earth") } # to run MARS ml algorithm
 if ( !require("randomForest") ) { install.packages("randomForest"); library("randomForest") } # to run random forest (RF)
 # if ( !require("randomForestSRC") ) { install.packages("randomForestSRC"); library("randomForestSRC") } # to run RF and additional features
-# if ( !require("keras") ) { devtools::install_github("rstudio/keras"); library("keras") } # to run Neural Networks
-# if ( !require("tensorflow") ) { devtools::install_github("rstudio/tensorflow"); library("tensorflow") } # to run Neural Networks
-# use_condaenv("r-tensorflow")
-
-# # ANN
-# 
-# # just needed once
-# install.packages("reticulate")
-# library("reticulate")
-# install_miniconda()
-# 
-# install.packages("tensorflow")
-# library("tensorflow")
-# install_tensorflow()
-# 
-# install.packages("keras")
-# library("keras")
-# install_keras()
-
-## Run this to prompt miniconda installation request!
-## If no request is prompted, you're ready to start coding! Else, press "n".
-# set_random_seed(0)
 
 # Check and set working directory
 getwd() # show working directory
@@ -179,11 +157,10 @@ env.fact <- env.fact[which(env.fact %in% colnames(data.env))]
 # env.fact[-which(env.fact %in% colnames(data.env))] # which selected factors are not in data.env ?
 # [1] "A.EDO" "F.EDO" are missing
 
-# Standardize env. factors ####
-
-# preproc.data.env <- preProcess(data.env[,c("SiteId", "SampId", env.fact)], method = c("center", "scale")) 
+no.env.fact <- length(env.fact)
 
 # Select taxa ####
+
 cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
 
 all.taxa = F
@@ -201,21 +178,12 @@ if (all.taxa == T){
                                  "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
 }
 
-# Construct main dataset (with inv and env)
-data <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact)] %>%
-  left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
-dim(data)
+no.taxa <- length(list.taxa)
 
-# Pre-process data ####
-# drop rows with incomplete influence factors: 
-# inv.names <- colnames(select(data, contains("Occurrence.group."), contains("Occurrence.")))
-# env.names <- colnames(select(data, - all_of(inv.names)))
-ind <- !apply(is.na(data[,env.fact]),1,FUN=any)
-ind <- ifelse(is.na(ind),FALSE,ind)
-data <- data[ind,]
-print(paste(sum(!ind),"sites/samples excluded because of incomplete influence factors"))
-
-# - - - - 
+# Summary of prevalence of chosen taxa
+for ( i in 1:no.taxa){
+    cat("Summary of absence, presence and NA for", list.taxa[i], ":", summary(data.inv[, list.taxa[i]]), "\n")
+}
 
 # Select ml algorithms ####
 
@@ -230,9 +198,6 @@ list.algo <- c("#030AE8" = 'glm', # Random Forest
                "#DB1111" = 'svmRadial', # Support Vector Machine
                "#790FBF" = 'rf') # Random Forest
 
-# Assemble information to insert in file names
-no.env.fact <- length(env.fact)
-no.taxa <- length(list.taxa)
 no.algo <- length(list.algo)
 
 # Write information for file names
@@ -240,16 +205,24 @@ no.algo <- length(list.algo)
 info.file.name <- paste0(file.prefix, 
                          # d, # don't need to include the date
                          no.taxa, "taxa_", 
-                         no.env.fact, "envfact_",
+                         # no.env.fact, "envfact_",
                          no.algo, "algo_",
                          # "trainset", percentage.train.set, 
                          # if( ratio != 1) {split.var}, 
                          "_")
 
-# Summary of prevalence of chosen taxa
-for ( i in 1:no.taxa){
-    cat("Summary of absence, presence and NA for", list.taxa[i], ":", summary(data[, list.taxa[i]]), "\n")
-}
+# Pre-process data ####
+
+# Construct main dataset (with inv and env)
+data <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact)] %>%
+    left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
+dim(data)
+
+# drop rows with incomplete influence factorls
+ind <- !apply(is.na(data[,env.fact]),1,FUN=any)
+ind <- ifelse(is.na(ind),FALSE,ind)
+data <- data[ind,]
+print(paste(sum(!ind),"sites/samples excluded because of incomplete influence factors"))
 
 # Split (and save) data ####
 
@@ -257,18 +230,6 @@ for ( i in 1:no.taxa){
 # ratio <- 0.8 # set a ratio for training dataset (can be 1)
 # split.var <- "random" # data splitted according to this variable (default is "random")
 # splitted.data <- split.data(data = data, training.ratio = ratio, variable = split.var)
-
-
-# folds <- groupKFold(data$SiteId, 3) # create 3 folds, grouped by SiteId
-# 
-# train1 <- data[folds$Fold1,]
-# test1 <- data[-folds$Fold1,]
-# 
-# train2 <- data[folds$Fold2,]
-# test2 <- data[-folds$Fold2,]
-# 
-# train3 <- data[folds$Fold3,]
-# test3 <- data[-folds$Fold3,]
 
 # Split for CV
 file.name <- paste0(dir.workspace,"SplitsForCV_031221.rds")
@@ -296,7 +257,7 @@ centered.splits <- lapply(splits, FUN = center.splits, cv = T)
 
 # Normalize the folds but replace '0' ans '1' by factors
 centered.splits.factors <- lapply(centered.splits, function(split){
-  #split <- centered.splits[[1]]
+    
   return(lapply(split, function(fold){
    
     cind.taxa <- which(grepl("Occurrence.",colnames(fold)))
@@ -309,13 +270,13 @@ centered.splits.factors <- lapply(centered.splits, function(split){
     return(fold)
   })
   )
-  })
+})
 
 ## ---- APPLY MODELS ----
 
  # :)
 
-## ---- Apply stat model ----
+# Statistical models ####
 
 # read in results produced by Jonas
 file.name <- paste0(dir.models.output, "Output25112021.rds")
@@ -334,7 +295,7 @@ if (file.exists(file.name) == T ){
     
     cat("No statistical model outputs exist yet, we produce it and save it in", file.name)
     
-    # #1) No cross validation ####
+    # #1) No cross validation
     # centered.occ.data <- center.splits(list(inv.occ), cv = F)
     # #a) No cross validation, no comm corr
     # res.1 <- stat_mod_cv(data.splits = centered.occ.data, cv = F, comm.corr = F)
@@ -342,7 +303,7 @@ if (file.exists(file.name) == T ){
     # #b) No cross validation, comm corr
     # res.1 <- stat_mod_cv(data.splits = centered.occ.data, cv = F, comm.corr = T)
     # 
-    # #2) Cross validation ####
+    # #2) Cross validation
     # centered.splits <- lapply(splits, FUN = center.splits, cv = T)
     # 
     # #b) Cross validation, no comm corr
@@ -356,7 +317,7 @@ if (file.exists(file.name) == T ){
     
 }
 
-## ---- Apply ML models ----
+# ML models ####
 
 ptm <- proc.time() # to calculate time of simulation
 
@@ -395,7 +356,9 @@ if (file.exists(file.name) == T ){
 print(paste("Simulation time of different models ", info.file.name))
 print(proc.time()-ptm)
 
-# COMMENT FROM HERE ####
+# ANN ####
+
+# read output from ann_model.r, hopefully ...
 
 # Training GAM bam for 6 taxa: 5 hours
 
@@ -432,8 +395,9 @@ list.plots <- model.comparison.cv(outputs = outputs, outputs.cv = outputs.cv, nu
 file.name <- "ModelsComparCV.pdf"
 print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
+## ---- PLOTS ----
 
-## ---- Plot models comparison ----
+# Models comparison ####
 
 saved.outputs <- outputs
 outputs <- saved.outputs[[1]]
@@ -451,7 +415,7 @@ print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
 
-## ---- Plot trained model performance against hyperparameters ----
+# Performance vs hyperparameters ####
 
 ptm <- proc.time() # to calculate time of pdf production
 
@@ -468,7 +432,7 @@ print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
 
 
-## ---- Plot variable importance ----
+# Variables importance ####
 
 ptm <- proc.time() # to calculate time of simulation
 
@@ -516,8 +480,7 @@ print(proc.time()-ptm)
 
 # For BDM Dataset, only 55 env fact (priority) : 3 sec
 
-
-## ---- Print accuracy ----
+# Print accuracy
 
 for(l in 1:no.algo){
   for(j in 1:no.taxa){
@@ -528,9 +491,7 @@ for(l in 1:no.algo){
   }
 }
 
-
-# DON'T WORK FROM HERE ####
-## ---- Plot PDP ----
+# PDP don't work ####
 
 source("plot_functions.r")
 
@@ -554,7 +515,7 @@ print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.fil
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
 
-## ---- Plot single predictor ICE ----
+# ICE ####
 
 ptm <- proc.time() # to calculate time of simulation
 
@@ -568,7 +529,7 @@ print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.fil
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
 
-## ---- Plot PDP (multiple predictors) ----
+# multiple PDP ####
 
 # We just make one example because it's computationally heavy
 
@@ -592,7 +553,7 @@ if( length(outputs[[1]][[1]]) < 7){
 }
 print("salut")
 
-## ---- Plot map prediction ----
+# Map predictions ####
 
 source("plot_functions.r")
 
@@ -609,7 +570,7 @@ print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.fil
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
 
-## ---- Plot env fact vs taxa prediction ----
+# Response shape ####
 
 ptm <- proc.time() # to calculate time of pdf production
 
