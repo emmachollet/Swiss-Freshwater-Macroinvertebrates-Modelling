@@ -1,8 +1,24 @@
 ## ---- Split the data in 3 training and testing data sets for CV ----
+split.data <- function(data){
+  
+  folds <- groupKFold(data$SiteId, 3)
+  
+  train1 <- data[folds$Fold1,]
+  test1 <- data[-folds$Fold1,]
 
-# data <-- data.inv
-# sd <-- standard deviation of the sizes of the three folds, put 1
-split.data <- function(data,sd){
+  train2 <- data[folds$Fold2,]
+  test2 <- data[-folds$Fold2,]
+
+  train3 <- data[folds$Fold3,]
+  test3 <- data[-folds$Fold3,]
+  
+  return(list("Split1" = list("Training data" = train1, "Testing data" = test1), 
+              "Split2" = list("Training data" = train2, "Testing data" = test2), 
+              "Split3" = list("Training data" = train3, "Testing data" = test3)))
+}
+
+# Old splitting function from Jonas
+split.data.manual <- function(data,sd){
     repeat{
         inv.data <- data[sample(nrow(data)),]
        
