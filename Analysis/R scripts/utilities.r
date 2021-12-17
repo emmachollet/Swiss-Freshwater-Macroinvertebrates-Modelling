@@ -134,7 +134,6 @@ center.data <- function(split, CV, dl = T){
             testing.data[i+4] <- as.matrix(testing.data[i+4]) / sd.env.cond[i]
         }
         
-        
         return(list("Training data" = training.data, "Testing data" = testing.data))
     }
 }

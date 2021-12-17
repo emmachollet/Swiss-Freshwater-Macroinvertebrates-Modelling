@@ -476,6 +476,44 @@ if(CV == T){
 
 # Models comparison ####
 
+# table with perf.
+
+if(CV == T){
+    # maybe look at perf. in each split
+} else {
+    file.name <- "TableFitPerf.pdf"
+    pdf(paste0(dir.plots.output, info.file.name, file.name), paper = 'special', width = 12, height = 9, onefile = TRUE)
+    
+    temp.df <- data.frame(matrix(ncol = no.taxa, nrow = no.algo))
+    colnames(temp.df) <- list.taxa
+    rownames(temp.df) <- list.algo
+    for (j in 1:no.taxa) {
+        for (l in 1:no.algo) {
+            temp.df[l,j] <- round(outputs[[l]][[j]][["Performance training set"]], digits = 2)
+        }
+    }
+    temp.df$mean.perf <- rowMeans(temp.df)
+    temp.df <- as.matrix(temp.df)
+    par(mar=c(1,5,15,3)+ 0.2, xaxt = "n")
+    plot(temp.df, 
+         #key = NULL,
+         digits = 2, text.cell=list(cex=0.5),
+         # axis.col=list(side=3, las=2), 
+         axis.row = list(side=2, las=1),
+         col = viridis,
+         xlab = "",
+         ylab = "",
+         cex.axis = 0.5,
+         srt = 45,
+         main = "Quality of fit across ML algorithms and taxa"
+    )
+    axis(1, at=seq(1:ncol(temp.df)+1), labels = FALSE)
+    text(seq(1:ncol(temp.df)+1), par("usr")[4] + 0.15, srt = 50, 
+         labels = colnames(temp.df), adj= 0, cex = 0.5, xpd = T)
+    
+    dev.off()
+}
+
 # saved.outputs <- outputs
 
 # outputs <- outputs2algo[[1]]
