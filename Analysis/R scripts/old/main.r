@@ -69,7 +69,13 @@ file.env.BDM.data <- "BDM_environmental_data_2020-06-25.dat"
 file.prev         <- "All_prevalence_2020-06-25.dat"
 file.prev.BDM     <- "BDM_prevalence_2020-06-25.dat"
 
-# Set if we want to compute for the All or the BDM dataset
+file.rank.env     <- "ranking_env_data.csv"
+
+# Read data
+# needed to sort environmental factors by their importance
+rank.env          <- read.csv(paste(dir.env.data,file.rank.env,sep=""),header=TRUE, sep=";", stringsAsFactors=FALSE)
+
+# set if we want to compute for the All or the BDM dataset
 BDM <- F
 
 if( BDM == TRUE){
@@ -105,17 +111,55 @@ source("utilities.r")
 
 # Select env. factors ####
 
-env.fact <- c("temperature",       # Temp
-            "velocity",          # FV
-            "A10m",              # A10m
-            "cow.density",       # LUD
-            "IAR",               # IAR
-            "urban.area",        # Urban
-            "FRI",               # FRI
-            "bFRI",              # bFRI
-            "width.variability")#, # WV
-            # "temperature2",
-            # "velocity2")
+# Replace "_" and " " by "." in colnames to be consistent
+colnames(rank.env) <- gsub("_", ".", colnames(rank.env))
+colnames(rank.env) <- gsub(" ", ".", colnames(rank.env))
+
+# Sort the columns in 4 categories: the sample/site information = 3,
+# the environmental factors to keep in priority = 2, keep to explore = 1, exclude = 0
+info    <- colnames(rank.env)[which(rank.env[1,] == 3)]
+prio    <- colnames(rank.env)[which(rank.env[1,] == 2)]
+explo   <- colnames(rank.env)[which(rank.env[1,] == 1)]
+excl    <- colnames(rank.env)[which(rank.env[1,] == 0)]
+
+# decide to explore the selected (Bogdan's) factors or the list "priority"
+select = T    
+
+if (select == F){
+  
+  env.fact <- prio
+  
+} else if (select == T){
+  
+  env.fact <- c("temperature",       # Temp
+                "velocity",          # FV
+                "A10m",              # A10m
+                "cow.density",       # LUD
+                "IAR",               # IAR
+                "urban.area",        # Urban
+                "FRI",               # FRI
+                "bFRI",              # bFRI
+                "width.variability", # WV
+                "temperature2",
+                "velocity2")
+}
+
+if(BDM != TRUE) {
+  # remove InS env. fact.
+  cind <- c(grep("InS.",env.fact),
+            grep("covclass.",env.fact),
+            grep("normcov.",env.fact),
+            grep("sfract.",env.fact),
+            grep("v.",env.fact, fixed = TRUE)) # has to match exactly, to avoid to remove .variability or .vegetation
+  if(length(cind) != 0){
+    env.fact <- env.fact[-cind]
+  }
+}
+
+# Remove env. fact. missing in data.env
+env.fact <- env.fact[which(env.fact %in% colnames(data.env))]
+# env.fact[-which(env.fact %in% colnames(data.env))] # which selected factors are not in data.env ?
+# [1] "A.EDO" "F.EDO" are missing
 
 no.env.fact <- length(env.fact)
 
@@ -131,16 +175,10 @@ all.taxa = F
 if (all.taxa == T){
     list.taxa <- colnames(data.inv)[cind.taxa]
 } else if (all.taxa == F){
-    
-    # 2 taxa
-    # list.taxa       <- c("Occurrence.Gammaridae", "Occurrence.Heptageniidae")
-    
-    # 6 taxa
-    # list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55),
+    # list.taxa       <- c("Occurrence.Gammaridae", "Occurrence.Heptageniidae") # two taxa
+    # list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55), # few taxa
     #                            "Occurrence.taxa"] # Select only few taxa
-    
-    # 22 taxa
-    list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25),
+    list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25), # all taxa with intermediate prevalence
                                  "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
 }
 
@@ -198,7 +236,7 @@ print(paste(sum(!ind),"sites/samples excluded because of incomplete influence fa
 # split.var <- "random" # data splitted according to this variable (default is "random")
 # splitted.data <- split.data(data = data, training.ratio = ratio, variable = split.var)
 
-if(CV == T){
+if(CV == T ){
     
     # Split for CV
     file.name <- paste0(dir.workspace,"SplitsForCV.rds")
@@ -317,8 +355,6 @@ if (file.exists(file.name) == T ){
 } else {
     
     cat("No statistical model outputs exist yet, we produce it and save it in", file.name)
-    
-    env.fact.temp <- c(env.fact, "temperature2", "velocity2")
     
     # #1) No cross validation
     # centered.occ.data <- center.splits(list(inv.occ), cv = F)
@@ -493,7 +529,7 @@ list.plots <- model.comparison(outputs = outputs, null.model = null.model, list.
 # list.plots <- model.comparison.cv(outputs = outputs, outputs.cv = outputs.cv, null.model = null.model, list.algo = list.algo, list.taxa = list.taxa, prev.inv = prev.inv)
 
 name <- "ModelsCompar"
-file.name <- paste0(name, ".pdf")
+file.name <- paste(name, ".pdf")
 
 print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
@@ -518,7 +554,7 @@ list.plots <- plot.perf.hyperparam(outputs = outputs,
 name <- "PerfvsHyperparam"
 
 # Print a pdf file
-file.name <- paste0(name, ".pdf")
+file.name <- paste(name, ".pdf")
 print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # Print a jpeg file
@@ -540,7 +576,7 @@ list.plots <- plot.varimp(outputs = outputs, list.algo = list.algo, list.taxa = 
 name <- "VarImp"
 
 # Print a pdf file
-file.name <- paste0(name, ".pdf")
+file.name <- paste(name, ".pdf")
 print.pdf.plots(list.plots = list.plots, width = 10, height = 10, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # Print a jpeg file
@@ -689,7 +725,7 @@ list.plots <- lapply(list.taxa, FUN = map.ml.pred.taxa, inputs, outputs, list.al
 name <- "ObsvsPred_map"
 
 # Print a pdf file
-file.name <- paste0(name, ".pdf")
+file.name <- paste(name, ".pdf")
 print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # Print a jpeg file

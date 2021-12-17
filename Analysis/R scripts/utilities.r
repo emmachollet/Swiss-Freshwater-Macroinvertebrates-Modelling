@@ -67,7 +67,7 @@ split.data.manual <- function(data,sd){
 # function to center data. If there is only one split i.e. the whole occ data, it needs to be inputed as a list with the data as the only element (i.e. list(inv.occ))
 # split <-- list, with one of the three splits done by split.data
 # cv <-- boolean, T if we have 3 splits for CV, F if we don't do CV
-center.splits <- function(split,cv){
+center.data <- function(split, CV, dl = T){
     #split <- list(inv.occ)
     #split <- splits[[1]]
     training.data <- split[[1]]
@@ -111,8 +111,8 @@ center.splits <- function(split,cv){
         training.data[i+4] <- as.matrix(training.data[i+4]) / sd.env.cond[i]
     }
     
-    if(cv == F){
-        return(list(training.data))
+    if(CV == F){
+        return(list( "Entire dataset" = training.data))
     }else{
         
         testing.data <- split[[2]]

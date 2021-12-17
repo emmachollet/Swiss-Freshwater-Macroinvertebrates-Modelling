@@ -160,7 +160,7 @@ plot.data.envvstax <- function(data, env.fact, list.taxa){
 ## ---- Models analysis plots ----
 
 # Compare models
-model.comparison <- function(outputs, null.model, list.algo, list.taxa, prev.inv){
+model.comparison <- function(outputs, null.model, list.algo, list.taxa, prev.inv, CV){
   
   no.algo <- length(list.algo)
   no.taxa <- length(list.taxa)
@@ -180,7 +180,7 @@ model.comparison <- function(outputs, null.model, list.algo, list.taxa, prev.inv
     c <- c("Performance training set") # if empty, then only plot for training set
   }
   for (m in 1:length(c)){
-    if(m == 1){
+    if(CV == F){
       title <- paste("Models comparison in quality of fit")
     } else {
       title <- paste("Models comprison in predictive performance")
@@ -292,6 +292,7 @@ model.comparison <- function(outputs, null.model, list.algo, list.taxa, prev.inv
 # Compare models
 model.comparison.cv <- function(outputs, outputs.cv, null.model, list.algo, list.taxa, prev.inv){
     
+    list.algo <- c(list.algo, "green" = "FF0")
     no.algo <- length(list.algo)
     no.taxa <- length(list.taxa)
     
@@ -433,15 +434,15 @@ plot.perf.hyperparam <- function(outputs, list.algo, list.taxa){
     
     for(j in 1:no.taxa){
         
-        temp.list.plots <- vector(mode = 'list', length = no.algo)
-        names(temp.list.plots) <- list.algo  
+        temp.list.plots <- vector(mode = 'list', length = no.algo-1) # glm doesn't have hyperparam
+        names(temp.list.plots) <- list.algo[2:no.algo]  
         
-        for (l in list.algo){
+        for (l in 2:no.algo){ 
             
             print(paste("Computing performance of hyperparameters of", list.algo[l], "for", j, list.taxa[j]))
             
             # Show how the various iterations of hyperparameter search performed
-            temp.list.plots[[l]] <- plot(outputs[[l]][[j]][["Trained model"]], main = l)
+            temp.list.plots[[l-1]] <- plot(outputs[[l]][[j]][["Trained model"]], main = l)
             
         }
         
@@ -554,7 +555,7 @@ plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
         
       for (k in 1:no.env.fact) {
         print(paste("Producing PDP of", k, env.fact[k], "for", j,  list.taxa[j]))
-        temp.df <- data.frame(pdp::partial(outputs[[1]][[j]][["Trained model"]][["finalModel"]], pred.var = env.fact[k])[,env.fact[k]])
+        temp.df <- data.frame(pdp::partial(outputs[[1]][[j]][["Trained model"]], pred.var = env.fact[k])[,env.fact[k]])
         colnames(temp.df) <- "value"
         temp.df$factor <- env.fact[k]
         for (l in 1:no.algo){ 
@@ -721,18 +722,21 @@ plot.ice <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
 }
 
 
-map.ml.pred.taxa <- function(taxa, inputs, outputs, list.algo, algo = list.algo[1]){
+map.ml.pred.taxa <- function(taxa, inputs, outputs, list.algo){
         
         taxon <- sub("Occurrence.", "", taxa)
         cat("Constructing ggplot for:", taxon, "\n")
         
-        plot.data <- outputs[[algo]][[taxa]][["Observation testing set"]]
-        plot.data$pred <- outputs[[algo]][[taxa]][["Prediction probabilities testing set"]][,"present"]
-        # plot.data <- na.omit(plot.data)
-        
-        # plot.data <- plot.data %>%
-        # left_join(data.env[, c("SiteId", "SampId", "X", "Y")], by = c("SiteId", "SampId"))
-        
+        df.st.dev <- data.frame("model" = list.algo)
+            
+        temp.df <- data.frame(outputs[[l]][[taxa]][["Observation training set"]][, c("X","Y", taxa)])
+        for (l in 1:no.algo) {
+            temp.df[,list.algo[l]] <- outputs[[l]][[taxa]][["Prediction probabilities training set"]][,"present"]
+            df.st.dev[l, "st.dev"] <-  round(outputs[[l]][[taxa]][["Performance training set"]], digits = 3)
+            
+        }
+        plot.data <- gather(temp.df, key = model, value = pred, -X, -Y, -taxa)
+        subtitle <- paste(paste(df.st.dev$model, df.st.dev$st.dev), collapse = " - ")
         
         # Map geometries
         g <- ggplot()
@@ -742,6 +746,9 @@ map.ml.pred.taxa <- function(taxa, inputs, outputs, list.algo, algo = list.algo[
         g <- g + geom_point(data = plot.data, aes(plot.data[,"X"], plot.data[,"Y"], size = plot.data[,"pred"], 
                                                   color = plot.data[,taxa]), 
                             alpha =0.7) #alpha = Alpha, color = Obs, stroke = Stroke, shape = Shape))
+        g <- g + facet_wrap(~ model,
+                            #labeller=label_parsed, 
+                            strip.position="bottom")
         
         # Configure themes and labels
         g <- g + theme_void()
@@ -750,9 +757,8 @@ map.ml.pred.taxa <- function(taxa, inputs, outputs, list.algo, algo = list.algo[
                        plot.margin = unit(c(0.1,0.1,0.1,0.1), "lines"),
                        legend.title = element_text(size=14))
         
-        g <- g + labs(title = paste("Geographic distribution to compare observation\nand model prediction:", 
-                                    algo, "applied to", taxon),
-                      # subtitle = paste("Random Forest:", paste(env.fact, collapse = " ", sep = " ")), #, "- page", j),
+        g <- g + labs(title = paste("Geographic distribution to compare observation\nand model prediction:", taxa),
+                      subtitle = paste("Stand. dev.:", subtitle),
                       x = "",
                       y = "",
                       size = "Probability of\noccurrence",
@@ -762,6 +768,7 @@ map.ml.pred.taxa <- function(taxa, inputs, outputs, list.algo, algo = list.algo[
         g <- g + guides(size = guide_legend(override.aes = list(color="black", stroke=0), order=1),
                         # alpha = guide_legend(override.aes = list(size=6, shape=c(19,21), stroke=c(0,0.75), color="black"), order=2),
                         color = guide_legend(override.aes = list(size=6, stroke=0), order=3))
+        g <- g + scale_size(range = c(1,3.5))
         g <- g + scale_color_manual(values=c(absent = "#c2141b", present = "#007139"), labels=c("Absence", "Presence"))
         g <- g + scale_shape_identity() # Plot the shape according to the data
         
@@ -775,8 +782,8 @@ response.ml.pred.taxa <- function(taxa, outputs, list.algo, env.fact, algo = lis
         taxon <- sub("Occurrence.", "", taxa)
         cat("Constructing ggplot for:", taxon, "\n")
         
-        plot.data <- outputs[[algo]][[taxa]][["Observation testing set"]]
-        plot.data$pred <- outputs[[algo]][[taxa]][["Prediction probabilities testing set"]][,"present"]
+        plot.data <- outputs[[algo]][[taxa]][["Observation training set"]]
+        plot.data$pred <- outputs[[algo]][[taxa]][["Prediction probabilities training set"]][,"present"]
         plot.data <- gather(plot.data, key = factors, value = value, -SiteId, -SampId, -X, -Y, -taxa, -pred)
         
         g <- ggplot(data = plot.data, aes(x = value, y = pred, color = plot.data[,taxa]))
@@ -788,9 +795,9 @@ response.ml.pred.taxa <- function(taxa, outputs, list.algo, env.fact, algo = lis
                              strip.position="bottom")
 
         g <- g + scale_color_manual(name = "Observation", values=c(absent = "#c2141b", present = "#007139"), labels = c("Absence", "Presence"))
-        g <- g + labs(title = paste("Probability of occurrence vs explanatory variables:",algo, "applied to",paste(taxon)),
+        g <- g + labs(title = paste("Predicted probability of occurrence vs explanatory variables:",algo, "applied to",paste(taxon)),
                       x = "Explanatory variable",
-                      y = "Probability of occurrence",
+                      y = "Predicted probability of occurrence",
                       color = "Observation")
         g <- g + theme(strip.background = element_blank(),
                        strip.placement = "outside",
