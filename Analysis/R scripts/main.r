@@ -8,10 +8,6 @@
 ##
 ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# next two lines are for jonas, dont run these
-# setwd("Q:/Abteilungsprojekte/siam/Jonas Wydler/Swiss-Freshwater-Macroinvertebrates-Modelling/Analysis/R scripts")
-#.libPaths("C:/Program Files/R/R-4.1.1/library")
-
 ## ---- PACKAGES, DATA & FCTS ----
 
 # Load libraries ####
@@ -300,6 +296,9 @@ if(CV == T){
  # :)
 
 # Statistical models ####
+
+
+
 
 # read in results produced by Jonas
 file.name <- paste0(dir.models.output, "Output25112021.rds")
