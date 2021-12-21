@@ -25,6 +25,7 @@ stat_mod_cv <- function (data.splits, CV, comm.corr, sampsize, n.chain){
   
     
     #data.splits <- centered.splits[[1]] # to test
+    #data.splits <- splits[[1]] # to test
     output <- list("deviance" = tibble(), "probability" = tibble(), "parameters" = tibble()) #this is where the data is gathered in the end for the return
     training.data <- data.splits[[1]]
     
@@ -573,6 +574,7 @@ stat_mod_cv <- function (data.splits, CV, comm.corr, sampsize, n.chain){
     # Run model ####
     # perform Bayesian inference:
     res <- stan(file.model,data=data,init=init,iter=sampsize,chains=n.chain,warmup=min(0.5*sampsize,100),thin=thin)
+    #res2 <- stat.outputs[[1]][[1]]
     #res <- res2[[3]]
     
     res.extracted   <- rstan::extract(res,permuted=TRUE,inc_warmup=FALSE)
@@ -580,7 +582,7 @@ stat_mod_cv <- function (data.splits, CV, comm.corr, sampsize, n.chain){
     
     #res.extracted <- readRDS(paste0(dir.output,"test2411.rds"))
     # Name dimensions of parameters within stanfit object
-    dimnames(res.extracted[["beta_taxa"]]) <- list(1:dim(res.extracted[["beta_taxa"]][,,])[1], inf.fact, colnames(occur.taxa))
+    #dimnames(res.extracted[["beta_taxa"]]) <- list(1:dim(res.extracted[["beta_taxa"]][,,])[1], inf.fact, colnames(occur.taxa))
     colnames(res.extracted[["alpha_taxa"]]) <- colnames(occur.taxa)
     
     colnames(res.extracted[["mu_beta_comm"]]) <- inf.fact

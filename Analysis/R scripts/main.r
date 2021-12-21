@@ -90,7 +90,7 @@ if( BDM == TRUE){
 
 
 # set if we want to fit models to whole dataset or perform cross-validation (CV)
-CV <- T
+CV <- F
 dl <- F
 
 #set number of cores
@@ -118,7 +118,7 @@ env.fact <- c("temperature",       # Temp
             "FRI",               # FRI
             "bFRI",              # bFRI
             "width.variability")#, # WV
-            # "temperature2",
+            #"temperature2",
             # "velocity2")
 env.fact.full <- c("temperature",       # Temp
               "velocity",          # FV
@@ -131,6 +131,8 @@ env.fact.full <- c("temperature",       # Temp
               "width.variability",#, # WV
               "temperature2",
               "velocity2")
+
+#env.fact <- env.fact.full
 no.env.fact <- length(env.fact)
 
 # Select taxa ####
@@ -184,7 +186,7 @@ no.algo <- length(list.algo)
 ##Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models, also make sure the cross-validation (CV) flag is
 ## set correctly
 sampsize <- 10 #10000
-n.chain  <- 2 #2
+n.chain  <- 1 #2
 comm.corr <- T
 
 
@@ -267,11 +269,11 @@ if(CV == T){
 if(CV == T){
    
     #center the splits
-    centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl)
-    
+    centered.splits.tmp <- lapply(splits, FUN = center.data.exp, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl)
+    #centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV)
     #extract necessary information
     centered.splits <- lapply(centered.splits.tmp,"[", 1:2) # only the splits without the mean, sd info
-    splits.normalization.data <- lapply(centered.splits.tmp,"[", 3:4) # the mean and sd of the splits
+    normalization.data <- lapply(centered.splits.tmp,"[", 3:4) # the mean and sd of the splits
     
     # Normalize the folds but replace '0' and '1' by factors
     centered.splits.factors <- lapply(centered.splits, function(split){
@@ -291,9 +293,9 @@ if(CV == T){
     })
 } else {
     
-    centered.data <- center.data(list(data), CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl)
+    centered.data <- center.data.exp(list(data), CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl)
     centered.data.factors <- centered.data
-    
+    normalization.data <- list(mean.dl, sd.dl) #without cv we just use the global mean and sd
     # Replace '0' and '1' by factors
     cind.taxa <- which(grepl("Occurrence.",colnames(centered.data.factors[[1]])))
     #Replace "0" and "1" by "absent" and "present" and convert them to factors
@@ -302,6 +304,25 @@ if(CV == T){
         centered.data.factors[[1]][which(centered.data.factors[[1]][,i] == 1),i] <- "present"
         centered.data.factors[[1]][,i] = as.factor(centered.data.factors[[1]][,i])
     }
+}
+### Test centering
+if(exists("centered.splits") == T){
+  if(mean(centered.splits$Split1$`Training data`$temperature) <= 0.001){
+    cat("The data is normalized.")
+    }else{
+      cat("The data isn't normalized.")
+      break()
+    }
+}else if (exists("centered.data") == T){
+  if(mean(centered.data$`Entire dataset`$temperature) <= 0.001){
+    cat("The data is normalized.")
+  }else{
+    cat("The data isn't normalized.")
+    break()
+  }
+}else{
+  cat("The data isn't normalized.")
+  
 }
 
 
@@ -353,7 +374,7 @@ if(CV == T){
 
 
 ptm <- proc.time() # to calculate time of simulation
-
+#file.name <- paste0(dir.models.output, "Output25112021.rds") #to test
 file.name <- paste0(dir.models.output, "Stat_model_",sampsize,"iterations_",ifelse(comm.corr,"corr_","nocorr_"), no.taxa, "taxa_", ifelse(CV, "CV", "FIT"), ".rds")
 cat(file.name)
 
@@ -363,6 +384,7 @@ if (file.exists(file.name) == T ){
     if(exists("stat.outputs") == F){
         cat("File with statistical model outputs already exists, we read it from", file.name, "and save it in object 'outputs'")
         stat.outputs <- readRDS(file = file.name)
+      
         }
     else{
         cat("List with statistical model outputs already exists as object 'stat.outputs' in this environment.")
@@ -370,9 +392,6 @@ if (file.exists(file.name) == T ){
 } else {
     
     cat("No statistical model outputs exist yet, we produce it and save it in", file.name)
-  
-    env.fact.temp <- c(env.fact, "temperature2", "velocity2") #Add the two transformed variables that are needed for 
-    #the stan models
     
     if(CV == T){
 
