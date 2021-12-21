@@ -763,7 +763,7 @@ stat_mod_cv <- function (data.splits, CV, comm.corr, sampsize, n.chain){
         output$deviance <- bind_rows(output$deviance, train.deviance)
         output$deviance <- bind_rows(output$deviance, test.deviance)
         output$probability <- bind_rows(output$probability, train.p, test.p)
-        return(list(res.extracted,output))
+        return(list(res,output))
         
     }
     else{
@@ -859,6 +859,6 @@ stat_mod_cv <- function (data.splits, CV, comm.corr, sampsize, n.chain){
         
         output$beta.taxa  <- res.extracted[["beta_taxa"]]
         output$beta.taxa.maxpost <- beta.taxa.maxpost
-        return(list(res.extracted,output))        
+        return(list(res,output))        
     }
 }

@@ -67,7 +67,7 @@ split.data.manual <- function(data,sd){
 # function to center data. If there is only one split i.e. the whole occ data, it needs to be inputed as a list with the data as the only element (i.e. list(inv.occ))
 # split <-- list, with one of the three splits done by split.data
 # cv <-- boolean, T if we have 3 splits for CV, F if we don't do CV
-center.data <- function(split, CV){
+center.data.old <- function(split, CV){
   
     #split <- list(inv.occ)
     #split <- splits[[1]]
@@ -140,7 +140,7 @@ center.data <- function(split, CV){
     
 }
 
-center.data.exp <- function(data, split, CV, dl, mean.dl, sd.dl){
+center.data <- function(data, split, CV, dl, mean.dl, sd.dl){
   
   #split <- splits[[1]]
   #split <- list(data)
