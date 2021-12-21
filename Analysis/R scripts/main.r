@@ -99,20 +99,22 @@ source("plot_functions.r")
 source("utilities.r")
 
 # Setup options ####
-# set if we want to fit models to whole dataset or perform cross-validation (CV)
-CV <- F
-dl <- F
-#set number of cores
+
+# Set if we want to fit models to whole dataset or perform cross-validation (CV)
+CV <- T # Cross-Validation
+dl <- F # Data Leakage
+
+# Set number of cores
 n.cores <-  1
 
-#Settings Stat models 
-##Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models, also make sure the cross-validation (CV) flag is
-## set correctly
+# Settings Stat models 
+# Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
+# also make sure the cross-validation (CV) flag is set correctly
 sampsize <- 10 #10000
 n.chain  <- 2 #2
 comm.corr <- F
 
-#select taxa
+# select taxa
 all.taxa = F
 # set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
 # set to TRUE to apply models to all taxa
@@ -122,7 +124,7 @@ all.taxa = F
 
 # Select env. factors ####
 
-env.fact <- c("temperature",       # Temp
+env.fact <- c("temperature",     # Temp
             "velocity",          # FV
             "A10m",              # A10m
             "cow.density",       # LUD
@@ -130,18 +132,9 @@ env.fact <- c("temperature",       # Temp
             "urban.area",        # Urban
             "FRI",               # FRI
             "bFRI",              # bFRI
-            "width.variability")#, # WV
-            #"temperature2",
-            # "velocity2")
-env.fact.full <- c("temperature",       # Temp
-              "velocity",          # FV
-              "A10m",              # A10m
-              "cow.density",       # LUD
-              "IAR",               # IAR
-              "urban.area",        # Urban
-              "FRI",               # FRI
-              "bFRI",              # bFRI
-              "width.variability",#, # WV
+            "width.variability") # WV
+
+env.fact.full <- c(env.fact,
               "temperature2",
               "velocity2")
 
@@ -151,8 +144,6 @@ no.env.fact <- length(env.fact)
 # Select taxa ####
 
 cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
-
-
 
 # Select taxa for prediction
 if (all.taxa == T){
@@ -193,9 +184,6 @@ list.algo <- c("#030AE8" = 'glm', # Random Forest
 
 no.algo <- length(list.algo)
 
-
-
-
 # Write information for file names
 # percentage.train.set <- ratio * 100
 info.file.name <- paste0(file.prefix, 
@@ -208,7 +196,7 @@ info.file.name <- paste0(file.prefix,
                          # if( ratio != 1) {split.var}, 
                          "")
 
-info.file.name <- paste0("Stat_model_",
+info.file.stat.name <- paste0("Stat_model_",
                          # d, # don't need to include the date
                          no.taxa, "taxa_", 
                          # no.env.fact, "envfact_",
@@ -218,21 +206,20 @@ info.file.name <- paste0("Stat_model_",
                          # if( ratio != 1) {split.var}, 
                          "")
 
+# MOVE THIS TO DATA PREPARATION SCRIPTS ####
 # Construct main dataset (with inv and env)
 data.full <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact.full)] %>%
     left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
 dim(data.full)
 
-# drop rows with incomplete influence factors
+# Drop rows with incomplete influence factors
 ind <- !apply(is.na(data.full[,env.fact.full]),1,FUN=any)
 ind <- ifelse(is.na(ind),FALSE,ind)
 data.full <- data.full[ind,]
 print(paste(sum(!ind),"sites/samples excluded because of incomplete influence factors"))
 data <- subset(data.full, select = -c(temperature2, velocity2))
 
-
-#calculate mean and sd for env data for normalisation with data leakage
-
+# Calculate mean and sd for env data for normalisation with data leakage
 mean.dl <- apply(select(data.full, all_of(env.fact.full)), 2, function(k){
   mean(k, na.rm = TRUE)
 })
@@ -274,10 +261,10 @@ if(CV == T){
 # Normalize the data (each folds for CV and whole data set else)
 if(CV == T){
    
-    #center the splits
+    # Center the splits
     centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl)
-    #centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV)
-    #extract necessary information
+    # centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV)
+    # Extract necessary information
     centered.splits <- lapply(centered.splits.tmp,"[", 1:2) # only the splits without the mean, sd info
     normalization.data <- lapply(centered.splits.tmp,"[", 3:4) # the mean and sd of the splits
     
@@ -311,7 +298,8 @@ if(CV == T){
         centered.data.factors[[1]][,i] = as.factor(centered.data.factors[[1]][,i])
     }
 }
-### Test centering
+
+# Test centering
 if(exists("centered.splits") == T){
   if(mean(centered.splits$Split1$`Training data`$temperature) <= 0.001){
     cat("The data is normalized.")
@@ -402,8 +390,7 @@ if(exists("centered.splits") == T){
 
  # :)
 
-# ## Statistical models  ####
-# 
+# Statistical models  ####
 
 ptm <- proc.time() # to calculate time of simulation
 #file.name <- paste0(dir.models.output, "Output25112021.rds") #to test
