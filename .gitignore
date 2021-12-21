@@ -8,3 +8,4 @@ Analysis/Plots/*
 Documents/*
 *.stan
 *_nolatvar.rds
+Analysis/R scripts/old/*

@@ -142,8 +142,8 @@ center.data.old <- function(split, CV){
 
 center.data <- function(data, split, CV, dl, mean.dl, sd.dl){
   
-  #split <- splits[[1]]
-  #split <- list(data)
+  split <- splits[[1]]
+  # split <- list(data)
   training.data <- split[[1]]
   
   #extract column names to access predictors and invertebrate data seperately
@@ -175,12 +175,26 @@ center.data <- function(data, split, CV, dl, mean.dl, sd.dl){
     sd(k, na.rm = TRUE)
   })
   
+  # HERE IT CREATES WEIRD DATAFRAME #### 
+  # see with str(training.data$temperature) before and after
+  
+  # str(training.data$temperature)
+  # num [1:1860] 17.7 19.5 17 19.1 17.2 .
+  
   for(i in 1:length(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
     #i = 6
     #message(i)
     #Bit ugly good, check that the indices are right (i.e. the ones for the env data)
     training.data[i+4] <- as.matrix(training.data[i+4]) - mean.env.cond[i]
   }
+  
+  # str(training.data$temperature)
+  # num [1:1860, 1] 2.35 4.09 1.59 3.67 1.8 ...
+  # - attr(*, "dimnames")=List of 2
+  # ..$ : chr [1:1860] "2" "3" "4" "5" ...
+  # ..$ : chr "temperature"
+  
+  
   for(i in 1:length(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
     #i = 6
     training.data[i+4] <- as.matrix(training.data[i+4]) / sd.env.cond[i]
