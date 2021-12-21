@@ -71,6 +71,7 @@ file.env.BDM.data <- "BDM_environmental_data_2020-06-25.dat"
 file.prev         <- "All_prevalence_2020-06-25.dat"
 file.prev.BDM     <- "BDM_prevalence_2020-06-25.dat"
 
+
 # Set if we want to compute for the All or the BDM dataset
 BDM <- F
 
@@ -90,9 +91,6 @@ if( BDM == TRUE){
     
 }
 
-# set if we want to fit models to whole dataset or perform cross-validation (CV)
-CV <- F
-
 # set date for file names
 d <- Sys.Date()    # e.g. 2021-12-17
 
@@ -102,6 +100,26 @@ source("ml_model_functions.r")
 source("stat_model_functions.r")
 source("plot_functions.r")
 source("utilities.r")
+
+# Setup options ####
+# set if we want to fit models to whole dataset or perform cross-validation (CV)
+CV <- F
+dl <- F
+#set number of cores
+n.cores <-  1
+
+#Settings Stat models 
+##Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models, also make sure the cross-validation (CV) flag is
+## set correctly
+sampsize <- 10 #10000
+n.chain  <- 2 #2
+comm.corr <- F
+
+#select taxa
+all.taxa = F
+# set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
+# set to TRUE to apply models to all taxa
+
 
 ## ---- DATA WRANGLING  ----
 
@@ -125,9 +143,7 @@ no.env.fact <- length(env.fact)
 
 cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
 
-all.taxa = F
-# set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
-# set to TRUE to apply models to all taxa
+
 
 # Select taxa for prediction
 if (all.taxa == T){
@@ -167,6 +183,9 @@ list.algo <- c("#030AE8" = 'glm', # Random Forest
                "#790FBF" = 'rf') # Random Forest
 
 no.algo <- length(list.algo)
+
+
+
 
 # Write information for file names
 # percentage.train.set <- ratio * 100
@@ -225,8 +244,13 @@ if(CV == T){
 
 # Normalize the data (each folds for CV and whole data set else)
 if(CV == T){
-    
-    centered.splits <- lapply(splits, FUN = center.data, CV = CV)
+   
+    #center the splits
+    centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl)
+    #centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV)
+    #extract necessary information
+    centered.splits <- lapply(centered.splits.tmp,"[", 1:2) # only the splits without the mean, sd info
+    normalization.data <- lapply(centered.splits.tmp,"[", 3:4) # the mean and sd of the splits
     
     # Normalize the folds but replace '0' and '1' by factors
     centered.splits.factors <- lapply(centered.splits, function(split){
@@ -246,7 +270,7 @@ if(CV == T){
     })
 } else {
     
-    centered.data <- center.data(list(data), CV = CV)
+    centered.data <- center.data(list(data), CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl)
     centered.data.factors <- centered.data
     
     # Replace '0' and '1' by factors
@@ -262,40 +286,67 @@ if(CV == T){
 
 ### ----Investigate splits----
 
-# mean.train1 <- as.numeric(lapply(centered.splits[[1]][[1]][,env.fact], FUN = mean))
-# mean.train2 <- as.numeric(lapply(centered.splits[[2]][[1]][,env.fact], FUN = mean))
-# mean.train3 <- as.numeric(lapply(centered.splits[[3]][[1]][,env.fact], FUN = mean))
+# mean.train1 <- lapply(splits, function(split){
+#   split <- splits[[1]]
+#   test <- split[[1]][,env.fact]
+#   return(mean(split[[1]][,env.fact]))
+# })
 # 
-# sd.train1 <- as.numeric(lapply(centered.splits[[1]][[1]][,env.fact], FUN = sd))
+# 
+# mean.train1 <- as.numeric(lapply(centered.splits[[1]][[1]][,env.fact], FUN = mean))
+# mean.train2 <- as.numeric(lapply(splits[[2]][[1]][,env.fact], FUN = mean))
+# mean.train3 <- as.numeric(lapply(splits[[3]][[1]][,env.fact], FUN = mean))
 # 
 # dif1 <- 1-(mean.train1/mean.train2)
 # dif2 <- 1-(mean.train2/mean.train3)
+# 
+# splits2 <- split.data(data, 1)
+# 
+# mean2.train1 <- as.numeric(lapply(splits2[[1]][[1]][,env.fact], FUN = mean))
+# mean2.train2 <- as.numeric(lapply(splits2[[2]][[1]][,env.fact], FUN = mean))
+# mean2.train3 <- as.numeric(lapply(splits2[[3]][[1]][,env.fact], FUN = mean))
+# 
+# dif3 <- 1-(mean2.train1/mean2.train2)
+# dif4 <- 1-(mean2.train2/mean2.train3)
+# 
+# 
+# splits3 <- split.data(data, 1)
+# mean3.train1 <- as.numeric(lapply(splits3[[1]][[1]][,env.fact], FUN = mean))
+# mean3.train2 <- as.numeric(lapply(splits3[[2]][[1]][,env.fact], FUN = mean))
+# mean3.train3 <- as.numeric(lapply(splits3[[3]][[1]][,env.fact], FUN = mean))
+# dif5 <- 1-(mean3.train1/mean3.train2)
+# dif6 <- 1-(mean3.train2/mean3.train3)
+# 
+# testest <- as.data.frame(rbind(dif1,dif2,dif3,dif4, dif5, dif6))
 # testest <- as.data.frame(rbind(dif1,dif2))
 # 
 # colnames(testest) <- env.fact
 # testest.table <- lapply(testest, mean, 1)
 # 
 # 
-# map.input <- map.inputs(dir.env.data, data.env)
+# split1 <- splits[[1]]
+# split2 <- splits[[2]]
+# split3 <- splits[[3]]
+# 
+# map.inputs <- map.inputs(dir.env.data, data.env)
 # 
 # 
 # g1 <- ggplot()
-# g1 <- g1 + geom_sf(data = map.input$ch, fill="#E8E8E8", color="black")
-# g1 <- g1 + geom_point(data = splits[[1]][[1]], aes(x=X, y=Y), color = "red")
-# g1 <- g1 + geom_point(data = splits[[1]][[2]], aes(x=X, y=Y), color = "blue")
+# g1 <- g1 + geom_sf(data = map.inputs$ch, fill="#E8E8E8", color="black")
+# g1 <- g1 + geom_point(data = splits[[1]], aes(x=X, y=Y), color = "red")
+# g1 <- g1 + geom_point(data = splits[[2]], aes(x=X, y=Y), color = "blue")
 # g1
 # 
-# 
 # g2 <- ggplot()
-# g2 <- g2 + geom_sf(data = map.input$ch, fill="#E8E8E8", color="black")
-# g2 <- g2 + geom_point(data = splits[[2]][[1]], aes(x=X, y=Y), color = "red")
-# g2 <- g2 + geom_point(data = splits[[2]][[2]], aes(x=X, y=Y), color = "blue")
+# g2 <- g2 + geom_sf(data = map.inputs$ch, fill="#E8E8E8", color="black")
+# g2 <- g2 + geom_point(data = split2[[1]], aes(x=X, y=Y), color = "red")
+# g2 <- g2 + geom_point(data = split2[[2]], aes(x=X, y=Y), color = "blue")
 # g2
 # 
 # g3 <- ggplot()
-# g3 <- g3 + geom_sf(data = map.input$ch, fill="#E8E8E8", color="black")
-# g3 <- g3 + geom_point(data = splits[[3]][[1]], aes(x=X, y=Y), color = "red")
-# g3 <- g3 + geom_point(data = splits[[3]][[2]], aes(x=X, y=Y), color = "blue")
+# g3 <- g3 + geom_sf(data = map.inputs$ch, fill="#E8E8E8", color="black")
+# g3 <- g3 + geom_point(data = split3[[1]], aes(x=X, y=Y), color = "red")
+# g3 <- g3 + geom_point(data = split3[[2]], aes(x=X, y=Y), color = "blue")
 # g3
 
 # explore NAs
@@ -324,8 +375,11 @@ setdiff(data$SampId, data.test2$SampId)
 
 # Statistical models ####
 
-# read in results produced by Jonas
-file.name <- paste0(dir.models.output, "Output25112021.rds")
+ptm <- proc.time() # to calculate time of simulation
+#file.name <- paste0(dir.models.output, "Output25112021.rds") #to test
+file.name <- paste0(dir.models.output, "Stat_model_",sampsize,"iterations_",ifelse(comm.corr,"corr_","nocorr_"), no.taxa,
+                    "taxa_", ifelse(CV, "CV", "FIT"),"_", ifelse(dl, "DL", "no_DL"),".rds")
+cat(file.name)
 
 # If the file with the outputs already exist, just read it
 if (file.exists(file.name) == T ){
@@ -341,31 +395,35 @@ if (file.exists(file.name) == T ){
     
     cat("No statistical model outputs exist yet, we produce it and save it in", file.name)
     
-    env.fact.temp <- c(env.fact, "temperature2", "velocity2")
-    
-    # #1) No cross validation
-    # centered.occ.data <- center.splits(list(inv.occ), cv = F)
-    # #a) No cross validation, no comm corr
-    # res.1 <- stat_mod_cv(data.splits = centered.occ.data, cv = F, comm.corr = F)
-    # 
-    # #b) No cross validation, comm corr
-    # res.1 <- stat_mod_cv(data.splits = centered.occ.data, cv = F, comm.corr = T)
-    # 
-    # #2) Cross validation
-    # centered.splits <- lapply(splits, FUN = center.splits, cv = T)
-    # 
-    # #b) Cross validation, no comm corr
-    #stat_cv_nocorr_res <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = F)
-    # 
-    # #b) Cross validation, comm corr
-    # res.4 <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = T)
-    
-    # cat("Saving outputs of statistical model in", file.name)
-    # saveRDS(stat.outputs, file = file.name)
+    if(CV == T){
+
+      stat.outputs <- mclapply(centered.splits, mc.cores = n.cores, FUN = stat_mod_cv, CV, comm.corr, sampsize, n.chain)
+      
+      cat("Saving outputs of algorithms in", file.name)
+      saveRDS(stat.outputs, file = file.name, version = 2) #version two here is to ensure compatibility across R versions
+      
+    } else {
+      # apply temporary on training data of Split1, later take whole dataset centered etc
+
+      stat.outputs <- stat_mod_cv(data.splits = centered.data, CV, comm.corr, sampsize, n.chain)
+      cat("Saving outputs of algorithms in", file.name)
+      saveRDS(stat.outputs, file = file.name, version = 2)
+      }
     
 }
 
-# ## ---- Process output from stat models ----
+print(paste("Simulation time of statistical model ", info.file.name))
+print(proc.time()-ptm)
+
+
+# ## ---- Process output from stat models
+#plot traceplots
+# res <- stat.outputs[[1]][[1]]
+# res.extracted   <- rstan::extract(res,permuted=TRUE,inc_warmup=FALSE)
+# 
+# print(traceplot(res,pars=c(names(res)[1:32],"lp__")))
+# 
+# print(traceplot(res))
 
 #exract neeeded output (std.deviance from the testing set in this case) from the output of the stat models.
 stat_cv_nocorr <- stat.outputs
