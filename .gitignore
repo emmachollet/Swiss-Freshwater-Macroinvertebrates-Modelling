@@ -6,3 +6,5 @@ Data/Original data/*
 *.docx
 Analysis/Plots/*
 Documents/*
+*.stan
+*_nolatvar.rds
