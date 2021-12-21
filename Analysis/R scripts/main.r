@@ -19,6 +19,8 @@
 # data management
 if ( !require("dplyr") ) { install.packages("dplyr"); library("dplyr") } # to sort, join, merge data
 if ( !require("tidyr") ) { install.packages("tidyr"); library("tidyr") } # to sort, join, merge data
+if ( !require("explore") ) { install.packages("explore"); library("explore") } # to explore data
+if ( !require("visdat") ) { install.packages("visdat"); library("visdat") } # to visualize missing data in dataset
 
 # plots
 if ( !require("ggplot2") ) { install.packages("ggplot2"); library("ggplot2") } # to do nice plots
@@ -295,6 +297,27 @@ if(CV == T){
 # g3 <- g3 + geom_point(data = splits[[3]][[1]], aes(x=X, y=Y), color = "red")
 # g3 <- g3 + geom_point(data = splits[[3]][[2]], aes(x=X, y=Y), color = "blue")
 # g3
+
+# explore NAs
+# explore(data) # to see
+
+vis_miss(data[,cind.taxa], cluster = FALSE, warn_large_data = FALSE)
+
+too.many.na <- c()
+for(i in cind.taxa){
+    if(sum(is.na(data[,i])) > 200){ too.many.na <- c(too.many.na, i)}
+}
+colnames(data)[too.many.na]
+# data[complete.cases(data), "SampleId"]
+
+data.test1 <- data[, -too.many.na]
+data.test2 <- na.omit(data.test1)
+
+setdiff(data$SampId, data.test2$SampId)
+# setdiff(data.test1$SampId, data.test2$SampId)
+
+# in ALL, loosing 5 taxa and 50 rows
+
 ## ---- APPLY MODELS ----
 
  # :)

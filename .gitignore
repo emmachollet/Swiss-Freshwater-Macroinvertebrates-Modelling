@@ -5,4 +5,5 @@ Data/Original data/*
 ~$*
 *.docx
 Analysis/Plots/*
+Analysis/R scripts/old/*
 Documents/*

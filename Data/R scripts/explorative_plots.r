@@ -15,6 +15,7 @@
 if ( !require(dplyr) ) { install.packages("dplyr"); library("dplyr") } # to sort, join, merge data
 if ( !require(ggplot2) ) { install.packages("ggplot2"); library("ggplot2") } # to do nice plots
 if ( !require(skimr) ) { install.packages("skimr"); library("skimr") } # to show key descriptive stats
+if ( !require("explore") ) { install.packages("explore"); library("explore") } # to explore data
 if ( !require(visdat) ) { install.packages("visdat"); library("visdat") } # to visualize missing data in dataset
 if ( !require(sf) ) { install.packages("sf"); library("sf") } # to read GIS data (shape files)
 if ( !require(caret) ) { install.packages("caret"); library("caret") } # comprehensive framework to build machine learning models
@@ -213,6 +214,8 @@ if ( !file.exists(paste0(dir.output,file.name)) ){ # don't print if file already
 df.summaries <- skim(data.env) # produce dataframe containing descriptive statistics for each column
 df.summaries.prio <- skim(data.env[,env.fact])
 View(df.summaries.prio)
+
+explore(data)
 
 # other way to produce a table to visualize missing data
 vis_miss(data.env[,env.fact], cluster = FALSE, warn_large_data = FALSE)
