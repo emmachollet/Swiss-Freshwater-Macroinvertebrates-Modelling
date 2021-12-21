@@ -1,25 +1,32 @@
-stat_mod_cv <- function (data.splits, cv, comm.corr){
+stat_mod_cv <- function (data.splits, CV, comm.corr, sampsize, n.chain){
+    
+    ##To test
     #comm.corr <- T
-    #cv <- T
+    #CV <- T
+    #sampsize        <- 40 #10000
+    #n.chain         <- 1 #2
+  
     # global parameters ####
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    options(mc.cores = parallel::detectCores()) #this is to run chains in parallel, comment out if there is an error in joining the chains
+    rstan_options(auto_write = TRUE)
+    
+    model.name <- ifelse(comm.corr, "CF0", "UF0")
     site.effects    <- F
     n.latent        <- 0
     lat.site        <- F
     
     frac.occ.lat    <- 0   # taxa only considered for latent variable if relative frequency of occurrence > frac.occ.lat
-    
     generate.res    <- F
-    
-    sampsize        <- 40 #10000
     thin            <- 5 #
-    n.chain         <- 1 #2
     prob.defpri     <- 0.02
     thresh.sig      <- 1
     fact.sd         <- 1  
   
     
     #data.splits <- centered.splits[[1]] # to test
+    #data.splits <- splits[[1]] # to test
+    output <- list("deviance" = tibble(), "probability" = tibble(), "parameters" = tibble()) #this is where the data is gathered in the end for the return
     training.data <- data.splits[[1]]
     
     inv.names <- colnames(select(training.data, SiteId, SampId, contains("Occurrence.group."), contains("Occurrence.")))
@@ -567,6 +574,7 @@ stat_mod_cv <- function (data.splits, cv, comm.corr){
     # Run model ####
     # perform Bayesian inference:
     res <- stan(file.model,data=data,init=init,iter=sampsize,chains=n.chain,warmup=min(0.5*sampsize,100),thin=thin)
+    #res2 <- stat.outputs[[1]][[1]]
     #res <- res2[[3]]
     
     res.extracted   <- rstan::extract(res,permuted=TRUE,inc_warmup=FALSE)
@@ -574,7 +582,7 @@ stat_mod_cv <- function (data.splits, cv, comm.corr){
     
     #res.extracted <- readRDS(paste0(dir.output,"test2411.rds"))
     # Name dimensions of parameters within stanfit object
-    dimnames(res.extracted[["beta_taxa"]]) <- list(1:dim(res.extracted[["beta_taxa"]][,,])[1], inf.fact, colnames(occur.taxa))
+    #dimnames(res.extracted[["beta_taxa"]]) <- list(1:dim(res.extracted[["beta_taxa"]][,,])[1], inf.fact, colnames(occur.taxa))
     colnames(res.extracted[["alpha_taxa"]]) <- colnames(occur.taxa)
     
     colnames(res.extracted[["mu_beta_comm"]]) <- inf.fact
@@ -603,8 +611,7 @@ stat_mod_cv <- function (data.splits, cv, comm.corr){
         x%*%beta.taxa.maxpost
     
     p.maxpost <- 1/(1+exp(-z))
-    
-    if (cv == T){
+    if (CV == T){
         train.y <- occur.taxa
         train.n.present <- apply(train.y, 2, sum, na.rm = TRUE)
         train.n.samples <- apply(train.y, 2, function(j){sum(!is.na(j))})
@@ -629,23 +636,19 @@ stat_mod_cv <- function (data.splits, cv, comm.corr){
         train.std.deviance <- train.deviance.resid.taxa/train.n.samples
         
         # tidy deviance data
-        folder <- "FFO" #CHANGE THIS SO WE DONT NEED IT
-        fold = 0
         train.deviance <- tibble(null.deviance = train.deviance.null.taxa, 
                                  residual.deviance = train.deviance.resid.taxa, 
                                  std.deviance = train.std.deviance, 
                                  D2 = train.d,
                                  Type = "Training",
-                                 Fold = fold, #CHANGE THIS SO WE DONT NEED IT
-                                 Model = folder,
-                                 Trial = folder,
+                                 Model = model.name,
                                  stringsAsFactors = F)
         
         train.deviance$Taxon <- names(train.std.deviance)
         train.deviance$n.samples <- train.n.samples[train.deviance$Taxon]
         train.deviance$n.present <- train.n.present[train.deviance$Taxon]
         
-        train.deviance <- train.deviance[, c("Taxon", "Type", "Fold", "Model", "Trial", "null.deviance", "residual.deviance", "std.deviance", "D2", "n.samples", "n.present")]
+        train.deviance <- train.deviance[, c("Taxon", "Type", "Model", "null.deviance", "residual.deviance", "std.deviance", "D2", "n.samples", "n.present")]
         
         # tidy probability data
         train.obs <- as_tibble(occur.taxa)
@@ -660,15 +663,13 @@ stat_mod_cv <- function (data.splits, cv, comm.corr){
         train.p <- gather(train.p, Taxon, Pred, -SiteId, -SampId)
         train.p <- left_join(train.p, train.obs, by = c("SiteId", "SampId", "Taxon"))
         train.p$Type <- "Training"
-        train.p$Fold <- fold
-        train.p$Model <- "jSDM"
-        train.p$Trial <- folder
-        
+        train.p$Model <- model.name
+
         ### TEST results
-        test.predictors <- data.splits[[3]]
-        test.y <- data.splits[[4]]
-        
-        
+
+        testing.data <- data.splits[[2]]
+        test.predictors <- testing.data[,env.names]
+        test.y <- testing.data[,inv.names]
         # join the environmental conditions to the occurrence data
         
         
@@ -735,16 +736,14 @@ stat_mod_cv <- function (data.splits, cv, comm.corr){
                                 std.deviance = test.std.deviance, 
                                 D2 = test.d, 
                                 Type = "Testing",
-                                Fold = fold,
-                                Model = folder,
-                                Trial = folder,
+                                Model = model.name,
                                 stringsAsFactors = F)
         
         test.deviance$Taxon <- names(test.std.deviance)
         test.deviance$n.samples <- test.n.samples[test.deviance$Taxon]
         test.deviance$n.present <- test.n.present[test.deviance$Taxon]
         
-        test.deviance <- test.deviance[, c("Taxon", "Type", "Fold", "Model", "Trial", "null.deviance", "residual.deviance", "std.deviance", "D2", "n.samples", "n.present")]
+        test.deviance <- test.deviance[, c("Taxon", "Type", "Model", "null.deviance", "residual.deviance", "std.deviance", "D2", "n.samples", "n.present")]
         
         # tidy the probability data
         test.y <- as_tibble(test.y)
@@ -758,18 +757,22 @@ stat_mod_cv <- function (data.splits, cv, comm.corr){
         test.p <- left_join(test.p, test.y, by = c("SiteId", "SampId", "Taxon"))
         
         test.p$Type <- "Testing"
-        test.p$Fold <- fold
-        test.p$Model <- "jSDM"
-        test.p$Trial <- folder
-        
+        test.p$Model <- model.name
+
         ### Bind the k-fold results
         output$deviance <- bind_rows(output$deviance, train.deviance)
         output$deviance <- bind_rows(output$deviance, test.deviance)
         output$probability <- bind_rows(output$probability, train.p, test.p)
-        return(list(res.extracted,output))
+        return(list(res,output))
         
     }
     else{
+        # Prepare tidy data from maximum posterior beta_taxa
+        beta <- t(beta.taxa.maxpost)
+        beta <- as_tibble(beta, stringsAsFactors = F)
+        beta$Taxon <- colnames(occur.taxa)
+        beta <- gather(beta, Variable, Parameter, -Taxon)
+        
         p.primitive <- apply(y, 2, function(j){sum(j, na.rm=TRUE)/sum(!is.na(j))})
         p.primitive <- ifelse(p.primitive==0,1e-4,p.primitive)
         p.primitive <- matrix(rep(p.primitive,nrow(y)),nrow=nrow(y),byrow=TRUE)
@@ -788,8 +791,9 @@ stat_mod_cv <- function (data.splits, cv, comm.corr){
         n.samples <- apply(y, 2, function(j){ # Number of presence-absence observations
             sum(!is.na(j))
         })
+        n.present <- apply(y, 2, sum, na.rm = TRUE)
         
-        deviance <- tibble(Taxon = names(deviance.fit), Model = "jSDM", null.deviance = deviance.primitive.taxa, residual.deviance = deviance.maxpost.taxa, std.deviance = deviance.maxpost.taxa/n.samples, D2 = deviance.fit, n.samples = n.samples[names(deviance.fit)], n.present = n.present[names(deviance.fit)])
+        deviance <- tibble(Taxon = names(deviance.fit), Model = model.name, null.deviance = deviance.primitive.taxa, residual.deviance = deviance.maxpost.taxa, std.deviance = deviance.maxpost.taxa/n.samples, D2 = deviance.fit, n.samples = n.samples[names(deviance.fit)], n.present = n.present[names(deviance.fit)])
         
         ### Prepare tidy data for output
         # Melt the occurrence data into columns of Taxon and Obs
@@ -812,27 +816,24 @@ stat_mod_cv <- function (data.splits, cv, comm.corr){
         
         #JW we could add Tjur metric here
         
-        #think about how to output
-        folder <- "JWFF0"
         ### Prepare output
-        probability$Model <- folder
-        deviance$Model <- folder
-        beta$Model <- folder
-        #
+        probability$Model <- model.name
+        deviance$Model <- model.name
+        beta$Model <- model.name
+        
         output$deviance <- bind_rows(output$deviance, deviance)
         output$deviance.residual   <- deviance.maxpost
         output$deviance.null <- deviance.primitive
         
         output$probability <- bind_rows(output$probability, probability)
-        output$parameters <- bind_rows(output$parameters, beta)
+        output$parameters <- bind_rows(output$parameters, beta) #not quite sure about beta here
         # Store the site, samples, community, and input data
         output$sites <- sites
         output$samples <- samples
         output$occur.taxa <- occur.taxa
         output$inf.fact <- inf.fact
         output$env.cond <- env.cond
-        output$trial <- folder
-        
+
         # Store priors for community parameters
         output$mu.alpha.comm.pripar <- data$mu_alpha_comm_pripar
         output$sigma.alpha.comm.pripar <- data$sigma_alpha_comm_pripar
@@ -858,9 +859,6 @@ stat_mod_cv <- function (data.splits, cv, comm.corr){
         
         output$beta.taxa  <- res.extracted[["beta_taxa"]]
         output$beta.taxa.maxpost <- beta.taxa.maxpost
-        return(output)
-        
+        return(list(res,output))        
     }
-    #cat('Trial / fold: ', folder, "/", fold, '\n')
-    
 }
