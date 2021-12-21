@@ -67,7 +67,8 @@ split.data.manual <- function(data,sd){
 # function to center data. If there is only one split i.e. the whole occ data, it needs to be inputed as a list with the data as the only element (i.e. list(inv.occ))
 # split <-- list, with one of the three splits done by split.data
 # cv <-- boolean, T if we have 3 splits for CV, F if we don't do CV
-center.data <- function(split, CV, dl = T){
+center.data.old <- function(split, CV){
+  
     #split <- list(inv.occ)
     #split <- splits[[1]]
     training.data <- split[[1]]
@@ -134,6 +135,119 @@ center.data <- function(split, CV, dl = T){
             testing.data[i+4] <- as.matrix(testing.data[i+4]) / sd.env.cond[i]
         }
         
-        return(list("Training data" = training.data, "Testing data" = testing.data))
+        return(list("Training data" = training.data, "Testing data" = testing.data, "Mean" = mean.env.cond, "SD" = sd.env.cond))
     }
+    
+}
+
+center.data <- function(data, split, CV, dl, mean.dl, sd.dl){
+  
+  #split <- splits[[1]]
+  #split <- list(data)
+  training.data <- split[[1]]
+  
+  #extract column names to access predictors and invertebrate data seperately
+  inv.names <- colnames(select(training.data, contains("Occurrence.group."), contains("Occurrence.")))
+  env.names <- colnames(select(training.data, - all_of(inv.names)))
+  
+  
+  #Here I convert to numeric to count observations across sites
+  inv.data <- as.data.frame(apply(training.data[, inv.names],2,as.numeric))
+  
+  # drop TAXA without observations or only presence at the selected sites:
+  ind <- apply(inv.data,2,sum, na.rm = T) <= 0
+  inv.data <- inv.data[, !ind]
+  n.taxa <- ncol(inv.data)
+  
+  ind <-  apply(inv.data,2,sum, na.rm = T) == ncol(inv.data)
+  inv.data <- inv.data[, !ind]
+  n.taxa <- ncol(inv.data)
+  
+  names.selected <- colnames(inv.data)
+  training.data <- cbind(training.data[,env.names],training.data[,names.selected])
+  
+  #if center is true substract the mean of each predictor, check if its divded by sd, I added the division by sd
+  mean.env.cond <- apply(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")), 2, function(k){
+    #mean.env.cond <- apply(env.cond[, !(colnames(env.cond) %in% c("SiteId", "SampId"))], 2, function(k){
+    mean(k, na.rm = TRUE)
+  })
+  sd.env.cond <- apply(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")), 2, function(k){
+    sd(k, na.rm = TRUE)
+  })
+  
+  for(i in 1:length(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
+    #i = 6
+    #message(i)
+    #Bit ugly good, check that the indices are right (i.e. the ones for the env data)
+    training.data[i+4] <- as.matrix(training.data[i+4]) - mean.env.cond[i]
+  }
+  for(i in 1:length(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
+    #i = 6
+    training.data[i+4] <- as.matrix(training.data[i+4]) / sd.env.cond[i]
+  }
+  
+  if(CV == F){
+    return(list( "Entire dataset" = training.data))
+  }
+  else{
+    if(dl == T){
+      
+      for(i in 1:length(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
+        #i = 6
+        #message(i)
+        #Bit ugly good, check that the indices are right (i.e. the ones for the env data)
+      training.data[i+4] <- as.matrix(training.data[i+4]) - mean.dl[i]
+      }
+      for(i in 1:length(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
+        #i = 6
+        training.data[i+4] <- as.matrix(training.data[i+4]) / sd.dl[i]
+      }
+      
+    }else{
+      
+      for(i in 1:length(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
+        #i = 6
+        #message(i)
+        #Bit ugly good, check that the indices are right (i.e. the ones for the env data)
+        training.data[i+4] <- as.matrix(training.data[i+4]) - mean.env.cond[i]
+      }
+      for(i in 1:length(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
+        #i = 6
+        training.data[i+4] <- as.matrix(training.data[i+4]) / sd.env.cond[i]
+      }
+    }
+    testing.data <- split[[2]]
+    
+    #Here I make sure that the same species are dropped from the training and testing set.
+    testing.data <- cbind(testing.data[,env.names],testing.data[,names.selected])
+    
+    # join the environmental conditions to the occurrence data
+    #test.predictors <- left_join(testing.data[, c("SiteId", "SampId")], env.cond.orig, by = c("SiteId", "SampId")
+    if(dl == T){
+      for(i in 1:length(select(testing.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
+        #i = 6
+        #message(i)
+        #Bit ugly good, check that the indices are right (i.e. the ones for the env data)
+        testing.data[i+4] <- as.matrix(testing.data[i+4]) - mean.dl[i]
+      }
+      for(i in 1:length(select(testing.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
+        #i = 6
+        testing.data[i+4] <- as.matrix(testing.data[i+4]) / sd.dl[i]
+      }
+    }
+    else{
+      for(i in 1:length(select(testing.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
+        #i = 6
+        #message(i)
+        #Bit ugly good, check that the indices are right (i.e. the ones for the env data)
+        testing.data[i+4] <- as.matrix(testing.data[i+4]) - mean.env.cond[i]
+      }
+      for(i in 1:length(select(testing.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
+        #i = 6
+        testing.data[i+4] <- as.matrix(testing.data[i+4]) / sd.env.cond[i]
+      }
+    }
+    return(list("Training data" = training.data, "Testing data" = testing.data, "Mean" = mean.env.cond, "SD" = sd.env.cond))
+  }
+  
 }

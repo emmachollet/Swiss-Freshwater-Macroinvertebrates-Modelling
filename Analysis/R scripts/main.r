@@ -16,6 +16,9 @@
 if ( !require("dplyr") ) { install.packages("dplyr"); library("dplyr") } # to sort, join, merge data
 if ( !require("tidyr") ) { install.packages("tidyr"); library("tidyr") } # to sort, join, merge data
 
+if ( !require("parallel") ) { install.packages("parallel"); library("parallel") } # need to run things in parallel
+
+
 # plots
 if ( !require("ggplot2") ) { install.packages("ggplot2"); library("ggplot2") } # to do nice plots
 if ( !require("ggpubr") ) { install.packages("ggpubr"); library("ggpubr") } # to arrange multiple plots on a page
@@ -84,9 +87,14 @@ if( BDM == TRUE){
     
 }
 
-# set if we want to fit models to whole dataset or perform cross-validation (CV)
-CV <- F
 
+
+# set if we want to fit models to whole dataset or perform cross-validation (CV)
+CV <- T
+dl <- F
+
+#set number of cores
+n.cores <-  1
 # set date for file names
 d <- Sys.Date()    # e.g. 2021-12-17
 
@@ -112,7 +120,17 @@ env.fact <- c("temperature",       # Temp
             "width.variability")#, # WV
             # "temperature2",
             # "velocity2")
-
+env.fact.full <- c("temperature",       # Temp
+              "velocity",          # FV
+              "A10m",              # A10m
+              "cow.density",       # LUD
+              "IAR",               # IAR
+              "urban.area",        # Urban
+              "FRI",               # FRI
+              "bFRI",              # bFRI
+              "width.variability",#, # WV
+              "temperature2",
+              "velocity2")
 no.env.fact <- length(env.fact)
 
 # Select taxa ####
@@ -162,6 +180,14 @@ list.algo <- c("#030AE8" = 'glm', # Random Forest
 
 no.algo <- length(list.algo)
 
+#Settings Stat models ####
+##Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models, also make sure the cross-validation (CV) flag is
+## set correctly
+sampsize <- 10 #10000
+n.chain  <- 2 #2
+comm.corr <- T
+
+
 # Write information for file names
 # percentage.train.set <- ratio * 100
 info.file.name <- paste0(file.prefix, 
@@ -174,18 +200,38 @@ info.file.name <- paste0(file.prefix,
                          # if( ratio != 1) {split.var}, 
                          "")
 
-# Pre-process data ####
+info.file.name <- paste0("Stat_model_",
+                         # d, # don't need to include the date
+                         no.taxa, "taxa_", 
+                         # no.env.fact, "envfact_",
+                         sampsize,"iterations_",ifelse(comm.corr,"corr_","nocorr_"),
+                         ifelse(CV, "CV_", "FIT_"),
+                         # "trainset", percentage.train.set, 
+                         # if( ratio != 1) {split.var}, 
+                         "")
 
 # Construct main dataset (with inv and env)
-data <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact)] %>%
+data.full <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact.full)] %>%
     left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
-dim(data)
+dim(data.full)
 
-# drop rows with incomplete influence factorls
-ind <- !apply(is.na(data[,env.fact]),1,FUN=any)
+# drop rows with incomplete influence factors
+ind <- !apply(is.na(data.full[,env.fact.full]),1,FUN=any)
 ind <- ifelse(is.na(ind),FALSE,ind)
-data <- data[ind,]
+data.full <- data.full[ind,]
 print(paste(sum(!ind),"sites/samples excluded because of incomplete influence factors"))
+data <- subset(data.full, select = -c(temperature2, velocity2))
+
+
+#calculate mean and sd for env data for normalisation with data leakage
+
+mean.dl <- apply(select(data.full, all_of(env.fact.full)), 2, function(k){
+  mean(k, na.rm = TRUE)
+})
+sd.dl <- apply(select(data.full, all_of(env.fact.full)), 2, function(k){
+  sd(k, na.rm = TRUE)
+})
+
 
 # Split for CV (and save) data ####
 
@@ -219,14 +265,19 @@ if(CV == T){
 
 # Normalize the data (each folds for CV and whole data set else)
 if(CV == T){
+   
+    #center the splits
+    centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl)
     
-    centered.splits <- lapply(splits, FUN = center.data, CV = CV)
+    #extract necessary information
+    centered.splits <- lapply(centered.splits.tmp,"[", 1:2) # only the splits without the mean, sd info
+    splits.normalization.data <- lapply(centered.splits.tmp,"[", 3:4) # the mean and sd of the splits
     
     # Normalize the folds but replace '0' and '1' by factors
     centered.splits.factors <- lapply(centered.splits, function(split){
-    
+        #split <- centered.splits[[1]] #to test
         return(lapply(split, function(fold){
-       
+        #fold <- split[[1]] # to test
         cind.taxa <- which(grepl("Occurrence.",colnames(fold)))
         #Replace "0" and "1" by "absent" and "present" and convert them to factors
         for (i in cind.taxa ) {
@@ -240,7 +291,7 @@ if(CV == T){
     })
 } else {
     
-    centered.data <- center.data(list(data), CV = CV)
+    centered.data <- center.data(list(data), CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl)
     centered.data.factors <- centered.data
     
     # Replace '0' and '1' by factors
@@ -291,57 +342,89 @@ if(CV == T){
 # g3 <- g3 + geom_point(data = splits[[3]][[1]], aes(x=X, y=Y), color = "red")
 # g3 <- g3 + geom_point(data = splits[[3]][[2]], aes(x=X, y=Y), color = "blue")
 # g3
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ## ---- APPLY MODELS ----
 
  # :)
 
-# Statistical models ####
+# ## Statistical models  ####
+# 
 
 
+ptm <- proc.time() # to calculate time of simulation
 
-
-# read in results produced by Jonas
-file.name <- paste0(dir.models.output, "Output25112021.rds")
+file.name <- paste0(dir.models.output, "Stat_model_",sampsize,"iterations_",ifelse(comm.corr,"corr_","nocorr_"), no.taxa, "taxa_", ifelse(CV, "CV", "FIT"), ".rds")
+cat(file.name)
 
 # If the file with the outputs already exist, just read it
 if (file.exists(file.name) == T ){
     
-    if(exists("outputs") == F){
+    if(exists("stat.outputs") == F){
         cat("File with statistical model outputs already exists, we read it from", file.name, "and save it in object 'outputs'")
         stat.outputs <- readRDS(file = file.name)
         }
     else{
-        cat("List with statistical model outputs already exists as object 'outputs' in this environment.")
+        cat("List with statistical model outputs already exists as object 'stat.outputs' in this environment.")
     }
 } else {
     
     cat("No statistical model outputs exist yet, we produce it and save it in", file.name)
+  
+    env.fact.temp <- c(env.fact, "temperature2", "velocity2") #Add the two transformed variables that are needed for 
+    #the stan models
     
-    env.fact.temp <- c(env.fact, "temperature2", "velocity2")
-    
-    # #1) No cross validation
-    # centered.occ.data <- center.splits(list(inv.occ), cv = F)
-    # #a) No cross validation, no comm corr
-    # res.1 <- stat_mod_cv(data.splits = centered.occ.data, cv = F, comm.corr = F)
-    # 
-    # #b) No cross validation, comm corr
-    # res.1 <- stat_mod_cv(data.splits = centered.occ.data, cv = F, comm.corr = T)
-    # 
-    # #2) Cross validation
-    # centered.splits <- lapply(splits, FUN = center.splits, cv = T)
-    # 
-    # #b) Cross validation, no comm corr
-    #stat_cv_nocorr_res <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = F)
-    # 
-    # #b) Cross validation, comm corr
-    # res.4 <- mclapply(centered.splits, mc.cores = 3, FUN = stat_mod_cv, cv = T, comm.corr = T)
-    
-    # cat("Saving outputs of statistical model in", file.name)
-    # saveRDS(stat.outputs, file = file.name)
-    
+    if(CV == T){
+
+      # Compute one split after the other
+      
+      if(comm.corr == T){
+      cat("No statistical model outputs exist yet, we produce it (with cross validation and community correlation) and save it in",
+          file.name)
+      
+      stat.outputs.cv <- mclapply(centered.splits, mc.cores = n.cores, FUN = stat_mod_cv, CV, comm.corr, sampsize, n.chain)
+      }
+      else{
+      cat("No statistical model outputs exist yet, we produce it (with cross validation but no community correlation) and save it in",
+          file.name)
+      stat.outputs.cv <- mclapply(centered.splits, mc.cores = n.cores, FUN = stat_mod_cv, CV, comm.corr, sampsize, n.chain)
+        
+      }
+      # Compute three splits in paralel (should be run on the server)
+      # outputs <- mclapply(centered.splits.factors, mc.cores = n.cores, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
+      
+      cat("Saving outputs of algorithms in", file.name)
+      saveRDS(stat.outputs.cv, file = file.name, version = 2) #version two here is to ensure compatibility across R versions
+      
+    } else {
+      # apply temporary on training data of Split1, later take whole dataset centered etc
+      
+      if(comm.corr == T){
+      
+
+      stat.outputs.fit <- stat_mod_cv(data.splits = centered.data, CV, comm.corr, sampsize, n.chain)
+      outputs <- stat.outputs.fit
+      cat("Saving outputs of algorithms in", file.name)
+      saveRDS(outputs, file = file.name, version = 2)
+      }
+    else{
+      
+      stat.outputs.fit <- stat_mod_cv(data.splits = centered.data, CV, comm.corr, sampsize, n.chain)
+      
+      outputs <- outputs.fit
+      cat("Saving outputs of algorithms in", file.name)
+      saveRDS(outputs, file = file.name, version = 2)
+      
+    }
+      
+    }
 }
 
-# ## ---- Process output from stat models ----
+print(paste("Simulation time of statistical model ", info.file.name))
+print(proc.time()-ptm)
+
+
+# ## ---- Process output from stat models
 
 #exract neeeded output (std.deviance from the testing set in this case) from the output of the stat models.
 stat_cv_nocorr <- stat.outputs
@@ -364,6 +447,7 @@ for(i in 2:length(stat_cv_nocorr_res)){
 #calculate mean std.deviance across splits
 stat_cv_nocorr_res_table <- as.list(stat_cv_nocorr_res_table %>% group_by(Taxon) %>% summarise(performance = mean(std.deviance, na.rm = T)))
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Machine Learning models ####
 
 ptm <- proc.time() # to calculate time of simulation
@@ -396,7 +480,7 @@ if (file.exists(file.name) == T ){
         outputs.cv <- lapply(centered.splits.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV)
         
         # Compute three splits in paralel (should be run on the server)
-        # outputs <- mclapply(centered.splits.factors, mc.cores = 3, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
+        # outputs <- mclapply(centered.splits.factors, mc.cores = n.cores, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
         
         cat("Saving outputs of algorithms in", file.name)
         saveRDS(outputs.cv, file = file.name, version = 2)
@@ -418,7 +502,7 @@ if (file.exists(file.name) == T ){
 print(paste("Simulation time of different models ", info.file.name))
 print(proc.time()-ptm)
 
-
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Neural Networks ####
 
 # read output from ann_model.r, hopefully ...
