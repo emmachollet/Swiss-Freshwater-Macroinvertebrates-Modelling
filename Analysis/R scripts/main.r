@@ -113,9 +113,9 @@ n.cores <-  1
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
 # also make sure the cross-validation (CV) flag is set correctly
-sampsize <- 10 #10000
+sampsize <- 100 #10000
 n.chain  <- 2 #2
-comm.corr <- F
+comm.corr <- T
 
 # select taxa
 all.taxa = F
@@ -195,6 +195,7 @@ info.file.name <- paste0(file.prefix,
                          # no.env.fact, "envfact_",
                          no.algo, "algo_",
                          ifelse(CV, "CV_", "FIT_"),
+                         ifelse(dl, "DL", "no_DL"),
                          # "trainset", percentage.train.set, 
                          # if( ratio != 1) {split.var}, 
                          "")
@@ -203,7 +204,8 @@ info.file.stat.name <- paste0("Stat_model_",
                          # d, # don't need to include the date
                          no.taxa, "taxa_", 
                          # no.env.fact, "envfact_",
-                         sampsize,"iterations_",ifelse(comm.corr,"corr_","nocorr_"),
+                         sampsize,"iterations_",
+                         ifelse(comm.corr,"corr_","nocorr_"),
                          ifelse(CV, "CV_", "FIT_"),
                          # "trainset", percentage.train.set, 
                          # if( ratio != 1) {split.var}, 
@@ -211,14 +213,14 @@ info.file.stat.name <- paste0("Stat_model_",
 
 # MOVE THIS TO DATA PREPARATION SCRIPTS ####
 # Construct main dataset (with inv and env)
-data <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact)] %>%
+data.full <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact.full)] %>%
     left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
-dim(data)
+dim(data.full)
 
 # Drop rows with incomplete influence factors
 ind <- !apply(is.na(data.full[,env.fact.full]),1,FUN=any)
 ind <- ifelse(is.na(ind),FALSE,ind)
-data <- data[ind,]
+data.full <- data.full[ind,]
 print(paste(sum(!ind),"sites/samples excluded because of incomplete influence factors"))
 data <- subset(data.full, select = -c(temperature2, velocity2))
 
@@ -413,7 +415,6 @@ setdiff(data$SampId, data.test2$SampId)
  # :)
 
 # Statistical models ####
-# Statistical models  ####
 
 ptm <- proc.time() # to calculate time of simulation
 #file.name <- paste0(dir.models.output, "Output25112021.rds") #to test
@@ -493,8 +494,7 @@ ptm <- proc.time() # to calculate time of simulation
 # "Apply" null model
 null.model <- apply.null.model(data = data, list.taxa = list.taxa, prev.inv = prev.inv)
 
-file.name <- paste0(list.algo, collapse = "_")
-file.name <- paste0(dir.models.output, file.name,"_", no.taxa, "taxa_", ifelse(CV, "CV", "FIT"), ".rds")
+file.name <- paste0(dir.models.output, info.file.name,"TrainedModels", ".rds")
 
 # file.name <- paste0("Q:/Abteilungsprojekte/siam/Jonas Wydler/Swiss-Freshwater-Macroinvertebrates-Modelling/Analysis/Intermediate results/Trained models/", no.algo, "MLAlgoTrained.rds")
 
