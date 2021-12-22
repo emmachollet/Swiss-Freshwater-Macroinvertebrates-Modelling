@@ -5,5 +5,7 @@ Data/Original data/*
 ~$*
 *.docx
 Analysis/Plots/*
-Analysis/R scripts/old/*
 Documents/*
+*.stan
+*_nolatvar.rds
+Analysis/R scripts/old/*
