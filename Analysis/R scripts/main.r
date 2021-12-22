@@ -19,8 +19,6 @@
 # data management
 if ( !require("dplyr") ) { install.packages("dplyr"); library("dplyr") } # to sort, join, merge data
 if ( !require("tidyr") ) { install.packages("tidyr"); library("tidyr") } # to sort, join, merge data
-if ( !require("explore") ) { install.packages("explore"); library("explore") } # to explore data
-if ( !require("visdat") ) { install.packages("visdat"); library("visdat") } # to visualize missing data in dataset
 
 # plots
 if ( !require("ggplot2") ) { install.packages("ggplot2"); library("ggplot2") } # to do nice plots
@@ -105,7 +103,7 @@ source("utilities.r")
 
 # Set if we want to fit models to whole dataset or perform cross-validation (CV)
 CV <- T # Cross-Validation
-dl <- T # Data Leakage
+dl <- F # Data Leakage
 
 # Set number of cores
 n.cores <-  1
@@ -154,15 +152,15 @@ if (all.taxa == T){
 } else if (all.taxa == F){
     
     # 2 taxa
-    # list.taxa       <- c("Occurrence.Gammaridae", "Occurrence.Heptageniidae")
+     list.taxa       <- c("Occurrence.Gammaridae", "Occurrence.Heptageniidae")
     # 
     # 6 taxa
     # list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55),
     #                            "Occurrence.taxa"] # Select only few taxa
     
     # 22 taxa
-    list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25),
-                                 "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
+    # list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25),
+    #                              "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
 }
 
 no.taxa <- length(list.taxa)
@@ -496,8 +494,8 @@ ptm <- proc.time() # to calculate time of simulation
 # "Apply" null model
 null.model <- apply.null.model(data = data, list.taxa = list.taxa, prev.inv = prev.inv)
 
-# file.name <- paste0(dir.models.output, info.file.name,"MLAlgoTrained", ".rds")
-file.name <- paste0(dir.models.output, "glm_gamSpline_svmRadial_rf_22taxa_FIT.rds")
+file.name <- paste0(dir.models.output, info.file.name,"MLAlgoTrained", ".rds")
+# file.name <- paste0(dir.models.output, "glm_gamSpline_svmRadial_rf_22taxa_FIT.rds")
 cat(file.name)
 # file.name <- paste0("Q:/Abteilungsprojekte/siam/Jonas Wydler/Swiss-Freshwater-Macroinvertebrates-Modelling/Analysis/Intermediate results/Trained models/", no.algo, "MLAlgoTrained.rds")
 
@@ -548,8 +546,8 @@ print(proc.time()-ptm)
 
 # read output from ann_model.r, hopefully ...
 
-file.name <- paste0(dir.models.output, "test_ANNoutputs.rds")
-ann.outputs <- readRDS(file = file.name)
+# file.name <- paste0(dir.models.output, "test_ANNoutputs.rds")
+# ann.outputs <- readRDS(file = file.name)
 
 
 # Training GAM bam for 6 taxa: 5 hours
@@ -582,6 +580,7 @@ if(CV == T){
     
         outputs[[l]] <- temp.list.st.dev
     }
+    # # Add output of stat model
     # # outputs.cv
     # temp.list.stat <- vector(mode = "list", length = length(stat_cv_nocorr_res_table$Taxon))
     # names(temp.list.stat) <- stat_cv_nocorr_res_table$Taxon
@@ -598,30 +597,32 @@ if(CV == T){
     # 
     # outputs[[5]] <- FF0
     # names(outputs)[[5]] <- "FF0"
-    for (a in 1:length(ann.outputs)) {
-        outputs[[4 + a]] <- ann.outputs[[a]]
-        names(outputs)[4 + a] <- names(ann.outputs)[a]
-        
-    }
+    
+    # # Add output of ANN
+    # for (a in 1:length(ann.outputs)) {
+    #     outputs[[4 + a]] <- ann.outputs[[a]]
+    #     names(outputs)[4 + a] <- names(ann.outputs)[a]
+    #     
+    # }
 }
 
 ## ---- PLOTS ----
 
-list.algo <- c(list.algo, "blue" = names(ann.outputs)[1],"red" = names(ann.outputs)[2], "grey" = names(ann.outputs)[3])
-no.algo <- length(list.algo)
-
-# Write information for file names
-# percentage.train.set <- ratio * 100
-info.file.name <- paste0(file.prefix, 
-                         # d, # don't need to include the date
-                         no.taxa, "taxa_", 
-                         # no.env.fact, "envfact_",
-                         no.algo, "algo_",
-                         ifelse(CV, "CV_", "FIT_"),
-                         ifelse(dl, "DL_", "no_DL_"),
-                         # "trainset", percentage.train.set, 
-                         # if( ratio != 1) {split.var}, 
-                         "")
+# list.algo <- c(list.algo, "blue" = names(ann.outputs)[1],"red" = names(ann.outputs)[2], "grey" = names(ann.outputs)[3])
+# no.algo <- length(list.algo)
+# 
+# # Write information for file names
+# # percentage.train.set <- ratio * 100
+# info.file.name <- paste0(file.prefix, 
+#                          # d, # don't need to include the date
+#                          no.taxa, "taxa_", 
+#                          # no.env.fact, "envfact_",
+#                          no.algo, "algo_",
+#                          ifelse(CV, "CV_", "FIT_"),
+#                          ifelse(dl, "DL_", "no_DL_"),
+#                          # "trainset", percentage.train.set, 
+#                          # if( ratio != 1) {split.var}, 
+#                          "")
 
 # Models comparison ####
 
@@ -807,8 +808,8 @@ ptm <- proc.time() # to calculate time of simulation
 
 # PDP of all models
 # We sub-select taxa and env.fact because it takes a lot of time
-list.plots <- plot.pdp(outputs = outputs, list.algo = list.algo,
-                       list.taxa = list.taxa, env.fact = env.fact)
+# list.plots <- plot.pdp(outputs = outputs, list.algo = list.algo,
+#                        list.taxa = list.taxa, env.fact = env.fact)
 
 file.name <- "allPDP.pdf"
 print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)

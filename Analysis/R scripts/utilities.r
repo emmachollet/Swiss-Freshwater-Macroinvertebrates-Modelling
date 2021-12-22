@@ -158,16 +158,30 @@ center.data <- function(data, split, CV, dl, mean.dl, sd.dl, env.fact.full){
   env.names <- env.fact.full
   info.names <- colnames(select(training.data, - all_of(inv.names), - all_of(env.names)))
   
-  #Here I convert to numeric to count observations across sites
+  # convert to numeric to count observations across sites
   inv.data <- as.data.frame(apply(training.data[, inv.names],2,as.numeric))
   
-  # drop TAXA without observations or only presence at the selected sites:
+  # drop taxa without observations or only presence at the selected sites
   ind <- apply(inv.data,2,sum, na.rm = T) <= 0
   inv.data <- inv.data[, !ind]
   n.taxa <- ncol(inv.data)
   
   ind <-  apply(inv.data,2,sum, na.rm = T) == ncol(inv.data)
   inv.data <- inv.data[, !ind]
+  
+  # spot taxa columns with too many NA
+  too.many.na <- c()
+  for(i in 1:dim(inv.data)[2]){
+      if(sum(is.na(inv.data[,i])) > 200){ too.many.na <- c(too.many.na, i)}
+  }
+  
+  # remove col with too many NA
+  inv.data <- inv.data[, -too.many.na]
+  
+  # remove remaining NA
+  inv.data <- na.omit(inv.data)
+  
+  
   n.taxa <- ncol(inv.data)
   
   names.selected <- colnames(inv.data)

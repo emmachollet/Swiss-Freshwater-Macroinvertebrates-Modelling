@@ -183,7 +183,7 @@ model.comparison <- function(outputs, null.model, list.algo, list.taxa, prev.inv
     if(CV == F){
       title <- paste("Models comparison in quality of fit")
     } else {
-      title <- paste("Models comprison in predictive performance")
+      title <- paste("Models comparison in predictive performance")
     }
     print(paste("Plotting comparison for", c[m]))
     # fill data frame with all performances
@@ -559,7 +559,7 @@ plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
         colnames(temp.df) <- "value"
         temp.df$factor <- env.fact[k]
         for (l in 1:no.algo){ 
-        temp.df[,list.algo[l]] <- pdp::partial(outputs[[l]][[j]][["Trained model"]][["finalModel"]], pred.var = env.fact[k])[,"yhat"]
+        temp.df[,list.algo[l]] <- pdp::partial(outputs[[l]][[j]][["Trained model"]], pred.var = env.fact[k])[,"yhat"]
         }
         temp.df <- gather(temp.df, key = model, value = fct, -value, - factor)
         plot.data <- union(plot.data,temp.df)
@@ -567,7 +567,6 @@ plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
       
       p <- ggplot(plot.data, aes(x = value, y = fct, color = model))
       p <- p + geom_line()
-      p <- p + geom_smooth(method = "loess")
       p <- p + facet_wrap( ~ factor, scales = "free_x", 
                            #labeller=label_parsed, 
                            strip.position="bottom")
@@ -594,8 +593,8 @@ plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
           print(paste("Producing PDP of", k, env.fact[k], "for", j,  list.taxa[j]))
           plot.title <- paste("PDP of", env.fact[k])
         
-        p <- partial(outputs[[algo]][[j]][["Trained model"]][["finalModel"]], pred.var = env.fact[k])
-        p <- autoplot(p, smooth = TRUE, ylab = paste("f(", env.fact[k], ")")) +
+        p <- partial(outputs[[algo]][[j]][["Trained model"]], pred.var = env.fact[k])
+        p <- autoplot(p, ylab = paste("f(", env.fact[k], ")")) +
           theme_light() +
           ggtitle(plot.title)
         p <- p + coord_cartesian(ylim = c(-2,2))
