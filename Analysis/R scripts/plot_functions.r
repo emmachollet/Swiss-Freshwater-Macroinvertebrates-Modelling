@@ -264,28 +264,28 @@ model.comparison <- function(outputs, null.model, list.algo, list.taxa, prev.inv
     n <- n + 1
   }
   
-  # Plot performance for each taxa after resampling
-  n = 3
-  for (j in 1:no.taxa){
-    
-    print(paste("Plotting comparison after resampling for", list.taxa[j]))
-    
-    temp.list.trmod <- vector(mode = 'list', length = no.algo)
-    names(temp.list.trmod) <- list.algo
-    for (l in 1:no.algo){
-      temp.list.trmod[[l]] <- outputs[[l]][[j]][["Trained model"]]
-    }
-    
-    # Use caret function resamples 
-    models.compare <- resamples(temp.list.trmod, metric = "StandardizedDeviance")
-    summary(models.compare)
-    
-    # Draw box plots to compare models from this resampling
-    scales <- list(x=list(relation="free"), y=list(relation="free"))
-    title <- paste("Comparison of model performance after resampling for",list.taxa[[j]])
-    list.plots[[n]] <- bwplot(models.compare, scales=scales, main = title) # see how algorithms perform in terms of metric
-    n = n + 1  
-    }
+  # # Plot performance for each taxa after resampling
+  # n = 3
+  # for (j in 1:no.taxa){
+  #   
+  #   print(paste("Plotting comparison after resampling for", list.taxa[j]))
+  #   
+  #   temp.list.trmod <- vector(mode = 'list', length = no.algo)
+  #   names(temp.list.trmod) <- list.algo
+  #   for (l in 1:no.algo){
+  #     temp.list.trmod[[l]] <- outputs[[l]][[j]][["Trained model"]]
+  #   }
+  #   
+  #   # Use caret function resamples 
+  #   models.compare <- resamples(temp.list.trmod, metric = "StandardizedDeviance")
+  #   summary(models.compare)
+  #   
+  #   # Draw box plots to compare models from this resampling
+  #   scales <- list(x=list(relation="free"), y=list(relation="free"))
+  #   title <- paste("Comparison of model performance after resampling for",list.taxa[[j]])
+  #   list.plots[[n]] <- bwplot(models.compare, scales=scales, main = title) # see how algorithms perform in terms of metric
+  #   n = n + 1  
+  #   }
   return(list.plots)
 }
 
