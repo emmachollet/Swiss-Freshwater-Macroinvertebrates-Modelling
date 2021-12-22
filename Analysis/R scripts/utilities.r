@@ -142,7 +142,7 @@ center.data.old <- function(split, CV){
 
 center.data <- function(data, split, CV, dl, mean.dl, sd.dl){
   
-  split <- splits[[1]]
+  #split <- splits[[1]]
   # split <- list(data)
   training.data <- split[[1]]
   
@@ -186,6 +186,7 @@ center.data <- function(data, split, CV, dl, mean.dl, sd.dl){
     #message(i)
     #Bit ugly good, check that the indices are right (i.e. the ones for the env data)
     training.data[i+4] <- as.matrix(training.data[i+4]) - mean.env.cond[i]
+    
   }
   
   # str(training.data$temperature)
@@ -197,7 +198,11 @@ center.data <- function(data, split, CV, dl, mean.dl, sd.dl){
   
   for(i in 1:length(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
     #i = 6
-    training.data[i+4] <- as.matrix(training.data[i+4]) / sd.env.cond[i]
+    training.data[i+4] <- as.matrix(training.data[i+4]) /  sd.env.cond[i]
+  }
+  # Remove attribute names that created issues in the ml models
+  for(var in colnames(training.data)) {
+    attr(training.data[,deparse(as.name(var))], "dimnames") <- NULL
   }
   
   if(CV == F){
