@@ -105,7 +105,7 @@ source("utilities.r")
 
 # Set if we want to fit models to whole dataset or perform cross-validation (CV)
 CV <- T # Cross-Validation
-dl <- F # Data Leakage
+dl <- T # Data Leakage
 
 # Set number of cores
 n.cores <-  1
@@ -267,7 +267,7 @@ if(CV == T){
 if(CV == T){
    
     # Center the splits
-    centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl)
+    centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full)
     # centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV)
     # Extract necessary information
     centered.splits <- lapply(centered.splits.tmp,"[", 1:2) # only the splits without the mean, sd info
@@ -291,7 +291,7 @@ if(CV == T){
     })
 } else {
     
-    centered.data <- center.data(list(data), CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl)
+    centered.data <- center.data(list(data.full), CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full)
     centered.data.factors <- centered.data
     
     # Replace '0' and '1' by factors
