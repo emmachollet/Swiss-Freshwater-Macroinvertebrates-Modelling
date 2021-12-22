@@ -97,8 +97,12 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                                                  list.taxa[j], env.fact)]) # create a temporary training dataset with the taxon and env fact, to 
             if(CV == T){temp.test <- na.omit(data.test[, c("SiteId", "SampId",
                                                    "X", "Y", 
-                                                   list.taxa[j], env.fact)])}
-            temp.sets <- ifelse(CV ==T, list(temp.train, temp.test), list(temp.train))
+                                                   list.taxa[j], env.fact)])
+                temp.sets <- list(temp.train, temp.test)
+            } else {
+                temp.sets <- list(temp.train)
+            } 
+            
             f <- reformulate(env.fact, list.taxa[j]) # write formula (target variable ~ explanatory variables) to apply the model
             
             # Why is train() better than using the algorithm's fct directly ?
@@ -107,6 +111,8 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
             # 2. Tune the hyper parameters for optimal model performance
             # 3. Choose the optimal model based on a given evaluation metric
             # 4. Preprocess the predictors (what we did so far using preProcess())
+            
+            set.seed(2021) # for reproducibility of the folds
             
             folds <- groupKFold(temp.train$SiteId, 3) # create 3 folds, grouped by SiteId
             
