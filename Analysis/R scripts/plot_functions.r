@@ -604,8 +604,7 @@ plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
       title <- paste(algo, "applied to", list.taxa[j])
       p <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title))
         
-      list.plots[[n]] <- p
-      n <- n + 1
+      list.plots[[j]] <- p
     }
     
   }
