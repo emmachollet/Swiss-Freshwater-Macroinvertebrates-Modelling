@@ -104,7 +104,7 @@ source("utilities.r")
 # Setup options ####
 
 # Set if we want to fit models to whole dataset or perform cross-validation (CV)
-CV <- T # Cross-Validation
+CV <- F # Cross-Validation
 dl <- F # Data Leakage
 
 # Set number of cores
@@ -118,7 +118,7 @@ n.chain  <- 2 #2
 comm.corr <- T
 
 # Select taxa
-all.taxa = F
+all.taxa = T
 # set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
 # set to TRUE to apply models to all taxa
 
@@ -176,21 +176,22 @@ data.inv <- data.inv[, -too.many.na]
 
 cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
 
-data.full <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact.full)] %>%
+data <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact.full)] %>%
     left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
-dim(data.full)
+dim(data)
 
 # Drop rows with incomplete taxa or influence factors
-ind <- !apply(is.na(data.full),1,FUN=any)
+ind <- !apply(is.na(data),1,FUN=any)
 ind <- ifelse(is.na(ind),FALSE,ind)
-data.full <- data.full[ind,]
+data <- data[ind,]
 print(paste(sum(!ind),"sites/samples excluded because of incomplete taxa or influence factors"))
-data <- subset(data.full, select = -c(temperature2, velocity2))
+dim(data)
 
 # Select taxa ####
 
 cind.taxa <- which(grepl("Occurrence.",colnames(data)))
 list.taxa.full <- colnames(data)[cind.taxa]
+list.taxa <- list.taxa.full
 
 # Select taxa for prediction
 if (all.taxa == F){
@@ -238,18 +239,20 @@ if(CV == T){
       } else {
       
       cat("No data splits exist yet, we produce it and save it in", file.name)
-      splits <- split.data(data.full)
+      splits <- split.data(data)
       saveRDS(splits, file = file.name)
       }
 }
+splits.old <- readRDS(file = paste0(dir.workspace, "SplitsForCVold.rds"))
+
 
 # Normalize data ####
 
 # Calculate mean and sd for env data for normalisation with data leakage
-mean.dl <- apply(select(data.full, all_of(env.fact.full)), 2, function(k){
+mean.dl <- apply(select(data, all_of(env.fact.full)), 2, function(k){
     mean(k, na.rm = TRUE)
 })
-sd.dl <- apply(select(data.full, all_of(env.fact.full)), 2, function(k){
+sd.dl <- apply(select(data, all_of(env.fact.full)), 2, function(k){
     sd(k, na.rm = TRUE)
 })
 
@@ -282,7 +285,7 @@ if(CV == T){
     remove(centered.splits.tmp)
 } else {
     
-    centered.data <- center.data(list(data.full), CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full)
+    centered.data <- center.data(list(data), CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full)
     centered.data.factors <- centered.data
     
     # Replace '0' and '1' by factors
@@ -330,7 +333,7 @@ info.file.name <- paste0(file.prefix,
 
 info.file.stat.name <- paste0("Stat_model_",
                               # d, # don't need to include the date
-                              no.taxa, "taxa_", 
+                              no.taxa.full, "taxa_", 
                               # no.env.fact, "envfact_",
                               sampsize,"iterations_",
                               ifelse(comm.corr,"corr_","nocorr_"),
@@ -507,7 +510,7 @@ stat_cv_nocorr_res_table <- as.list(stat_cv_nocorr_res_table %>% group_by(Taxon)
 ptm <- proc.time() # to calculate time of simulation
 
 # "Apply" null model
-null.model <- apply.null.model(data = data, list.taxa = list.taxa, prev.inv = prev.inv)
+null.model <- apply.null.model(data = data, list.taxa = list.taxa.full, prev.inv = prev.inv)
 
 file.name <- paste0(dir.models.output, info.file.name,"MLAlgoTrained", ".rds")
 # file.name <- paste0(dir.models.output, "glm_gamSpline_svmRadial_rf_22taxa_FIT.rds")
@@ -579,21 +582,48 @@ if(CV == T){
     outputs <- vector(mode = "list", length = length(list.algo))
     names(outputs) <- list.algo
     
+    out <- c("Observation", #1
+             "Prediction factors", #2 
+             "Prediction probabilities", #3 
+             "Likelihood", #4
+             "Performance", #5
+             "Performance splits") #6
+    output.names <- paste(out, "testing set")
+    
     for (l in 1:no.algo) {
         
-        temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
-        names(temp.list.st.dev) <- list.taxa
+        temp.list.taxa <- vector(mode = "list", length = length(list.taxa))
+        names(temp.list.taxa) <- list.taxa
         
-        for( j in 1:no.taxa){
+        for(j in 1:no.taxa){
             
-            temp.vect <- vector(mode ="numeric", length = length(outputs)) 
+            temp.output <- vector(mode = "list", length = length(output.names))
+            names(temp.output) <- output.names
+            
+            for (m in output.names[c(1,3)]) {
+                temp.output[[m]] <- bind_rows(outputs.cv[[1]][[l]][[j]][[m]],
+                                              outputs.cv[[2]][[l]][[j]][[m]],
+                                              outputs.cv[[3]][[l]][[j]][[m]], .id = "Split")
+                }
+            for (m in output.names[c(2,4)]) {
+                temp.output[[m]] <- c(outputs.cv[[1]][[l]][[j]][[m]],
+                                      outputs.cv[[2]][[l]][[j]][[m]],
+                                      outputs.cv[[3]][[l]][[j]][[m]])
+                }
+            
+            temp.vect <- vector(mode ="numeric", length = length(outputs.cv)) 
+            names(temp.vect) <- names(outputs.cv)
             for (n in 1:length(outputs.cv)) {
                 temp.vect[n] <- outputs.cv[[n]][[l]][[j]][["Performance testing set"]]
             }
-            temp.list.st.dev[[j]] <- mean(temp.vect)
+            
+            temp.output[[5]] <- mean(temp.vect)
+            temp.output[[6]] <- temp.vect
+            
+            temp.list.taxa[[j]] <- temp.output
         }
     
-        outputs[[l]] <- temp.list.st.dev
+        outputs[[l]] <- temp.list.taxa
     }
     # # Add output of stat model
     # # outputs.cv
@@ -709,174 +739,172 @@ dev.off()
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
 
-# Performance vs hyperparameters ####
+# Plots specific to training 
 
-ptm <- proc.time() # to calculate time of pdf production
+if(!CV){
+    
+    # Performance vs hyperparameters ####
+    
+    ptm <- proc.time() # to calculate time of pdf production
+    
+    # Compute plots
+    list.plots <- plot.perf.hyperparam(outputs = outputs, 
+                                       list.algo = list.algo, # GLM algo doesn't have hyperparameters
+                                       list.taxa = list.taxa)
+    
+    name <- "PerfvsHyperparam"
+    
+    # Print a pdf file
+    file.name <- paste0(name, ".pdf")
+    print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+    
+    # Print a jpeg file
+    file.name <- paste0(name, ".jpg")
+    jpeg(paste0(dir.plots.output,"JPEG/",info.file.name,file.name))
+    print(list.plots[[1]])
+    dev.off()
+    
+    print(paste(file.name, "printing:"))
+    print(proc.time()-ptm)
 
-# Compute plots
-list.plots <- plot.perf.hyperparam(outputs = outputs, 
-                                   list.algo = list.algo, # GLM algo doesn't have hyperparameters
-                                   list.taxa = list.taxa)
 
-name <- "PerfvsHyperparam"
-
-# Print a pdf file
-file.name <- paste0(name, ".pdf")
-print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-
-# Print a jpeg file
-file.name <- paste0(name, ".jpg")
-jpeg(paste0(dir.plots.output,"JPEG/",info.file.name,file.name))
-print(list.plots[[1]])
-dev.off()
-
-print(paste(file.name, "printing:"))
-print(proc.time()-ptm)
-
-
-# Variables importance ####
-
-ptm <- proc.time() # to calculate time of simulation
-
-list.plots <- plot.varimp(outputs = outputs, list.algo = list.algo, list.taxa = list.taxa)
-
-name <- "VarImp"
-
-# Print a pdf file
-file.name <- paste0(name, ".pdf")
-print.pdf.plots(list.plots = list.plots, width = 10, height = 10, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-
-# Print a jpeg file
-file.name <- paste0(name, ".jpg")
-jpeg(paste0(dir.plots.output,"JPEG/",info.file.name,file.name))
-print(list.plots[[1]])
-dev.off()
-
-# print directly table with variable importance for each algo and taxa (too complicated to put in a fct)
-file.name <- "TableVarImp.pdf"
-pdf(paste0(dir.plots.output, info.file.name, file.name), paper = 'special', width = 12, height = 9, onefile = TRUE)
-temp.df <- data.frame(matrix(ncol = no.algo*no.taxa, nrow = no.env.fact))
-colnames(temp.df) <- c(outer(list.algo, list.taxa, FUN = paste))
-rownames(temp.df) <- env.fact
-for (j in 1:no.taxa) {
-  for (l in 1:no.algo) {
-    for (k in 1:no.env.fact) {
-      temp.df[env.fact[k],paste(list.algo[l], list.taxa[j])] <- outputs[[l]][[j]][["Variable importance"]][["importance"]][env.fact[k],1]
+    # Variables importance ####
+    
+    ptm <- proc.time() # to calculate time of simulation
+    
+    list.plots <- plot.varimp(outputs = outputs, list.algo = list.algo, list.taxa = list.taxa)
+    
+    name <- "VarImp"
+    
+    # Print a pdf file
+    file.name <- paste0(name, ".pdf")
+    print.pdf.plots(list.plots = list.plots, width = 10, height = 10, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+    
+    # Print a jpeg file
+    file.name <- paste0(name, ".jpg")
+    jpeg(paste0(dir.plots.output,"JPEG/",info.file.name,file.name))
+    print(list.plots[[1]])
+    dev.off()
+    
+    # print directly table with variable importance for each algo and taxa (too complicated to put in a fct)
+    file.name <- "TableVarImp.pdf"
+    pdf(paste0(dir.plots.output, info.file.name, file.name), paper = 'special', width = 12, height = 9, onefile = TRUE)
+    temp.df <- data.frame(matrix(ncol = no.algo*no.taxa, nrow = no.env.fact))
+    colnames(temp.df) <- c(outer(list.algo, list.taxa, FUN = paste))
+    rownames(temp.df) <- env.fact
+    for (j in 1:no.taxa) {
+      for (l in 1:no.algo) {
+        for (k in 1:no.env.fact) {
+          temp.df[env.fact[k],paste(list.algo[l], list.taxa[j])] <- outputs[[l]][[j]][["Variable importance"]][["importance"]][env.fact[k],1]
+        }
+      }
     }
-  }
-}
-temp.df$mean.imp <- rowMeans(temp.df)
-temp.df <- as.matrix(temp.df)
-par(mar=c(1,5,15,3)+ 0.2, xaxt = "n")
-plot(temp.df, 
-     #key = NULL,
-     digits = 2, text.cell=list(cex=0.5),
-     # axis.col=list(side=3, las=2), 
-     axis.row = list(side=2, las=1),
-     col = viridis,
-     xlab = "",
-     ylab = "",
-     cex.axis = 0.5,
-     srt = 45,
-     main = "Variable importance for ML algorithm applied to taxa"
-     )
-axis(1, at=seq(1:ncol(temp.df)+1), labels = FALSE)
-text(seq(1:ncol(temp.df)+1), par("usr")[4] + 0.15, srt = 50, 
-     labels = colnames(temp.df), adj= 0, cex = 0.5, xpd = T)
+    temp.df$mean.imp <- rowMeans(temp.df)
+    temp.df <- as.matrix(temp.df)
+    par(mar=c(1,5,15,3)+ 0.2, xaxt = "n")
+    plot(temp.df, 
+         #key = NULL,
+         digits = 2, text.cell=list(cex=0.5),
+         # axis.col=list(side=3, las=2), 
+         axis.row = list(side=2, las=1),
+         col = viridis,
+         xlab = "",
+         ylab = "",
+         cex.axis = 0.5,
+         srt = 45,
+         main = "Variable importance for ML algorithm applied to taxa"
+         )
+    axis(1, at=seq(1:ncol(temp.df)+1), labels = FALSE)
+    text(seq(1:ncol(temp.df)+1), par("usr")[4] + 0.15, srt = 50, 
+         labels = colnames(temp.df), adj= 0, cex = 0.5, xpd = T)
+    
+    dev.off()
+    
+    print(paste(file.name, "printing:"))
+    print(proc.time()-ptm)
+    
+    # For BDM Dataset, only 55 env fact (priority) : 3 sec
+    
+    # Print accuracy
+    
+    for(l in 1:no.algo){
+      for(j in 1:no.taxa){
+          # cat("Accuracy on training for",list.taxa[j], "is :",
+          #    output[[j]][["Trained model"]][["resample"]][["Accuracy"]], "\n")
+          cat("Accuracy on prediction for",list.taxa[j],"with", list.algo[l], "is :",
+              outputs[[l]][[j]][["Confusion matrix testing set"]][["overall"]][["Accuracy"]], "\n")
+      }
+    }
+    
+    # PDP don't work ####
+    
+    source("plot_functions.r")
+    
+    ptm <- proc.time() # to calculate time of simulation
+    
+    # PDP of one model
+    list.plots <- plot.pdp(outputs = outputs[[1]], algo = "rf", list.algo = list.algo,
+                          list.taxa = list.taxa, env.fact = env.fact)
+    
+    ptm <- proc.time() # to calculate time of simulation
+    
+    # PDP of one model
+    # list.plots <- plot.pdp(outputs = outputs, algo = "rf", list.algo = list.algo,
+    #                       list.taxa = list.taxa, env.fact = env.fact)
+    #
+    file.name <- "rf_PDP.pdf"
+    print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+    
+    # PDP of all models
+    list.plots <- plot.pdp(outputs = outputs[[1]], list.algo = list.algo,
+                           list.taxa = list.taxa, env.fact = env.fact)
+    
+    file.name <- "allPDP.pdf"
+    print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+    
+    # PDP of all models
+    # We sub-select taxa and env.fact because it takes a lot of time
+    list.plots <- plot.pdp(outputs = outputs, list.algo = list.algo,
+                           list.taxa = list.taxa, env.fact = env.fact)
+    
+    file.name <- "allPDP.pdf"
+    print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+    
+    print(paste(file.name, "printing:"))
+    print(proc.time()-ptm)
+    
+    # ICE ####
+    
+    ptm <- proc.time() # to calculate time of simulation
+    
+    # ICE of one model
+    list.plots <- plot.ice(outputs = outputs, algo = list.algo[2], list.algo = list.algo,
+                           list.taxa = list.taxa[1:2], env.fact = env.fact[1:2])
+    
+    file.name <- "ICE.pdf"
+    print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+    
+    print(paste(file.name, "printing:"))
+    print(proc.time()-ptm)
+    
+    # multiple PDP ####
+    
+    # We just make one example because it's computationally heavy
+    
+    ptm <- proc.time() # to calculate time of simulation
+    
+    # Multiple (2) predictors PDP (of one model) for now just for 1 algo and 1 taxa
+    list.plots <- plot.mult.pred.pdp(outputs = outputs, list.algo = list.algo,
+                           list.taxa = list.taxa, env.fact = env.fact)
+    
+    file.name <- "multpredPDP.pdf"
+    print.pdf.plots(list.plots = list.plots, width = 17, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+    
+    print(paste(file.name, "printing:"))
+    print(proc.time()-ptm)
 
-dev.off()
-
-print(paste(file.name, "printing:"))
-print(proc.time()-ptm)
-
-# For BDM Dataset, only 55 env fact (priority) : 3 sec
-
-# Print accuracy
-
-for(l in 1:no.algo){
-  for(j in 1:no.taxa){
-      # cat("Accuracy on training for",list.taxa[j], "is :",
-      #    output[[j]][["Trained model"]][["resample"]][["Accuracy"]], "\n")
-      cat("Accuracy on prediction for",list.taxa[j],"with", list.algo[l], "is :",
-          outputs[[l]][[j]][["Confusion matrix testing set"]][["overall"]][["Accuracy"]], "\n")
-  }
-}
-
-# PDP don't work ####
-
-source("plot_functions.r")
-
-ptm <- proc.time() # to calculate time of simulation
-
-# PDP of one model
-list.plots <- plot.pdp(outputs = outputs[[1]], algo = "rf", list.algo = list.algo,
-                      list.taxa = list.taxa, env.fact = env.fact)
-
-ptm <- proc.time() # to calculate time of simulation
-
-# PDP of one model
-# list.plots <- plot.pdp(outputs = outputs, algo = "rf", list.algo = list.algo,
-#                       list.taxa = list.taxa, env.fact = env.fact)
-#
-file.name <- "rf_PDP.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-
-# PDP of all models
-list.plots <- plot.pdp(outputs = outputs[[1]], list.algo = list.algo,
-                       list.taxa = list.taxa, env.fact = env.fact)
-
-file.name <- "allPDP.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-
-# PDP of all models
-# We sub-select taxa and env.fact because it takes a lot of time
-list.plots <- plot.pdp(outputs = outputs, list.algo = list.algo,
-                       list.taxa = list.taxa, env.fact = env.fact)
-
-file.name <- "allPDP.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-
-print(paste(file.name, "printing:"))
-print(proc.time()-ptm)
-
-# ICE ####
-
-ptm <- proc.time() # to calculate time of simulation
-
-# ICE of one model
-list.plots <- plot.ice(outputs = outputs, algo = list.algo[2], list.algo = list.algo,
-                       list.taxa = list.taxa[1:2], env.fact = env.fact[1:2])
-
-file.name <- "ICE.pdf"
-print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-
-print(paste(file.name, "printing:"))
-print(proc.time()-ptm)
-
-# multiple PDP ####
-
-# We just make one example because it's computationally heavy
-
-ptm <- proc.time() # to calculate time of simulation
-
-# Multiple (2) predictors PDP (of one model) for now just for 1 algo and 1 taxa
-list.plots <- plot.mult.pred.pdp(outputs = outputs, list.algo = list.algo,
-                       list.taxa = list.taxa, env.fact = env.fact)
-
-file.name <- "multpredPDP.pdf"
-print.pdf.plots(list.plots = list.plots, width = 17, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-
-print(paste(file.name, "printing:"))
-print(proc.time()-ptm)
-
-# print("hey")
-# # Stop execution if there is no (prediction on) testing set
-# # stopifnot(ratio != 1)
-# if( length(outputs[[1]][[1]]) < 9){
-#   break
-# }
-# print("salut")
-
+}    
+    
 # Map predictions ####
 
 source("plot_functions.r")
@@ -886,7 +914,7 @@ ptm <- proc.time() # to calculate time of pdf production
 inputs <- map.inputs(dir.env.data = dir.env.data, data.env = data.env)
 
 # make a list with all plots and plot them in a pdf
-list.plots <- lapply(list.taxa, FUN = map.ml.pred.taxa, inputs, outputs, list.algo)
+list.plots <- lapply(list.taxa, FUN = map.ml.pred.taxa, inputs, outputs, list.algo, CV)
 
 name <- "ObsvsPred_map"
 
@@ -911,7 +939,7 @@ ptm <- proc.time() # to calculate time of pdf production
 algo <- list.algo[4]
 
 # make a list with all plots and plot them in a pdf
-list.plots <- lapply(list.taxa, FUN = response.ml.pred.taxa, outputs, list.algo, env.fact, algo)
+list.plots <- lapply(list.taxa, FUN = response.ml.pred.taxa, outputs, list.algo, env.fact, algo, CV)
 
 name <- paste0(algo, "_Resp_EnvFactvsTax")
 
