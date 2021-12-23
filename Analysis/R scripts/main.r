@@ -2,7 +2,7 @@
 ## 
 ## --- "Bridging gap in macroinvertebrates community assembly" -- PhD Project ---
 ## 
-##                          --- December 10, 2021 -- 
+##                          --- December 23, 2021 -- Happy Christmas 
 ##
 ## --- Emma Chollet, Jonas Wydler, Andreas Scheidegger and Nele Schuwirth ---
 ##
@@ -15,6 +15,8 @@
 ## ---- PACKAGES, DATA & FCTS ----
 
 # Load libraries ####
+
+if ( !require("parallel") ) { install.packages("parallel"); library("parallel") } # need to run things in parallel
 
 # data management
 if ( !require("dplyr") ) { install.packages("dplyr"); library("dplyr") } # to sort, join, merge data
@@ -115,7 +117,7 @@ sampsize <- 100 #10000
 n.chain  <- 2 #2
 comm.corr <- T
 
-# select taxa
+# Select taxa
 all.taxa = F
 # set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
 # set to TRUE to apply models to all taxa
@@ -142,34 +144,6 @@ env.fact.full <- c(env.fact,
 #env.fact <- env.fact.full
 no.env.fact <- length(env.fact)
 
-# Select taxa ####
-
-cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
-
-# Select taxa for prediction
-if (all.taxa == T){
-    list.taxa <- colnames(data.inv)[cind.taxa]
-} else if (all.taxa == F){
-    
-    # 2 taxa
-     list.taxa       <- c("Occurrence.Gammaridae", "Occurrence.Heptageniidae")
-    # 
-    # 6 taxa
-    # list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55),
-    #                            "Occurrence.taxa"] # Select only few taxa
-    
-    # 22 taxa
-    # list.taxa       <- prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25),
-    #                              "Occurrence.taxa"] # Select with prevalence percentage between 25 and 75%
-}
-
-no.taxa <- length(list.taxa)
-
-# Summary of prevalence of chosen taxa
-for ( i in 1:no.taxa){
-    cat("Summary of absence, presence and NA for", list.taxa[i], ":", summary(data.inv[, list.taxa[i]]), "\n")
-}
-
 # Select ml algorithms ####
 
 # Select models to apply (! their packages have to be installed first)
@@ -185,51 +159,61 @@ list.algo <- c("#030AE8" = 'glm', # Random Forest
 
 no.algo <- length(list.algo)
 
-# Write information for file names
-# percentage.train.set <- ratio * 100
-info.file.name <- paste0(file.prefix, 
-                         # d, # don't need to include the date
-                         no.taxa, "taxa_", 
-                         # no.env.fact, "envfact_",
-                         no.algo, "algo_",
-                         ifelse(CV, "CV_", "FIT_"),
-                         ifelse(dl, "DL_", "no_DL_"),
-                         # "trainset", percentage.train.set, 
-                         # if( ratio != 1) {split.var}, 
-                         "")
-
-info.file.stat.name <- paste0("Stat_model_",
-                         # d, # don't need to include the date
-                         no.taxa, "taxa_", 
-                         # no.env.fact, "envfact_",
-                         sampsize,"iterations_",
-                         ifelse(comm.corr,"corr_","nocorr_"),
-                         ifelse(CV, "CV_", "FIT_"),
-                         # "trainset", percentage.train.set, 
-                         # if( ratio != 1) {split.var}, 
-                         "")
-
 # MOVE THIS TO DATA PREPARATION SCRIPTS ####
+
 # Construct main dataset (with inv and env)
+
+# Drop columns with (taxa with) too many NAs
+# spot taxa columns with too many NA
+too.many.na <- c()
+for(i in 1:dim(data.inv)[2]){
+    if(sum(is.na(data.inv[,i])) > 200){ too.many.na <- c(too.many.na, i)}
+}
+cat("The following", length(too.many.na), "taxa are excluded because too many missing information:", colnames(data.inv)[too.many.na])
+
+# remove col with too many NA
+data.inv <- data.inv[, -too.many.na]
+
+cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
+
 data.full <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact.full)] %>%
     left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
 dim(data.full)
 
-# Drop rows with incomplete influence factors
-ind <- !apply(is.na(data.full[,env.fact.full]),1,FUN=any)
+# Drop rows with incomplete taxa or influence factors
+ind <- !apply(is.na(data.full),1,FUN=any)
 ind <- ifelse(is.na(ind),FALSE,ind)
 data.full <- data.full[ind,]
-print(paste(sum(!ind),"sites/samples excluded because of incomplete influence factors"))
+print(paste(sum(!ind),"sites/samples excluded because of incomplete taxa or influence factors"))
 data <- subset(data.full, select = -c(temperature2, velocity2))
 
-# Calculate mean and sd for env data for normalisation with data leakage
-mean.dl <- apply(select(data.full, all_of(env.fact.full)), 2, function(k){
-  mean(k, na.rm = TRUE)
-})
-sd.dl <- apply(select(data.full, all_of(env.fact.full)), 2, function(k){
-  sd(k, na.rm = TRUE)
-})
+# Select taxa ####
 
+cind.taxa <- which(grepl("Occurrence.",colnames(data)))
+list.taxa.full <- colnames(data)[cind.taxa]
+
+# Select taxa for prediction
+if (all.taxa == F){
+    # 2 taxa
+    list.taxa       <- list.taxa.full[list.taxa.full %in% c("Occurrence.Gammaridae", "Occurrence.Heptageniidae")]
+    # 
+    # 5 taxa
+    # list.taxa       <- list.taxa.full[list.taxa.full %in% prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55),
+    #                            "Occurrence.taxa"]] # Select only few taxa
+    
+    # 22 taxa
+    # list.taxa       <- list.taxa.full[list.taxa.full %in% prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25),
+    #                              "Occurrence.taxa"]] # Select with prevalence percentage between 25 and 75%
+
+}
+
+no.taxa.full <- length(list.taxa.full)
+no.taxa <- length(list.taxa)
+
+# Summary of prevalence of chosen taxa
+for ( i in 1:no.taxa){
+    cat("Summary of absence, presence and NA for", list.taxa[i], ":", summary(data.inv[, list.taxa[i]]), "\n")
+}
 
 # Split for CV (and save) data ####
 
@@ -254,12 +238,20 @@ if(CV == T){
       } else {
       
       cat("No data splits exist yet, we produce it and save it in", file.name)
-      splits <- split.data(data)
+      splits <- split.data(data.full)
       saveRDS(splits, file = file.name)
       }
 }
 
 # Normalize data ####
+
+# Calculate mean and sd for env data for normalisation with data leakage
+mean.dl <- apply(select(data.full, all_of(env.fact.full)), 2, function(k){
+    mean(k, na.rm = TRUE)
+})
+sd.dl <- apply(select(data.full, all_of(env.fact.full)), 2, function(k){
+    sd(k, na.rm = TRUE)
+})
 
 # Normalize the data (each folds for CV and whole data set else)
 if(CV == T){
@@ -323,6 +315,29 @@ if(exists("centered.splits") == T){
   
 }
 
+# Write information for file names
+# percentage.train.set <- ratio * 100
+info.file.name <- paste0(file.prefix, 
+                         # d, # don't need to include the date
+                         no.taxa, "taxa_", 
+                         # no.env.fact, "envfact_",
+                         no.algo, "algo_",
+                         ifelse(CV, "CV_", "FIT_"),
+                         ifelse(dl, "DL_", "no_DL_"),
+                         # "trainset", percentage.train.set, 
+                         # if( ratio != 1) {split.var}, 
+                         "")
+
+info.file.stat.name <- paste0("Stat_model_",
+                              # d, # don't need to include the date
+                              no.taxa, "taxa_", 
+                              # no.env.fact, "envfact_",
+                              sampsize,"iterations_",
+                              ifelse(comm.corr,"corr_","nocorr_"),
+                              ifelse(CV, "CV_", "FIT_"),
+                              # "trainset", percentage.train.set, 
+                              # if( ratio != 1) {split.var}, 
+                              "")
 
 ### ----Investigate splits----
 
@@ -794,7 +809,7 @@ source("plot_functions.r")
 ptm <- proc.time() # to calculate time of simulation
 
 # PDP of one model
-list.plots <- plot.pdp(outputs = outputs.cv[[1]], algo = "rf", list.algo = list.algo,
+list.plots <- plot.pdp(outputs = outputs[[1]], algo = "rf", list.algo = list.algo,
                       list.taxa = list.taxa, env.fact = env.fact)
 
 ptm <- proc.time() # to calculate time of simulation
@@ -803,13 +818,12 @@ ptm <- proc.time() # to calculate time of simulation
 # list.plots <- plot.pdp(outputs = outputs, algo = "rf", list.algo = list.algo,
 #                       list.taxa = list.taxa, env.fact = env.fact)
 #
-# file.name <- "PDP.pdf"
-# print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+file.name <- "rf_PDP.pdf"
+print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # PDP of all models
-# We sub-select taxa and env.fact because it takes a lot of time
-# list.plots <- plot.pdp(outputs = outputs, list.algo = list.algo,
-#                        list.taxa = list.taxa, env.fact = env.fact)
+list.plots <- plot.pdp(outputs = outputs[[1]], list.algo = list.algo,
+                       list.taxa = list.taxa, env.fact = env.fact)
 
 file.name <- "allPDP.pdf"
 print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
