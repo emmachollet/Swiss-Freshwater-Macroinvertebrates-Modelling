@@ -150,11 +150,11 @@ no.env.fact <- length(env.fact)
 # Already select the colors assigned to each algorithms for the plots
 list.algo <- c("#030AE8" = 'glm', # Random Forest
               #"#048504" = 'bam', # Generalized Additive Model using splines
-               "#948B8B" = 'gamSpline',#
+               #"#948B8B" = 'gamSpline',#
                # 'earth', # MARS: Multivariate Adaptive Regression Splines
                # "#A84E05" = 'elm', # Extreme Learning Machine (Neural Network)
                # 'bayesglm') #, # Bayesian Generalized Linear Model
-               "#DB1111" = 'svmRadial', # Support Vector Machine
+               #"#DB1111" = 'svmRadial', # Support Vector Machine
                "#790FBF" = 'rf') # Random Forest
 
 no.algo <- length(list.algo)
@@ -195,15 +195,15 @@ list.taxa.full <- colnames(data)[cind.taxa]
 # Select taxa for prediction
 if (all.taxa == F){
     # 2 taxa
-    list.taxa       <- list.taxa.full[list.taxa.full %in% c("Occurrence.Gammaridae", "Occurrence.Heptageniidae")]
+    #list.taxa       <- list.taxa.full[list.taxa.full %in% c("Occurrence.Gammaridae", "Occurrence.Heptageniidae")]
     # 
     # 5 taxa
     # list.taxa       <- list.taxa.full[list.taxa.full %in% prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55),
     #                            "Occurrence.taxa"]] # Select only few taxa
     
     # 22 taxa
-    # list.taxa       <- list.taxa.full[list.taxa.full %in% prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25),
-    #                              "Occurrence.taxa"]] # Select with prevalence percentage between 25 and 75%
+    list.taxa       <- list.taxa.full[list.taxa.full %in% prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25),
+                                  "Occurrence.taxa"]] # Select with prevalence percentage between 25 and 75%
 
 }
 
@@ -468,7 +468,7 @@ if (file.exists(file.name) == T){
     
 }
 
-print(paste("Simulation time of statistical model ", info.file.name))
+print(paste("Simulation time of statistical model ", info.file.stat.name))
 print(proc.time()-ptm)
 
 
@@ -480,7 +480,7 @@ print(proc.time()-ptm)
 # print(traceplot(res,pars=c(names(res)[1:32],"lp__")))
 # 
 # print(traceplot(res))
-
+stat_model_name <- "CF0"
 #exract neeeded output (std.deviance from the testing set in this case) from the output of the stat models.
 stat_cv_nocorr <- stat.outputs
 stat_cv_nocorr_res <- lapply(stat_cv_nocorr, function(split){
@@ -496,11 +496,73 @@ stat_cv_nocorr_res <- lapply(stat_cv_nocorr, function(split){
 stat_cv_nocorr_res_table <- stat_cv_nocorr_res[[1]]
 for(i in 2:length(stat_cv_nocorr_res)){
   stat_cv_nocorr_res_table <- rbind(stat_cv_nocorr_res_table, stat_cv_nocorr_res[[i]])
-  
+
 }
 
 #calculate mean std.deviance across splits
 stat_cv_nocorr_res_table <- as.list(stat_cv_nocorr_res_table %>% group_by(Taxon) %>% summarise(performance = mean(std.deviance, na.rm = T)))
+
+stat.output.list <- vector(mode = "list", length = length(stat.outputs))
+
+for(n in 1:length(stat.outputs)){
+  #n = 1
+  temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
+
+  for(j in 1:length(list.taxa)){
+    #i = 1
+    temp.dat.dev <- subset(stat.outputs[[n]][[2]]$deviance, Type == "Testing")
+    
+    temp.dat.dev <- subset(temp.dat.dev, Taxon == list.taxa[[j]])
+    
+    temp.dat.dev$Performance <- as.numeric(temp.dat.dev$std.deviance)
+    temp.list.st.dev[[j]] <- temp.dat.dev
+    #names(temp.list.st.dev[[2]]) <- "Performance testing set"
+    #temp.dat.prop <- subset(stat.outputs$Split1[[2]]$probability, Type == "Testing")
+    #temp.dat.prop$Likelyhood <- ifelse(temp.dat.prop$Obs == 1, temp.dat.prop$Pred, 1 - temp.dat.prop$Pred)
+    
+    #temp.list.st.dev[[1]] <- list("Performance" = temp.dat.dev$Performance)
+    
+  }
+  names(temp.list.st.dev) <-  list.taxa
+  stat.output.list[[n]] <- temp.list.st.dev
+
+}
+names(stat.output.list) <- c("Split 1", "Split 2", "Split 3")
+#start new workflow to combine models
+if(CV == T){
+  names(stat_model_name) = "#DD1C77"
+  list.algo.comb <- stat_model_name
+  
+  outputs <- vector(mode = "list", length = length(list.algo.comb))
+  names(outputs) <- list.algo.comb
+  
+  no.algo <- length(list.algo.comb)
+  for (l in 1:no.algo) {
+    temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
+    names(temp.list.st.dev) <- list.taxa
+    
+    for( j in 1:no.taxa){
+      temp.vect <- vector(mode ="numeric", length = length(outputs))
+      
+      #for (n in 1:length(stat.outputs)) {
+        #n = 1
+        temp.dat <- subset(stat.outputs$Split1[[2]]$deviance, Type == "Testing")
+        temp.dat <- subset(temp.dat, Taxon == list.taxa[[j]])
+        temp.vect[1] <- temp.dat$std.deviance
+        names(temp.vect[1]) <- "Performance testing set"
+        #}
+        temp.list.st.dev[[j]] <- mean(temp.vect)
+        
+    }
+  }
+}
+
+
+
+stat.outputs.perf <- stat.outputs$Split1[[2]]$deviance$std.deviance
+
+temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
+temp.list.st.dev[[1]]
 
 # Machine Learning models ####
 
@@ -580,14 +642,15 @@ if(CV == T){
     names(outputs) <- list.algo
     
     for (l in 1:no.algo) {
-        
+        #l = 1
         temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
         names(temp.list.st.dev) <- list.taxa
         
         for( j in 1:no.taxa){
-            
+            #j = 1
             temp.vect <- vector(mode ="numeric", length = length(outputs)) 
             for (n in 1:length(outputs.cv)) {
+              #n = 1
                 temp.vect[n] <- outputs.cv[[n]][[l]][[j]][["Performance testing set"]]
             }
             temp.list.st.dev[[j]] <- mean(temp.vect)
