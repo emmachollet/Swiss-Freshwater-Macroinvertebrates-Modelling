@@ -1,1 +1,1 @@
-R --vanilla <ann_model.r &> 07122021_consoleoutput.txt &
+R --vanilla <main.r &> Stat_model_127taxa_1000iterations_FF0_CV_no_DL.txt &
