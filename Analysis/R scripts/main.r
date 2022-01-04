@@ -21,6 +21,7 @@ if ( !require("parallel") ) { install.packages("parallel"); library("parallel") 
 # data management
 if ( !require("dplyr") ) { install.packages("dplyr"); library("dplyr") } # to sort, join, merge data
 if ( !require("tidyr") ) { install.packages("tidyr"); library("tidyr") } # to sort, join, merge data
+if ( !require("splitTools") ) { install.packages("splitTools"); library("splitTools") } # to split the data
 
 # plots
 if ( !require("ggplot2") ) { install.packages("ggplot2"); library("ggplot2") } # to do nice plots
@@ -149,12 +150,14 @@ no.env.fact <- length(env.fact)
 # Select models to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
 list.algo <- c("#030AE8" = 'glm', # Random Forest
-              #"#048504" = 'bam', # Generalized Additive Model using splines
+               # "#048504" = 'bam', # Generalized Additive Model using splines
                "#948B8B" = 'gamSpline',#
                # 'earth', # MARS: Multivariate Adaptive Regression Splines
                # "#A84E05" = 'elm', # Extreme Learning Machine (Neural Network)
                # 'bayesglm') #, # Bayesian Generalized Linear Model
                "#DB1111" = 'svmRadial', # Support Vector Machine
+               # "#DB1111" = 'svmPoly', # Support Vector Machine
+               # "#DB1111" = 'svmLinear', # Support Vector Machine
                "#790FBF" = 'rf') # Random Forest
 
 no.algo <- length(list.algo)
@@ -243,7 +246,6 @@ if(CV == T){
       saveRDS(splits, file = file.name)
       }
 }
-splits.old <- readRDS(file = paste0(dir.workspace, "SplitsForCVold.rds"))
 
 
 # Normalize data ####
@@ -283,9 +285,14 @@ if(CV == T){
       )
     })
     remove(centered.splits.tmp)
+    
+    # TO CHANGE ####
+    cind.taxa <- which(grepl("Occurrence.",colnames(centered.data$`Entire dataset`)))
+    list.taxa <- colnames(centered.splits$`Entire dataset`)[cind.taxa]
+    no.taxa <- length(list.taxa)
 } else {
     
-    centered.data <- center.data(list(data), CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full)
+    centered.data <- center.data(split = list(data), CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full)
     centered.data.factors <- centered.data
     
     # Replace '0' and '1' by factors
@@ -296,6 +303,10 @@ if(CV == T){
         centered.data.factors[[1]][which(centered.data.factors[[1]][,i] == 1),i] <- "present"
         centered.data.factors[[1]][,i] = as.factor(centered.data.factors[[1]][,i])
     }
+    
+    cind.taxa <- which(grepl("Occurrence.",colnames(centered.data$`Entire dataset`)))
+    list.taxa <- colnames(centered.data$`Entire dataset`)[cind.taxa]
+    no.taxa <- length(list.taxa)
 }
 
 # Test centering
@@ -427,6 +438,31 @@ info.file.stat.name <- paste0("Stat_model_",
 
 # in ALL, loosing 5 taxa and 50 rows
 
+# Explore geographical distribution
+
+# inputs <- map.inputs(dir.env.data = dir.env.data, data.env = data.env)
+# 
+# variable <- "BIOGEO"
+# temp.data.env <- data.env[, c("X","Y", variable)]
+# no.rows <- nrow(temp.data.env)
+# no.na <- sum(is.na(temp.data.env[,variable]))
+# explanation <- "Geographical distribution"
+# 
+# g <- ggplot()
+# g <- g + geom_sf(data = inputs$ch, fill="#E8E8E8", color="black")
+# g <- g + geom_sf(data = inputs$rivers.major, fill=NA, color="lightblue", show.legend = FALSE)
+# g <- g + geom_sf(data = inputs$lakes.major, fill="lightblue", color="lightblue", show.legend = FALSE)
+# g <- g + geom_point(data = temp.data.env, aes(x=X, y=Y, color= temp.data.env[, variable]), size= 3, alpha= 0.6)
+# 
+# g <- g + theme_void(base_size = 18)
+# g <- g + theme(# plot.title = element_text(hjust = 0.5),
+#     panel.grid.major = element_line(colour="transparent"),
+#     plot.margin = unit(c(0.1,0.1,0.1,0.1), "lines"))
+# g <- g + labs(title = paste("Geographic distribution of",variable),
+#               subtitle = paste0(no.na, " NAs out of ", no.rows, " samples \n", explanation), colour = variable)
+# 
+# print(g)
+
 ## ---- APPLY MODELS ----
 
  # :)
@@ -548,7 +584,7 @@ if (file.exists(file.name) == T ){
         splitted.data <- list("Training data" =  centered.data.factors[[1]], "Testing data" = data.frame())
         
         outputs.fit <- apply.ml.model(splitted.data = splitted.data, list.algo = list.algo, list.taxa = list.taxa,
-                                      env.fact = env.fact, CV = F)
+                                      env.fact = env.fact, CV = F, prev.inv = prev.inv)
         outputs <- outputs.fit
         cat("Saving outputs of algorithms in", file.name)
         saveRDS(outputs, file = file.name, version = 2)
@@ -669,6 +705,15 @@ if(CV == T){
 #                          # if( ratio != 1) {split.var}, 
 #                          "")
 
+# PROBLEM WITH PERF GAM ####
+
+for (j in 1:no.taxa) {
+    for (l in 1:no.algo) {
+        perf <- outputs[[l]][[list.taxa[j]]][["Performance training set"]]
+        outputs[[l]][[list.taxa[j]]][["Performance training set"]] <- ifelse(perf > 1.5, Inf, perf)
+    }
+}
+
 # Models comparison ####
 
 # table with perf.
@@ -684,6 +729,7 @@ if(CV == T){
     rownames(temp.df) <- list.algo
     for (j in 1:no.taxa) {
         for (l in 1:no.algo) {
+            perf <- outputs[[l]][[list.taxa[j]]][["Performance training set"]]
             temp.df[l,j] <- round(outputs[[l]][[list.taxa[j]]][["Performance training set"]], digits = 2)
         }
     }
