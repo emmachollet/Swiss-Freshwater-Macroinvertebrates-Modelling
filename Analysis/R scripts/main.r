@@ -160,6 +160,16 @@ centered.data <- prepro.data$centered.data
 centered.data.factors <- prepro.data$centered.data.factors
 normalization.data <- prepro.data$normalization.data
 
+
+
+cind.taxa <- which(grepl("Occurrence.",colnames(centered.data$Split1$`Training data`)))
+list.taxa1 <- colnames(centered.data$Split1$`Training data`)[cind.taxa]
+cind.taxa <- which(grepl("Occurrence.",colnames(centered.data$Split2$`Training data`)))
+list.taxa2 <- colnames(centered.data$Split2$`Training data`)[cind.taxa]
+cind.taxa <- which(grepl("Occurrence.",colnames(centered.data$Split3$`Training data`)))
+list.taxa3 <- colnames(centered.data$Split3$`Training data`)[cind.taxa]
+no.taxa <- length(list.taxa)
+
 # Select ml algorithms ####
 
 # Select machine learning algorithms to apply (! their packages have to be installed first)

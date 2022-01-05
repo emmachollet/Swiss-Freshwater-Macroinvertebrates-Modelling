@@ -302,9 +302,31 @@ preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, dl
         # Center the splits
         centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full = env.fact.full)
         # centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV)
+        
+        # Splits don't have same taxa columns, should be harmonized
+        col1 <- colnames(centered.splits.tmp$Split1$`Training data`)
+        col2 <- colnames(centered.splits.tmp$Split2$`Training data`)
+        col3 <- colnames(centered.splits.tmp$Split3$`Training data`)
+        rem.taxa <- unique(c(col1[-which(col1 %in% col2)],
+                            col1[-which(col1 %in% col3)],
+                            col2[-which(col2 %in% col1)],
+                            col2[-which(col2 %in% col3)],
+                            col3[-which(col3 %in% col1)],
+                            col3[-which(col3 %in% col2)]))
+        
+        cat("Following taxa are not in all splits, they're removed:",length(rem.taxa), rem.taxa, "\n")
+        for (n in 1:length(centered.splits.tmp)) {
+            for (m in 1:2) {
+                centered.splits.tmp[[n]][[m]] <- centered.splits.tmp[[n]][[m]][, -which(colnames(
+                    centered.splits.tmp[[n]][[m]]) %in% rem.taxa)]
+            }
+        }
+        
         # Extract necessary information
         centered.data <- lapply(centered.splits.tmp,"[", 1:2) # only the splits without the mean, sd info
         normalization.data <- lapply(centered.splits.tmp,"[", 3:4) # the mean and sd of the splits
+        cind.taxa <- which(grepl("Occurrence.",colnames(centered.data$Split1$`Training data`)))
+        list.taxa <- colnames(centered.data$Split1$`Training data`)[cind.taxa]
         
         # Normalize the folds but replace '0' and '1' by factors
         centered.data.factors <- lapply(centered.data, function(split){
@@ -322,12 +344,7 @@ preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, dl
             })
             )
         })
-        # remove(centered.data.tmp)
-        
-        # TO CHANGE ####
-        # cind.taxa <- which(grepl("Occurrence.",colnames(centered.data$`Entire dataset`)))
-        # list.taxa <- colnames(centered.data$`Entire dataset`)[cind.taxa]
-        # no.taxa <- length(list.taxa)
+
     } else {
         
         centered.data <- center.data(split = splits, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full)
@@ -343,9 +360,8 @@ preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, dl
             centered.data.factors[[1]][,i] = as.factor(centered.data.factors[[1]][,i])
         }
         
-        # cind.taxa <- which(grepl("Occurrence.",colnames(centered.data$`Entire dataset`)))
-        # list.taxa <- colnames(centered.data$`Entire dataset`)[cind.taxa]
-        # no.taxa <- length(list.taxa)
+        cind.taxa <- which(grepl("Occurrence.",colnames(centered.data$`Entire dataset`)))
+        list.taxa <- colnames(centered.data$`Entire dataset`)[cind.taxa]
     }
     
     # Test centering
@@ -368,7 +384,8 @@ preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, dl
         
     }
     
-    preprocessed.data <- list("data" = data, "splits" = splits, "centered.data" = centered.data, 
-                              "centered.data.factors" = centered.data.factors, "normalization.data" = normalization.data)
+    preprocessed.data <- list("data" = data, "splits" = splits, "list.taxa" = list.taxa,
+                              "centered.data" = centered.data, "centered.data.factors" = centered.data.factors, 
+                              "normalization.data" = normalization.data)
     return(preprocessed.data)
 }
