@@ -142,7 +142,7 @@ env.fact.full <- c(env.fact,
               "temperature2",
               "velocity2")
 
-#env.fact <- env.fact.full
+# env.fact <- env.fact.full
 no.env.fact <- length(env.fact)
 
 # Select ml algorithms ####
@@ -842,50 +842,235 @@ ptm <- proc.time() # to calculate time of pdf production
 # TO BE FIXED EARLIER ####
 # list.algo <- c(list.algo, "green" = "FF0")
 # source("plot_functions.r")
-# 
-# ptm <- proc.time() # to calculate time of pdf production
-# 
-# inputs <- map.inputs(dir.env.data = dir.env.data, data.env = data.env)
-# 
-# # make a list with all plots and plot them in a pdf
-# list.plots <- lapply(list.taxa, FUN = map.ml.pred.taxa, inputs, outputs, list.algo, CV)
-# 
-# name <- "ObsvsPred_map"
-# 
-# # Print a pdf file
-# file.name <- paste0(name, ".pdf")
-# print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-# 
-# # Print a jpeg file
-# file.name <- paste0(name, ".jpg")
-# jpeg(paste0(dir.plots.output,"JPEG/",info.file.name,file.name))
-# print(list.plots[[1]])
-# dev.off()
-# 
-# print(paste(file.name, "printing:"))
-# print(proc.time()-ptm)
-# 
-# # Response shape ####
-# 
-# ptm <- proc.time() # to calculate time of pdf production
-# 
-# # select an algorithm to plot
-# algo <- list.algo[4]
-# 
-# # make a list with all plots and plot them in a pdf
-# list.plots <- lapply(list.taxa, FUN = response.ml.pred.taxa, outputs, list.algo, env.fact, algo, CV)
-# 
-# name <- paste0(algo, "_Resp_EnvFactvsTax")
-# 
-# # Print a pdf file
-# file.name <- paste0(name, ".pdf")
-# print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-# 
-# # Print a jpeg file
-# file.name <- paste0(name, ".jpg")
-# jpeg(paste0(dir.plots.output,"JPEG/",info.file.name,file.name))
-# print(list.plots[[1]])
-# dev.off()
-# print("Producing PDF time:")
-# print(proc.time()-ptm)
-# 
+
+# Compute plots
+list.plots <- model.comparison(outputs = outputs, null.model = null.model, 
+                               list.algo = list.algo, list.taxa = list.taxa[1:5], prev.inv = prev.inv, CV = CV)
+
+# plot it
+## THIS SHOULD BE FIXED ####
+# list.plots <- model.comparison.cv(outputs = outputs, outputs.cv = outputs.cv, null.model = null.model, list.algo = list.algo, list.taxa = list.taxa, prev.inv = prev.inv)
+
+name <- "ModelsCompar"
+file.name <- paste0(name, ".pdf")
+
+print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+# Print a jpeg file
+file.name <- paste0(name, ".jpg")
+jpeg(paste0(dir.plots.output,"JPEG/",info.file.name,file.name))
+print(list.plots[[1]])
+dev.off()
+
+print(paste(file.name, "printing:"))
+print(proc.time()-ptm)
+
+# Performance vs hyperparameters ####
+
+ptm <- proc.time() # to calculate time of pdf production
+
+# Compute plots
+list.plots <- plot.perf.hyperparam(outputs = outputs, 
+                                   list.algo = list.algo, # GLM algo doesn't have hyperparameters
+                                   list.taxa = list.taxa)
+
+name <- "PerfvsHyperparam"
+
+# Print a pdf file
+file.name <- paste0(name, ".pdf")
+print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+# Print a jpeg file
+file.name <- paste0(name, ".jpg")
+jpeg(paste0(dir.plots.output,"JPEG/",info.file.name,file.name))
+print(list.plots[[1]])
+dev.off()
+
+print(paste(file.name, "printing:"))
+print(proc.time()-ptm)
+
+
+# Variables importance ####
+
+ptm <- proc.time() # to calculate time of simulation
+
+list.plots <- plot.varimp(outputs = outputs, list.algo = list.algo, list.taxa = list.taxa)
+
+name <- "VarImp"
+
+# Print a pdf file
+file.name <- paste0(name, ".pdf")
+print.pdf.plots(list.plots = list.plots, width = 10, height = 10, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+# Print a jpeg file
+file.name <- paste0(name, ".jpg")
+jpeg(paste0(dir.plots.output,"JPEG/",info.file.name,file.name))
+print(list.plots[[1]])
+dev.off()
+
+# print directly table with variable importance for each algo and taxa (too complicated to put in a fct)
+file.name <- "TableVarImp.pdf"
+pdf(paste0(dir.plots.output, info.file.name, file.name), paper = 'special', width = 12, height = 9, onefile = TRUE)
+temp.df <- data.frame(matrix(ncol = no.algo*no.taxa, nrow = no.env.fact))
+colnames(temp.df) <- c(outer(list.algo, list.taxa, FUN = paste))
+rownames(temp.df) <- env.fact
+for (j in 1:no.taxa) {
+    for (l in 1:no.algo) {
+        for (k in 1:no.env.fact) {
+            temp.df[env.fact[k],paste(list.algo[l], list.taxa[j])] <- outputs[[l]][[j]][["Variable importance"]][["importance"]][env.fact[k],1]
+        }
+    }
+}
+temp.df$mean.imp <- rowMeans(temp.df)
+temp.df <- as.matrix(temp.df)
+par(mar=c(1,5,15,3)+ 0.2, xaxt = "n")
+plot(temp.df, 
+     #key = NULL,
+     digits = 2, text.cell=list(cex=0.5),
+     # axis.col=list(side=3, las=2), 
+     axis.row = list(side=2, las=1),
+     col = viridis,
+     xlab = "",
+     ylab = "",
+     cex.axis = 0.5,
+     srt = 45,
+     main = "Variable importance for ML algorithm applied to taxa"
+)
+axis(1, at=seq(1:ncol(temp.df)+1), labels = FALSE)
+text(seq(1:ncol(temp.df)+1), par("usr")[4] + 0.15, srt = 50, 
+     labels = colnames(temp.df), adj= 0, cex = 0.5, xpd = T)
+
+dev.off()
+
+print(paste(file.name, "printing:"))
+print(proc.time()-ptm)
+
+# For BDM Dataset, only 55 env fact (priority) : 3 sec
+
+# Print accuracy
+
+for(l in 1:no.algo){
+    for(j in 1:no.taxa){
+        # cat("Accuracy on training for",list.taxa[j], "is :",
+        #    output[[j]][["Trained model"]][["resample"]][["Accuracy"]], "\n")
+        cat("Accuracy on prediction for",list.taxa[j],"with", list.algo[l], "is :",
+            outputs[[l]][[j]][["Confusion matrix testing set"]][["overall"]][["Accuracy"]], "\n")
+    }
+}
+
+# PDP don't work ####
+
+source("plot_functions.r")
+
+ptm <- proc.time() # to calculate time of simulation
+
+# PDP of one model
+list.plots <- plot.pdp(outputs = outputs[[1]], algo = "rf", list.algo = list.algo,
+                       list.taxa = list.taxa, env.fact = env.fact)
+
+ptm <- proc.time() # to calculate time of simulation
+
+# PDP of one model
+# list.plots <- plot.pdp(outputs = outputs, algo = "rf", list.algo = list.algo,
+#                       list.taxa = list.taxa, env.fact = env.fact)
+#
+file.name <- "rf_PDP.pdf"
+print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+# PDP of all models
+list.plots <- plot.pdp(outputs = outputs[[1]], list.algo = list.algo,
+                       list.taxa = list.taxa, env.fact = env.fact)
+
+file.name <- "allPDP.pdf"
+print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+# PDP of all models
+# We sub-select taxa and env.fact because it takes a lot of time
+list.plots <- plot.pdp(outputs = outputs, list.algo = list.algo,
+                       list.taxa = list.taxa, env.fact = env.fact)
+
+file.name <- "allPDP.pdf"
+print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+print(paste(file.name, "printing:"))
+print(proc.time()-ptm)
+
+# ICE ####
+
+ptm <- proc.time() # to calculate time of simulation
+
+# ICE of one model
+list.plots <- plot.ice(outputs = outputs, algo = list.algo[2], list.algo = list.algo,
+                       list.taxa = list.taxa[1:2], env.fact = env.fact[1:2])
+
+file.name <- "ICE.pdf"
+print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+print(paste(file.name, "printing:"))
+print(proc.time()-ptm)
+
+# multiple PDP ####
+
+# We just make one example because it's computationally heavy
+
+ptm <- proc.time() # to calculate time of simulation
+
+# Multiple (2) predictors PDP (of one model) for now just for 1 algo and 1 taxa
+list.plots <- plot.mult.pred.pdp(outputs = outputs, list.algo = list.algo,
+                                 list.taxa = list.taxa, env.fact = env.fact)
+
+file.name <- "multpredPDP.pdf"
+print.pdf.plots(list.plots = list.plots, width = 17, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+print(paste(file.name, "printing:"))
+print(proc.time()-ptm)
+
+
+# Map predictions ####
+
+ptm <- proc.time() # to calculate time of pdf production
+
+inputs <- map.inputs(dir.env.data = dir.env.data, data.env = data.env)
+
+# make a list with all plots and plot them in a pdf
+list.plots <- lapply(list.taxa, FUN = map.ml.pred.taxa, inputs, outputs, list.algo, CV)
+
+name <- "ObsvsPred_map"
+
+# Print a pdf file
+file.name <- paste0(name, ".pdf")
+print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+# Print a jpeg file
+file.name <- paste0(name, ".jpg")
+jpeg(paste0(dir.plots.output,"JPEG/",info.file.name,file.name))
+print(list.plots[[1]])
+dev.off()
+
+print(paste(file.name, "printing:"))
+print(proc.time()-ptm)
+
+# Response shape ####
+
+ptm <- proc.time() # to calculate time of pdf production
+
+# select an algorithm to plot
+algo <- list.algo[4]
+
+# make a list with all plots and plot them in a pdf
+list.plots <- lapply(list.taxa, FUN = response.ml.pred.taxa, outputs, list.algo, env.fact, algo, CV)
+
+name <- paste0(algo, "_Resp_EnvFactvsTax")
+
+# Print a pdf file
+file.name <- paste0(name, ".pdf")
+print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+# Print a jpeg file
+file.name <- paste0(name, ".jpg")
+jpeg(paste0(dir.plots.output,"JPEG/",info.file.name,file.name))
+print(list.plots[[1]])
+dev.off()
+print("Producing PDF time:")
+print(proc.time()-ptm)
+
