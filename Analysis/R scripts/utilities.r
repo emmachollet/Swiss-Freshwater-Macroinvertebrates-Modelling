@@ -236,3 +236,139 @@ center.data <- function(data, split, CV, dl, mean.dl, sd.dl, env.fact.full){
     return(list("Training data" = training.data, "Testing data" = testing.data, "Mean" = mean.env.cond, "SD" = sd.env.cond))
   }
 }
+
+
+preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, dl, CV){
+    
+    # Drop columns with (taxa with) too many NAs
+    too.many.na <- c()
+    for(i in 1:dim(data.inv)[2]){
+        if(sum(is.na(data.inv[,i])) > 200){ too.many.na <- c(too.many.na, i)}
+    }
+    cat("The following", length(too.many.na), "taxa are excluded because too many missing information:", colnames(data.inv)[too.many.na], "\n")
+    data.inv <- data.inv[, -too.many.na]
+    
+    # Merge data sets
+    cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
+    data <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact.full)] %>%
+        left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
+    dim(data)
+    
+    # Drop rows with incomplete taxa or influence factors
+    ind <- !apply(is.na(data),1,FUN=any)
+    ind <- ifelse(is.na(ind),FALSE,ind)
+    data <- data[ind,]
+    cat(paste(sum(!ind),"sites/samples excluded because of incomplete taxa or influence factors.\n"))
+    dim(data)
+    
+    # Split data
+    
+    if(CV == T){
+        
+        # Split for CV
+        file.name <- paste0(dir.workspace,"SplitsForCV.rds")
+        
+        # If the file with the three different splits already exist, just read it
+        if (file.exists(file.name) == T ){
+            
+            if(exists("splits") == F){ splits <- readRDS(file = file.name)
+            cat("File with data splits already exists, we read it from", file.name, "and save it in object 'splits'.\n")}
+            else{
+                cat("List with data splits already exists as object 'splits' in this environment.\n")
+            }
+        } else {
+            
+            cat("No data splits exist yet, we produce it and save it in", file.name, ".\n")
+            splits <- split.data(data)
+            saveRDS(splits, file = file.name)
+        }
+    } else {
+        splits <- list(data)
+    }
+    
+    # Normalize data
+    
+    # Calculate mean and sd for env data for normalisation with data leakage
+    mean.dl <- apply(select(data, all_of(env.fact.full)), 2, function(k){
+        mean(k, na.rm = TRUE)
+    })
+    sd.dl <- apply(select(data, all_of(env.fact.full)), 2, function(k){
+        sd(k, na.rm = TRUE)
+    })
+    
+    # Normalize the data (each folds for CV and whole data set else)
+    if(CV == T){
+        
+        # Center the splits
+        centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full = env.fact.full)
+        # centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV)
+        # Extract necessary information
+        centered.data <- lapply(centered.splits.tmp,"[", 1:2) # only the splits without the mean, sd info
+        normalization.data <- lapply(centered.splits.tmp,"[", 3:4) # the mean and sd of the splits
+        
+        # Normalize the folds but replace '0' and '1' by factors
+        centered.data.factors <- lapply(centered.data, function(split){
+            
+            return(lapply(split, function(fold){
+                
+                cind.taxa <- which(grepl("Occurrence.",colnames(fold)))
+                #Replace "0" and "1" by "absent" and "present" and convert them to factors
+                for (i in cind.taxa ) {
+                    fold[which(fold[,i] == 0),i] <- "absent"
+                    fold[which(fold[,i] == 1),i] <- "present"
+                    fold[,i] = as.factor(fold[,i])
+                }
+                return(fold)
+            })
+            )
+        })
+        # remove(centered.data.tmp)
+        
+        # TO CHANGE ####
+        # cind.taxa <- which(grepl("Occurrence.",colnames(centered.data$`Entire dataset`)))
+        # list.taxa <- colnames(centered.data$`Entire dataset`)[cind.taxa]
+        # no.taxa <- length(list.taxa)
+    } else {
+        
+        centered.data <- center.data(split = splits, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full)
+        normalization.data <- list("Mean" = mean.dl, "SD" = sd.dl)
+        centered.data.factors <- centered.data
+        
+        # Replace '0' and '1' by factors
+        cind.taxa <- which(grepl("Occurrence.",colnames(centered.data.factors[[1]])))
+        #Replace "0" and "1" by "absent" and "present" and convert them to factors
+        for (i in cind.taxa ) {
+            centered.data.factors[[1]][which(centered.data.factors[[1]][,i] == 0),i] <- "absent"
+            centered.data.factors[[1]][which(centered.data.factors[[1]][,i] == 1),i] <- "present"
+            centered.data.factors[[1]][,i] = as.factor(centered.data.factors[[1]][,i])
+        }
+        
+        # cind.taxa <- which(grepl("Occurrence.",colnames(centered.data$`Entire dataset`)))
+        # list.taxa <- colnames(centered.data$`Entire dataset`)[cind.taxa]
+        # no.taxa <- length(list.taxa)
+    }
+    
+    # Test centering
+    if(CV == T){
+        if(mean(centered.data$Split1$`Training data`$temperature) <= 0.001){
+            cat("The data is normalized.\n")
+        }else{
+            cat("The data isn't normalized.\n")
+            break()
+        }
+    }else if (exists("centered.data") == T){
+        if(mean(centered.data$`Entire dataset`$temperature) <= 0.001){
+            cat("The data is normalized.\n")
+        }else{
+            cat("The data isn't normalized.\n")
+            break()
+        }
+    }else{
+        cat("The data isn't normalized.\n")
+        
+    }
+    
+    preprocessed.data <- list("data" = data, "splits" = splits, "centered.data" = centered.data, 
+                              "centered.data.factors" = centered.data.factors, "normalization.data" = normalization.data)
+    return(preprocessed.data)
+}

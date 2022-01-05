@@ -18,12 +18,12 @@
 
 if ( !require("parallel") ) { install.packages("parallel"); library("parallel") } # need to run things in parallel
 
-# data management
+# Data management
 if ( !require("dplyr") ) { install.packages("dplyr"); library("dplyr") } # to sort, join, merge data
 if ( !require("tidyr") ) { install.packages("tidyr"); library("tidyr") } # to sort, join, merge data
 if ( !require("splitTools") ) { install.packages("splitTools"); library("splitTools") } # to split the data
 
-# plots
+# Plots
 if ( !require("ggplot2") ) { install.packages("ggplot2"); library("ggplot2") } # to do nice plots
 #if ( !require("ggpubr") ) { install.packages("ggpubr"); library("ggpubr") } # to arrange multiple plots on a page
 if ( !require("gridExtra") ) { install.packages("gridExtra"); library("gridExtra") } # to arrange multiple plots on a page
@@ -34,10 +34,10 @@ if ( !require("plot.matrix") ) { install.packages("plot.matrix"); library("plot.
 if ( !require("viridis")) {install.packages("viridis", repos="http://cloud.r-project.org"); library("viridis")} # to do even nicer plots
 #if ( !require("sf") ) { install.packages("sf"); library("sf") } # to read layers for map
 
-# stat model
+# Stat model
 if ( !require("rstan") ) { install.packages("rstan"); library("rstan") } # to read layers for map
 
-# ml algorithms
+# ML algorithms
 if ( !require("caret") ) { install.packages("caret"); library("caret") } # comprehensive framework to build machine learning models
 if ( !require("mgcv") ) { install.packages("mgcv"); library("mgcv") } # to run generalized additive model (GAM) algorithm
 if ( !require("gam") ) { install.packages("gam"); library("gam") } # to run generalized additive model (GAM) algorithm
@@ -105,7 +105,7 @@ source("utilities.r")
 # Setup options ####
 
 # Set if we want to fit models to whole dataset or perform cross-validation (CV)
-CV <- F # Cross-Validation
+CV <- T # Cross-Validation
 dl <- F # Data Leakage
 
 # Set number of cores
@@ -145,9 +145,24 @@ env.fact.full <- c(env.fact,
 # env.fact <- env.fact.full
 no.env.fact <- length(env.fact)
 
+# Preprocess data ####
+
+# MOVE THIS TO DATA PREPARATION SCRIPTS ? ####
+# JW: THERE IS ALSO ONE MORE SPECIES THAT GETS DROPPED IN THE CENTERING (ENDS UP AT 126 rather tha 127, move to
+#data prep as well)
+
+prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv, 
+                                     env.fact.full = env.fact.full, dir.workspace = dir.workspace, 
+                                     dl = dl, CV = CV)
+data <- prepro.data$data
+if(CV){ splits <- prepro.data$splits }
+centered.data <- prepro.data$centered.data
+centered.data.factors <- prepro.data$centered.data.factors
+normalization.data <- prepro.data$normalization.data
+
 # Select ml algorithms ####
 
-# Select models to apply (! their packages have to be installed first)
+# Select machine learning algorithms to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
 list.algo <- c("#030AE8" = 'glm', # Random Forest
                # "#048504" = 'bam', # Generalized Additive Model using splines
@@ -161,35 +176,6 @@ list.algo <- c("#030AE8" = 'glm', # Random Forest
                "#790FBF" = 'rf') # Random Forest
 
 no.algo <- length(list.algo)
-
-# MOVE THIS TO DATA PREPARATION SCRIPTS ####
-# JW: THERE IS ALSO ONE MORE SPECIES THAT GETS DROPPED IN THE CENTERING (ENDS UP AT 126 rather tha 127, move to
-#data prep as well)
-# Construct main dataset (with inv and env)
-
-# Drop columns with (taxa with) too many NAs
-# spot taxa columns with too many NA
-too.many.na <- c()
-for(i in 1:dim(data.inv)[2]){
-    if(sum(is.na(data.inv[,i])) > 200){ too.many.na <- c(too.many.na, i)}
-}
-cat("The following", length(too.many.na), "taxa are excluded because too many missing information:", colnames(data.inv)[too.many.na])
-
-# remove col with too many NA
-data.inv <- data.inv[, -too.many.na]
-
-cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
-
-data <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact.full)] %>%
-    left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
-dim(data)
-
-# Drop rows with incomplete taxa or influence factors
-ind <- !apply(is.na(data),1,FUN=any)
-ind <- ifelse(is.na(ind),FALSE,ind)
-data <- data[ind,]
-print(paste(sum(!ind),"sites/samples excluded because of incomplete taxa or influence factors"))
-dim(data)
 
 # Select taxa ####
 
@@ -215,121 +201,10 @@ if (all.taxa == F){
 no.taxa.full <- length(list.taxa.full)
 no.taxa <- length(list.taxa)
 
-# Summary of prevalence of chosen taxa
-for ( i in 1:no.taxa){
-    cat("Summary of absence, presence and NA for", list.taxa[i], ":", summary(data.inv[, list.taxa[i]]), "\n")
-}
-
-# Split for CV (and save) data ####
-
-# Split for ml purpose (e.g. 80% training, 20% testing)
-# ratio <- 0.8 # set a ratio for training dataset (can be 1)
-# split.var <- "random" # data splitted according to this variable (default is "random")
-# splitted.data <- split.data(data = data, training.ratio = ratio, variable = split.var)
-
-if(CV == T){
-    
-    # Split for CV
-    file.name <- paste0(dir.workspace,"SplitsForCV.rds")
-    
-    # If the file with the three different splits already exist, just read it
-    if (file.exists(file.name) == T ){
-      
-      if(exists("splits") == F){ splits <- readRDS(file = file.name)
-        cat("File with data splits already exists, we read it from", file.name, "and save it in object 'splits'")}
-        else{
-        cat("List with data splits already exists as object 'splits' in this environment.")
-        }
-      } else {
-      
-      cat("No data splits exist yet, we produce it and save it in", file.name)
-      splits <- split.data(data)
-      saveRDS(splits, file = file.name)
-      }
-}
-#splits.old <- readRDS(file = paste0(dir.workspace, "SplitsForCVold.rds"))
-
-
-# Normalize data ####
-
-# Calculate mean and sd for env data for normalisation with data leakage
-mean.dl <- apply(select(data, all_of(env.fact.full)), 2, function(k){
-    mean(k, na.rm = TRUE)
-})
-sd.dl <- apply(select(data, all_of(env.fact.full)), 2, function(k){
-    sd(k, na.rm = TRUE)
-})
-
-# Normalize the data (each folds for CV and whole data set else)
-if(CV == T){
-   
-    # Center the splits
-    centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full)
-    # centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV)
-    # Extract necessary information
-    centered.splits <- lapply(centered.splits.tmp,"[", 1:2) # only the splits without the mean, sd info
-    normalization.data <- lapply(centered.splits.tmp,"[", 3:4) # the mean and sd of the splits
-    
-    # Normalize the folds but replace '0' and '1' by factors
-    centered.splits.factors <- lapply(centered.splits, function(split){
-    
-        return(lapply(split, function(fold){
-       
-        cind.taxa <- which(grepl("Occurrence.",colnames(fold)))
-        #Replace "0" and "1" by "absent" and "present" and convert them to factors
-        for (i in cind.taxa ) {
-          fold[which(fold[,i] == 0),i] <- "absent"
-          fold[which(fold[,i] == 1),i] <- "present"
-          fold[,i] = as.factor(fold[,i])
-        }
-        return(fold)
-      })
-      )
-    })
-    remove(centered.splits.tmp)
-    
-    # TO CHANGE ####
-    cind.taxa <- which(grepl("Occurrence.",colnames(centered.data$`Entire dataset`)))
-    list.taxa <- colnames(centered.splits$`Entire dataset`)[cind.taxa]
-    no.taxa <- length(list.taxa)
-} else {
-    
-    centered.data <- center.data(split = list(data), CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full)
-    centered.data.factors <- centered.data
-    
-    # Replace '0' and '1' by factors
-    cind.taxa <- which(grepl("Occurrence.",colnames(centered.data.factors[[1]])))
-    #Replace "0" and "1" by "absent" and "present" and convert them to factors
-    for (i in cind.taxa ) {
-        centered.data.factors[[1]][which(centered.data.factors[[1]][,i] == 0),i] <- "absent"
-        centered.data.factors[[1]][which(centered.data.factors[[1]][,i] == 1),i] <- "present"
-        centered.data.factors[[1]][,i] = as.factor(centered.data.factors[[1]][,i])
-    }
-    
-    cind.taxa <- which(grepl("Occurrence.",colnames(centered.data$`Entire dataset`)))
-    list.taxa <- colnames(centered.data$`Entire dataset`)[cind.taxa]
-    no.taxa <- length(list.taxa)
-}
-
-# Test centering
-if(exists("centered.splits") == T){
-  if(mean(centered.splits$Split1$`Training data`$temperature) <= 0.001){
-    cat("The data is normalized.")
-    }else{
-      cat("The data isn't normalized.")
-      break()
-    }
-}else if (exists("centered.data") == T){
-  if(mean(centered.data$`Entire dataset`$temperature) <= 0.001){
-    cat("The data is normalized.")
-  }else{
-    cat("The data isn't normalized.")
-    break()
-  }
-}else{
-  cat("The data isn't normalized.")
-  
-}
+# # Summary of prevalence of chosen taxa
+# for ( i in 1:no.taxa){
+#     cat("Summary of absence, presence and NA for", list.taxa[i], ":", summary(data.inv[, list.taxa[i]]), "\n")
+# }
 
 # Write information for file names
 # percentage.train.set <- ratio * 100
