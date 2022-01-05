@@ -104,7 +104,7 @@ source("utilities.r")
 # Setup options ####
 
 # Set if we want to fit models to whole dataset or perform cross-validation (CV)
-CV <- T # Cross-Validation
+CV <- F # Cross-Validation
 dl <- F # Data Leakage
 
 # Set number of cores
@@ -444,7 +444,7 @@ cat(file.name)
 # If the file with the outputs already exist, just read it
 if (file.exists(file.name) == T){
     
-    if(exists("outputs") == F){
+    if(exists("stat.outputs") == F){
         cat("File with statistical model outputs already exists, we read it from", file.name, "and save it in object 'stat.outputs'")
         stat.outputs <- readRDS(file = file.name)
         }
@@ -468,6 +468,7 @@ if (file.exists(file.name) == T){
       stat.outputs <- stat_mod_cv(data.splits = centered.data, CV, comm.corr, sampsize, n.chain = n.chain)
       cat("Saving outputs of statistical models in", file.name)
       saveRDS(stat.outputs, file = file.name, version = 2)
+      names(stat.outputs) <- c("stan.object", "output")
       }
     
 }
@@ -476,7 +477,17 @@ print(paste("Simulation time of statistical model ", info.file.stat.name))
 print(proc.time()-ptm)
 
 
-# # ## ---- Process output from stat models
+## ---- Process output from stat models
+# Model performance (FIT)
+# FF0
+CV <-  F
+comm.corr <- F
+
+
+fit.output <- stat.outputs$output
+dev.tmp <- stat.outputs$output$deviance
+
+
 # #plot traceplots
 # # res <- stat.outputs[[1]][[1]]
 # # res.extracted   <- rstan::extract(res,permuted=TRUE,inc_warmup=FALSE)
@@ -502,6 +513,8 @@ stat_model_name <- "CF0"
 stat_cv_nocorr <- stat.outputs
 stat_cv_nocorr_res <- lapply(stat_cv_nocorr, function(split){
   #split <- stat_cv_nocorr[[1]]
+  dev_temp <- split[[2]]$deviance
+
   dev_temp <- split[[2]]$deviance
   dev_temp$std.deviance <- dev_temp$std.deviance
   dev_temp <- dev_temp[c("Taxon", "Type", "std.deviance")]
