@@ -22,7 +22,7 @@ stat_mod_cv <- function (data.splits, CV, comm.corr, sampsize, n.chain){
     prob.defpri     <- 0.02
     thresh.sig      <- 1
     fact.sd         <- 1  
-  
+    max.warmup      <- 1000 # max warm up iterations for runs with a lot of iterations
     
     #data.splits <- centered.splits[[1]] # to test
     #data.splits <- splits[[1]] # to test
@@ -573,7 +573,7 @@ stat_mod_cv <- function (data.splits, CV, comm.corr, sampsize, n.chain){
     
     # Run model ####
     # perform Bayesian inference:
-    res <- stan(file.model,data=data,init=init,iter=sampsize,chains=n.chain,warmup=min(0.5*sampsize,1000),thin=thin)
+    res <- stan(file.model,data=data,init=init,iter=sampsize,chains=n.chain,warmup=min(0.5*sampsize,max.warmup),thin=thin)
     #res2 <- stat.outputs[[1]][[1]]
     #res <- res2[[3]]
     
