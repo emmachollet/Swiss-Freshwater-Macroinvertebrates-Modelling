@@ -96,14 +96,13 @@ CV <- F # Cross-Validation
 dl <- F # Data Leakage
 
 # Set number of cores
-n.cores <-  3
-
+n.cores.splits <-  3 # a core for each split, 3 in our case
+n.cores.stat.models <- 2 # a core for each stat model 2 in our case (UF0, and CF0)
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
 # also make sure the cross-validation (CV) flag is set correctly
 sampsize <- 1000 #10000 #I think this needs to be an even number for some reason (stan error)
 n.chain  <- 2 #2
-comm.corr <- F
 
 # Select taxa
 all.taxa <- F
@@ -335,162 +334,65 @@ info.file.stat.name <- paste0("Stat_model_",
 
 ptm <- proc.time() # to calculate time of simulation
 #file.name <- paste0(dir.models.output, "Stat_model_100iterations_corr_22taxa_CV_no_DL.rds") #to test
-file.name <- paste0(dir.models.output, info.file.stat.name, ".rds")
 
-cat(file.name)
 
-# If the file with the outputs already exist, just read it
-if (file.exists(file.name) == T){
-    
-    if(exists("stat.outputs") == F){
-        cat("File with statistical model outputs already exists, we read it from", file.name, "and save it in object 'stat.outputs'")
-        stat.outputs <- readRDS(file = file.name)
-        }
-    else{
-        cat("List with statistical model outputs already exists as object 'stat.outputs' in this environment.")
-    }
-} else {
-    
-    cat("No statistical model outputs exist yet, we produce it and save it in", file.name)
-    
-    if(CV == T){
-
-      stat.outputs <- mclapply(centered.splits, mc.cores = n.cores, FUN = stat_mod_cv, CV, comm.corr, sampsize, n.chain)
+comm.corr.options <- c(T,F)
+names(comm.corr.options) <- c("CF0", "UF0")
+stat.outputs <- mclapply(comm.corr.options, mc.cores = 1, function(comm.corr){
+  
+  info.file.stat.name <- paste0("Stat_model_",
+                                # d, # don't need to include the date
+                                no.taxa.full, "taxa_", 
+                                # no.env.fact, "envfact_",
+                                sampsize,"iterations_",
+                                ifelse(comm.corr,"CF0_","UF0_"),
+                                ifelse(CV, "CV_", "FIT_"),
+                                ifelse(dl, "DL_", "no_DL_"),
+                                # "trainset", percentage.train.set, 
+                                # if( ratio != 1) {split.var}, 
+                                "")
+  file.name <- paste0(dir.models.output, info.file.stat.name, ".rds")
+  cat(file.name)
+  
+  # If the file with the output already exist, just read it
+  if (file.exists(file.name) == T){
       
-      cat("Saving outputs of statistical models in", file.name)
-      saveRDS(stat.outputs, file = file.name, version = 2) #version two here is to ensure compatibility across R versions
-      
-    } else {
-      # apply temporary on training data of Split1, later take whole dataset centered etc
-
-      stat.outputs <- stat_mod_cv(data.splits = centered.data, CV, comm.corr, sampsize, n.chain = n.chain)
-      cat("Saving outputs of statistical models in", file.name)
-      saveRDS(stat.outputs, file = file.name, version = 2)
-      names(stat.outputs) <- c("stan.object", "output")
+      if(exists("stat.output") == F){
+          cat("File with statistical model output already exists, we read it from", file.name, "and save it in object 'stat.output'")
+          stat.output <- readRDS(file = file.name)
+          
+          }
+      else{
+          cat("List with statistical model output already exists as object 'stat.output' in this environment.")
       }
-    
-}
-
-print(paste("Simulation time of statistical model ", info.file.stat.name))
+  } else {
+      
+      cat("No statistical model output exist yet, we produce it and save it in", file.name)
+      
+      if(CV == T){
+  
+        stat.output <- mclapply(centered.splits, mc.cores = n.cores, FUN = stat_mod_cv, CV, comm.corr, sampsize, n.chain)
+        
+        cat("Saving output of statistical models in", file.name)
+        saveRDS(stat.output, file = file.name, version = 2) #version two here is to ensure compatibility across R versions
+        
+      } else {
+        # apply temporary on training data of Split1, later take whole dataset centered etc
+  
+        stat.output <- stat_mod_cv(data.splits = centered.data, CV, comm.corr, sampsize, n.chain = n.chain)
+        cat("Saving output of statistical models in", file.name)
+        saveRDS(stat.output, file = file.name, version = 2)
+        }
+      
+  }
+  return(stat.output)
+})
+print(paste("Simulation time of statistical model "))
 print(proc.time()-ptm)
 
+#Process output from stat models to fit structure of ml models (makes plotting easier)
+stat.outputs.transformed <- transfrom.stat.outputs(CV, stat.outputs)
 
-## ---- Process output from stat models
-# Model performance (FIT)
-# FF0
-CV <-  F
-comm.corr <- F
-
-
-fit.output <- stat.outputs$output
-dev.tmp <- stat.outputs$output$deviance
-
-
-# #plot traceplots
-# # res <- stat.outputs[[1]][[1]]
-# # res.extracted   <- rstan::extract(res,permuted=TRUE,inc_warmup=FALSE)
-# # 
-# # print(traceplot(res,pars=c(names(res)[1:32],"lp__")))
-# # 
-# # print(traceplot(res))
-# 
-# #exract neeeded output (std.deviance from the testing set in this case) from the output of the stat models.
-# stat_cv_nocorr <- stat.outputs
-# stat_cv_nocorr_res <- lapply(stat_cv_nocorr, function(split){
-#   #split <- stat_cv_nocorr[[1]]
-#   dev_temp <- split[[2]]$deviance
-#   dev_temp$std.deviance <- dev_temp$std.deviance
-#   dev_temp <- dev_temp[c("Taxon", "Type", "std.deviance")]
-#   tmp_dev_test <- subset(dev_temp, Type = "Testing")
-#   return(tmp_dev_test)
-# })
-# 
-# print(traceplot(res))
-stat_model_name <- "CF0"
-#exract neeeded output (std.deviance from the testing set in this case) from the output of the stat models.
-stat_cv_nocorr <- stat.outputs
-stat_cv_nocorr_res <- lapply(stat_cv_nocorr, function(split){
-  #split <- stat_cv_nocorr[[1]]
-  dev_temp <- split[[2]]$deviance
-
-  dev_temp <- split[[2]]$deviance
-  dev_temp$std.deviance <- dev_temp$std.deviance
-  dev_temp <- dev_temp[c("Taxon", "Type", "std.deviance")]
-  tmp_dev_test <- subset(dev_temp, Type = "Testing")
-  return(tmp_dev_test)
-})
-
-#bind rows for all three splits
-stat_cv_nocorr_res_table <- stat_cv_nocorr_res[[1]]
-for(i in 2:length(stat_cv_nocorr_res)){
-  stat_cv_nocorr_res_table <- rbind(stat_cv_nocorr_res_table, stat_cv_nocorr_res[[i]])
-
-}
-
-#calculate mean std.deviance across splits
-stat_cv_nocorr_res_table <- as.list(stat_cv_nocorr_res_table %>% group_by(Taxon) %>% summarise(performance = mean(std.deviance, na.rm = T)))
-
-stat.output.list <- vector(mode = "list", length = length(stat.outputs))
-
-for(n in 1:length(stat.outputs)){
-  #n = 1
-  temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
-
-  for(j in 1:length(list.taxa)){
-    #i = 1
-    temp.dat.dev <- subset(stat.outputs[[n]][[2]]$deviance, Type == "Testing")
-    
-    temp.dat.dev <- subset(temp.dat.dev, Taxon == list.taxa[[j]])
-    
-    temp.dat.dev$Performance <- as.numeric(temp.dat.dev$std.deviance)
-    temp.list.st.dev[[j]] <- temp.dat.dev
-    #names(temp.list.st.dev[[2]]) <- "Performance testing set"
-    #temp.dat.prop <- subset(stat.outputs$Split1[[2]]$probability, Type == "Testing")
-    #temp.dat.prop$Likelyhood <- ifelse(temp.dat.prop$Obs == 1, temp.dat.prop$Pred, 1 - temp.dat.prop$Pred)
-    
-    #temp.list.st.dev[[1]] <- list("Performance" = temp.dat.dev$Performance)
-    
-  }
-  names(temp.list.st.dev) <-  list.taxa
-  stat.output.list[[n]] <- temp.list.st.dev
-
-}
-names(stat.output.list) <- c("Split 1", "Split 2", "Split 3")
-#start new workflow to combine models
-if(CV == T){
-  names(stat_model_name) = "#DD1C77"
-  list.algo.comb <- stat_model_name
-  
-  outputs <- vector(mode = "list", length = length(list.algo.comb))
-  names(outputs) <- list.algo.comb
-  
-  no.algo <- length(list.algo.comb)
-  for (l in 1:no.algo) {
-    temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
-    names(temp.list.st.dev) <- list.taxa
-    
-    for( j in 1:no.taxa){
-      temp.vect <- vector(mode ="numeric", length = length(outputs))
-      
-      #for (n in 1:length(stat.outputs)) {
-        #n = 1
-        temp.dat <- subset(stat.outputs$Split1[[2]]$deviance, Type == "Testing")
-        temp.dat <- subset(temp.dat, Taxon == list.taxa[[j]])
-        temp.vect[1] <- temp.dat$std.deviance
-        names(temp.vect[1]) <- "Performance testing set"
-        #}
-        temp.list.st.dev[[j]] <- mean(temp.vect)
-        
-    }
-  }
-}
-
-
-
-stat.outputs.perf <- stat.outputs$Split1[[2]]$deviance$std.deviance
-
-temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
-temp.list.st.dev[[1]]
 
 # Machine Learning models ####
 
@@ -632,21 +534,21 @@ if(CV == T){
     }
     # # Add output of stat model
     # # outputs.cv
-    # temp.list.stat <- vector(mode = "list", length = length(stat_cv_nocorr_res_table$Taxon))
-    # names(temp.list.stat) <- stat_cv_nocorr_res_table$Taxon
+    # temp.list.stat <- vector(mode = "list", length = length(stat.cv.res_table$Taxon))
+    # names(temp.list.stat) <- stat.cv.res_table$Taxon
     # 
-    # for( j in 1:length(stat_cv_nocorr_res_table$Taxon)){
+    # for( j in 1:length(stat.cv.res_table$Taxon)){
     #   
-    #   temp.vect <- vector(mode ="numeric", length = length(stat_cv_nocorr_res_table$Taxon))
-    #   for (n in 1:length(stat_cv_nocorr_res_table$Taxon)) {
-    #     temp.list.stat[n] <- stat_cv_nocorr_res_table$performance[[n]]
+    #   temp.vect <- vector(mode ="numeric", length = length(stat.cv.res_table$Taxon))
+    #   for (n in 1:length(stat.cv.res_table$Taxon)) {
+    #     temp.list.stat[n] <- stat.cv.res_table$performance[[n]]
     #   }
     # }
-    # FF0 <- as.list(temp.list.stat)
-    # FF0 <- FF0[list.taxa]
+    # UF0 <- as.list(temp.list.stat)
+    # UF0 <- UF0[list.taxa]
     # 
-    # outputs[[5]] <- FF0
-    # names(outputs)[[5]] <- "FF0"
+    # outputs[[5]] <- UF0
+    # names(outputs)[[5]] <- "UF0"
     
     # # Add output of ANN
     # for (a in 1:length(ann.outputs)) {
@@ -694,7 +596,10 @@ for (l in list.models) {
 if(!server){
 
 ## ---- PLOTS ----
-
+#Add stat models to the list of algos
+outputs <- append(outputs, stat.outputs.transformed)
+list.algo <- append(list.algo, list("#2CA25F" = 'CF0', "#99D8C9" = 'UF0'))
+no.algo <- no.algo + 2
 # list.algo <- c(list.algo, "blue" = names(ann.outputs)[1],"red" = names(ann.outputs)[2], "grey" = names(ann.outputs)[3])
 # no.algo <- length(list.algo)
 # 
@@ -767,6 +672,8 @@ if(CV == T){
 
 ptm <- proc.time() # to calculate time of pdf production
 
+# TO BE FIXED EARLIER ####
+# list.algo <- c(list.algo, "green" = "UF0")
 # source("plot_functions.r")
 
 # Compute plots
