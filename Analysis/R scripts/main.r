@@ -64,33 +64,20 @@ dir.workspace     <- "../Intermediate results/"
 dir.plots.output  <- "../Plots/Models analysis plots/"
 dir.models.output <- "../Intermediate results/Trained models/"
 
-file.inv.data     <- "All_occ_data_2020-06-25.dat"
-file.inv.BDM.data <- "BDM_occ_data_2020-06-25.dat"
-file.env.data     <- "All_environmental_data_2020-06-25.dat"
-file.env.BDM.data <- "BDM_environmental_data_2020-06-25.dat"
-
-file.prev         <- "All_prevalence_2020-06-25.dat"
-file.prev.BDM     <- "BDM_prevalence_2020-06-25.dat"
+file.env.data     <- "environmental_data_2020-06-25.dat"
+file.inv.data     <- "occ_data_2020-06-25.dat"
+file.prev         <- "prevalence_2020-06-25.dat"
 
 
 # Set if we want to compute for the All or the BDM dataset
 BDM <- F
 
-if( BDM == TRUE){
+file.prefix <- ifelse(BDM, "BDM_", "All_")
 
-    data.inv      <- read.delim(paste(dir.inv.data,file.inv.BDM.data,sep=""),header=T,sep="\t", stringsAsFactors=F)
-    prev.inv      <- read.delim(paste(dir.inv.data,file.prev.BDM,sep=""),header=T,sep="\t", stringsAsFactors=F)
-    data.env      <- read.delim(paste(dir.env.data,file.env.BDM.data,sep=""),header=T,sep="\t", stringsAsFactors=T)
-    file.prefix   <- "BDM_"
-    
-} else {
-    
-    data.inv          <- read.delim(paste(dir.inv.data,file.inv.data,sep=""),header=T,sep="\t", stringsAsFactors=F)
-    prev.inv          <- read.delim(paste(dir.inv.data,file.prev,sep=""),header=T,sep="\t", stringsAsFactors=F)
-    data.env          <- read.delim(paste(dir.env.data,file.env.data,sep=""),header=T,sep="\t", stringsAsFactors=T)
-    file.prefix       <- "All_"
-    
-}
+data.env          <- read.delim(paste0(dir.env.data, file.prefix, file.env.data),header=T,sep="\t", stringsAsFactors=T)
+data.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.inv.data),header=T,sep="\t", stringsAsFactors=F)
+prev.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.prev),header=T,sep="\t", stringsAsFactors=F)
+
 
 # set date for file names
 d <- Sys.Date()    # e.g. 2021-12-17
@@ -119,10 +106,12 @@ n.chain  <- 2 #2
 comm.corr <- F
 
 # Select taxa
-all.taxa = F
+all.taxa <- F
 # set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
 # set to TRUE to apply models to all taxa
 
+# Run the script on the server
+server <- F
 
 ## ---- DATA WRANGLING  ----
 
@@ -155,7 +144,7 @@ prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv,
                                  env.fact.full = env.fact.full, dir.workspace = dir.workspace, 
                                  BDM = BDM, dl = dl, CV = CV)
 data <- prepro.data$data
-if(CV){ splits <- prepro.data$splits }
+if(CV){ splits <- prepro.data$splits ; rem.taxa <- prepro.data$rem.taxa }
 list.taxa <- prepro.data$list.taxa # list taxa after data pre-processing 
 centered.data <- prepro.data$centered.data
 centered.data.factors <- prepro.data$centered.data.factors
@@ -514,17 +503,16 @@ null.model <- null.model.full[list.taxa]
 file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
 # file.name <- paste0(dir.models.output, "glm_gamSpline_svmRadial_rf_22taxa_FIT.rds")
 cat(file.name)
-# file.name <- paste0("Q:/Abteilungsprojekte/siam/Jonas Wydler/Swiss-Freshwater-Macroinvertebrates-Modelling/Analysis/Intermediate results/Trained models/", no.algo, "MLAlgoTrained.rds")
 
 # If the file with the outputs already exist, just read it
 if (file.exists(file.name) == T ){
     
-    if(exists("outputs") == F){
+    if(exists("ml.outputs.fit") == F){
         cat("File with ML outputs already exists, we read it from", file.name, "and save it in object 'outputs'")
-        outputs <- readRDS(file = file.name)
+        ml.outputs.fit <- readRDS(file = file.name)
         }
     else{
-        cat("List with ML outputs already exists as object 'outputs' in this environment.")
+        cat("List with ML outputs already exists as object 'ml.outputs.fit' in this environment.")
     }
 
 } else {
@@ -534,44 +522,45 @@ if (file.exists(file.name) == T ){
     list.ml.files <- list.files(path = dir.models.output)
     file.name.temp <- paste0(dir.models.output, list.ml.files[which(grepl(info1, list.ml.files) & grepl(info2, list.ml.files))])
     
-    if( file.exists(file.name.temp) == T & askYesNo(paste("Another file named", file.name.temp, "already exists. Should we read it and subselect taxa later ? If no, we run the algorithms for selected information."), default = T) ){
+    if( file.exists(file.name.temp) == T ){
+        # & askYesNo(paste("Another file named", file.name.temp, "already exists. Should we read it and subselect taxa later ? If no, we run the algorithms for selected information."), default = T) ){
         
-        cat("Reading", file.name.temp, "and saving it in object 'outputs'")
-        outputs <- readRDS(file = file.name.temp)
+        cat("Reading", file.name.temp, "and saving it in object 'ml.outputs.fit'")
+        ml.outputs.fit <- readRDS(file = file.name.temp)
     
         } else {
-    
-        if(CV == T){
+            
             cat("No ML outputs exist yet, we produce it and save it in", file.name)
             
-            # Compute one split after the other
-            outputs.cv <- lapply(centered.splits.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV)
+        if(CV == T){
             
-            # Compute three splits in paralel (should be run on the server)
-            # outputs <- mclapply(centered.splits.factors, mc.cores = 3, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
+            if(server){
+                # Compute three splits in paralel (should be run on the server)
+                outputs.cv <- mclapply(centered.splits.factors, mc.cores = 3, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
+            } else {
+                # Compute one split after the other
+                outputs.cv <- lapply(centered.splits.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV)
+            }
             
             cat("Saving outputs of algorithms in", file.name)
             saveRDS(outputs.cv, file = file.name, version = 2)
         
             } else {
             
-            # apply temporary on training data of Split1, later take whole dataset centered etc
             splitted.data <- list("Training data" =  centered.data.factors[[1]], "Testing data" = data.frame())
-            
-            outputs.fit <- apply.ml.model(splitted.data = splitted.data, list.algo = list.algo, list.taxa = list.taxa,
+            ml.outputs.fit <- apply.ml.model(splitted.data = splitted.data, list.algo = list.algo, list.taxa = list.taxa,
                                           env.fact = env.fact, CV = F, prev.inv = prev.inv)
-            outputs <- outputs.fit
+            
             cat("Saving outputs of algorithms in", file.name)
-            saveRDS(outputs, file = file.name, version = 2)
+            saveRDS(ml.outputs.fit, file = file.name, version = 2)
             
             }
     }
 }
 
+
 print(paste("Simulation time of different models ", info.file.name))
 print(proc.time()-ptm)
-
-outputs.full <- outputs
 
 
 # Neural Networks ####
@@ -701,6 +690,8 @@ for (l in list.models) {
 }
 
 # AND CHANGE THE PLOTS DEPENDING ON IF THEY NEED ML OR ALL MODELS
+
+if(!server){
 
 ## ---- PLOTS ----
 
@@ -1009,3 +1000,4 @@ dev.off()
 print("Producing PDF time:")
 print(proc.time()-ptm)
 
+} # closing server braket
