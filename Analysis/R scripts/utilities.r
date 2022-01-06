@@ -333,6 +333,7 @@ transfrom.stat.outputs <- function(CV, stat.outputs){
   # })
   # 
   return(stat.output.list)
+}
 
 preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, BDM, dl, CV){
     
