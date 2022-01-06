@@ -78,7 +78,6 @@ data.env          <- read.delim(paste0(dir.env.data, file.prefix, file.env.data)
 data.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.inv.data),header=T,sep="\t", stringsAsFactors=F)
 prev.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.prev),header=T,sep="\t", stringsAsFactors=F)
 
-
 # set date for file names
 d <- Sys.Date()    # e.g. 2021-12-17
 
@@ -92,7 +91,7 @@ source("utilities.r")
 # Setup options ####
 
 # Set if we want to fit models to whole dataset or perform cross-validation (CV)
-CV <- F # Cross-Validation
+CV <- T # Cross-Validation
 dl <- F # Data Leakage
 
 # Set number of cores
@@ -198,159 +197,35 @@ list.algo <- c("#030AE8" = 'glm', # Random Forest
                "#790FBF" = 'rf') # Random Forest
 
 no.algo <- length(list.algo)
-
-
-# Write information for file names
-info.file.ml.name <-  paste0("ML_model_",
-                             file.prefix, 
-                             no.algo, "algo_",
-                             no.taxa, "taxa_", 
-                             ifelse(CV, "CV_", "FIT_"),
-                             ifelse(dl, "DL_", "no_DL_"))
-
-info.file.stat.name <- paste0("Stat_model_",
-                              file.prefix,
-                              no.taxa.full, "taxa_", 
-                              sampsize,"iterations_",
-                              ifelse(comm.corr,"CF0_","FF0_"),
-                              ifelse(CV, "CV_", "FIT_"),
-                              ifelse(dl, "DL_", "no_DL_"))
-
-### ----Investigate splits----
-
-# mean.train1 <- lapply(splits, function(split){
-#   split <- splits[[1]]
-#   test <- split[[1]][,env.fact]
-#   return(mean(split[[1]][,env.fact]))
-# })
-# 
-# 
-# mean.train1 <- as.numeric(lapply(centered.splits[[1]][[1]][,env.fact], FUN = mean))
-# mean.train2 <- as.numeric(lapply(splits[[2]][[1]][,env.fact], FUN = mean))
-# mean.train3 <- as.numeric(lapply(splits[[3]][[1]][,env.fact], FUN = mean))
-# 
-# dif1 <- 1-(mean.train1/mean.train2)
-# dif2 <- 1-(mean.train2/mean.train3)
-# 
-# splits2 <- split.data(data, 1)
-# 
-# mean2.train1 <- as.numeric(lapply(splits2[[1]][[1]][,env.fact], FUN = mean))
-# mean2.train2 <- as.numeric(lapply(splits2[[2]][[1]][,env.fact], FUN = mean))
-# mean2.train3 <- as.numeric(lapply(splits2[[3]][[1]][,env.fact], FUN = mean))
-# 
-# dif3 <- 1-(mean2.train1/mean2.train2)
-# dif4 <- 1-(mean2.train2/mean2.train3)
-# 
-# 
-# splits3 <- split.data(data, 1)
-# mean3.train1 <- as.numeric(lapply(splits3[[1]][[1]][,env.fact], FUN = mean))
-# mean3.train2 <- as.numeric(lapply(splits3[[2]][[1]][,env.fact], FUN = mean))
-# mean3.train3 <- as.numeric(lapply(splits3[[3]][[1]][,env.fact], FUN = mean))
-# dif5 <- 1-(mean3.train1/mean3.train2)
-# dif6 <- 1-(mean3.train2/mean3.train3)
-# 
-# testest <- as.data.frame(rbind(dif1,dif2,dif3,dif4, dif5, dif6))
-# testest <- as.data.frame(rbind(dif1,dif2))
-# 
-# colnames(testest) <- env.fact
-# testest.table <- lapply(testest, mean, 1)
-# 
-# 
-# split1 <- splits[[1]]
-# split2 <- splits[[2]]
-# split3 <- splits[[3]]
-# 
-# map.inputs <- map.inputs(dir.env.data, data.env)
-# 
-# 
-# g1 <- ggplot()
-# g1 <- g1 + geom_sf(data = map.inputs$ch, fill="#E8E8E8", color="black")
-# g1 <- g1 + geom_point(data = splits[[1]], aes(x=X, y=Y), color = "red")
-# g1 <- g1 + geom_point(data = splits[[2]], aes(x=X, y=Y), color = "blue")
-# g1
-# 
-# g2 <- ggplot()
-# g2 <- g2 + geom_sf(data = map.inputs$ch, fill="#E8E8E8", color="black")
-# g2 <- g2 + geom_point(data = split2[[1]], aes(x=X, y=Y), color = "red")
-# g2 <- g2 + geom_point(data = split2[[2]], aes(x=X, y=Y), color = "blue")
-# g2
-# 
-# g3 <- ggplot()
-# g3 <- g3 + geom_sf(data = map.inputs$ch, fill="#E8E8E8", color="black")
-# g3 <- g3 + geom_point(data = split3[[1]], aes(x=X, y=Y), color = "red")
-# g3 <- g3 + geom_point(data = split3[[2]], aes(x=X, y=Y), color = "blue")
-# g3
-
-# explore NAs
-# explore(data) # to see
-
-# vis_miss(data[,cind.taxa], cluster = FALSE, warn_large_data = FALSE)
-# 
-# too.many.na <- c()
-# for(i in cind.taxa){
-#     if(sum(is.na(data[,i])) > 200){ too.many.na <- c(too.many.na, i)}
-# }
-# colnames(data)[too.many.na]
-# # data[complete.cases(data), "SampleId"]
-# 
-# data.test1 <- data[, -too.many.na]
-# data.test2 <- na.omit(data.test1)
-# 
-# setdiff(data$SampId, data.test2$SampId)
-# # setdiff(data.test1$SampId, data.test2$SampId)
-
-# in ALL, loosing 5 taxa and 50 rows
-
-# Explore geographical distribution
-
-# inputs <- map.inputs(dir.env.data = dir.env.data, data.env = data.env)
-# 
-# variable <- "BIOGEO"
-# temp.data.env <- data.env[, c("X","Y", variable)]
-# no.rows <- nrow(temp.data.env)
-# no.na <- sum(is.na(temp.data.env[,variable]))
-# explanation <- "Geographical distribution"
-# 
-# g <- ggplot()
-# g <- g + geom_sf(data = inputs$ch, fill="#E8E8E8", color="black")
-# g <- g + geom_sf(data = inputs$rivers.major, fill=NA, color="lightblue", show.legend = FALSE)
-# g <- g + geom_sf(data = inputs$lakes.major, fill="lightblue", color="lightblue", show.legend = FALSE)
-# g <- g + geom_point(data = temp.data.env, aes(x=X, y=Y, color= temp.data.env[, variable]), size= 3, alpha= 0.6)
-# 
-# g <- g + theme_void(base_size = 18)
-# g <- g + theme(# plot.title = element_text(hjust = 0.5),
-#     panel.grid.major = element_line(colour="transparent"),
-#     plot.margin = unit(c(0.1,0.1,0.1,0.1), "lines"))
-# g <- g + labs(title = paste("Geographic distribution of",variable),
-#               subtitle = paste0(no.na, " NAs out of ", no.rows, " samples \n", explanation), colour = variable)
-# 
-# print(g)
                                             
 ## ---- APPLY MODELS ----
 
- # :)
+# Null model
+
+null.model.full <- apply.null.model(data = data, list.taxa = list.taxa.full, prev.inv = prev.inv)
+null.model <- null.model.full[list.taxa]
 
 # Statistical models ####
 
+# For now apply only without DL
+
+if(dl == F){
+
 ptm <- proc.time() # to calculate time of simulation
 #file.name <- paste0(dir.models.output, "Stat_model_100iterations_corr_22taxa_CV_no_DL.rds") #to test
-
 
 comm.corr.options <- c(T,F)
 names(comm.corr.options) <- c("CF0", "UF0")
 stat.outputs <- mclapply(comm.corr.options, mc.cores = 1, function(comm.corr){
   
   info.file.stat.name <- paste0("Stat_model_",
-                                # d, # don't need to include the date
+                                file.prefix,
                                 no.taxa.full, "taxa_", 
-                                # no.env.fact, "envfact_",
                                 sampsize,"iterations_",
                                 ifelse(comm.corr,"CF0_","UF0_"),
                                 ifelse(CV, "CV_", "FIT_"),
-                                ifelse(dl, "DL_", "no_DL_"),
-                                # "trainset", percentage.train.set, 
-                                # if( ratio != 1) {split.var}, 
-                                "")
+                                ifelse(dl, "DL_", "no_DL_"))
+  
   file.name <- paste0(dir.models.output, info.file.stat.name, ".rds")
   cat(file.name)
   
@@ -393,14 +268,19 @@ print(proc.time()-ptm)
 #Process output from stat models to fit structure of ml models (makes plotting easier)
 stat.outputs.transformed <- transfrom.stat.outputs(CV, stat.outputs)
 
+} # braket to close DL's if clause
 
 # Machine Learning models ####
 
 ptm <- proc.time() # to calculate time of simulation
 
-# "Apply" null model
-null.model.full <- apply.null.model(data = data, list.taxa = list.taxa.full, prev.inv = prev.inv)
-null.model <- null.model.full[list.taxa]
+info.file.ml.name <-  paste0("ML_model_",
+                             file.prefix, 
+                             no.algo, "algo_",
+                             no.taxa, "taxa_", 
+                             ifelse(CV, "CV_", "FIT_"),
+                             ifelse(dl, "DL_", "no_DL_"))
+
 
 file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
 # file.name <- paste0(dir.models.output, "glm_gamSpline_svmRadial_rf_22taxa_FIT.rds")
@@ -436,9 +316,9 @@ if (file.exists(file.name) == T ){
             
         if(CV == T){
             
-            if(server){
+            if(server == T){
                 # Compute three splits in paralel (should be run on the server)
-                outputs.cv <- mclapply(centered.splits.factors, mc.cores = 3, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
+                outputs.cv <- mclapply(centered.splits.factors, mc.cores = n.cores.splits, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
             } else {
                 # Compute one split after the other
                 outputs.cv <- lapply(centered.splits.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV)
@@ -464,6 +344,7 @@ if (file.exists(file.name) == T ){
 print(paste("Simulation time of different models ", info.file.name))
 print(proc.time()-ptm)
 
+if(!server){
 
 # Neural Networks ####
 
@@ -584,16 +465,14 @@ info.file.name <- paste0(file.prefix,
 # outputs <- vector(mode = 'list', length = no.models)
 # names(outputs) <- list.models
 
-test <- lapply(outputs.full[l], "[[", list.taxa)
-
-for (l in list.models) {
-    lind <- which(names(outputs.full[l][[]]) == list.taxa)
-    outputs[l]  <- outputs.full[l][list.taxa]
-}
+# test <- lapply(outputs.full[l], "[[", list.taxa)
+# 
+# for (l in list.models) {
+#     lind <- which(names(outputs.full[l][[]]) == list.taxa)
+#     outputs[l]  <- outputs.full[l][list.taxa]
+# }
 
 # AND CHANGE THE PLOTS DEPENDING ON IF THEY NEED ML OR ALL MODELS
-
-if(!server){
 
 ## ---- PLOTS ----
 #Add stat models to the list of algos
