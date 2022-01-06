@@ -104,12 +104,12 @@ sampsize <- 1000 #10000 #I think this needs to be an even number for some reason
 n.chain  <- 2 #2
 
 # Select taxa
-all.taxa <- F
+all.taxa <- T
 # set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
 # set to TRUE to apply models to all taxa
 
 # Run the script on the server
-server <- F
+server <- T
 
 ## ---- DATA WRANGLING  ----
 
@@ -318,10 +318,11 @@ if (file.exists(file.name) == T ){
             
             if(server == T){
                 # Compute three splits in paralel (should be run on the server)
-                outputs.cv <- mclapply(centered.splits.factors, mc.cores = n.cores.splits, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
+                outputs.cv <- mclapply(centered.data.factors, mc.cores = n.cores.splits, 
+                                       FUN = apply.ml.model, list.algo, list.taxa, env.fact)
             } else {
                 # Compute one split after the other
-                outputs.cv <- lapply(centered.splits.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV)
+                outputs.cv <- lapply(centered.data.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV)
             }
             
             cat("Saving outputs of algorithms in", file.name)

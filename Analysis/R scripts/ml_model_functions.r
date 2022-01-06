@@ -81,8 +81,8 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                  "Prediction factors", #2 
                  "Prediction probabilities", #3 
                  "Likelihood", #4
-                 "Performance", #5
-                 "Confusion matrix") #6
+                 "Performance")#, #5
+                 # "Confusion matrix") #6
         output.names <- c("Trained model",
                           # "Variable importance",
                           c(outer(out, which.set, FUN = paste)))
@@ -191,9 +191,9 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                 # Performance
                 temp.list[[paste(out[5],which.set[n])]] <- -2 * sum(log(likeli)) / nrow(temp.sets[[n]])
                 # Confusion matrix
-                temp.list[[paste(out[6],which.set[n])]] <- if(model[1] != "NULL_MODEL"){confusionMatrix(reference = temp.sets[[n]][,list.taxa[j]], 
-                                                                   data = temp.list[[paste(out[2],which.set[n])]], mode='everything', positive='present')}
-                
+                # temp.list[[paste(out[6],which.set[n])]] <- if(model[1] != "NULL_MODEL"){confusionMatrix(reference = temp.sets[[n]][,list.taxa[j]], 
+                #                                                    data = temp.list[[paste(out[2],which.set[n])]], mode='everything', positive='present')}
+                # 
             }
             
             list.outputs[[j]] <- temp.list
