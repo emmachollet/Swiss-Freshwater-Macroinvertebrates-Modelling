@@ -30,7 +30,6 @@ split.data.manual <- function(data,sd){
         inv.data.fold <- as.data.frame(inv.data %>% group_by(SiteId) %>% summarize(folds = sample(seq(3),1)))
         inv.data <- left_join(inv.data, inv.data.fold, by = "SiteId") 
         
-        
         fold1 <- inv.data[which(inv.data$fold == 1),]
         fold2 <- inv.data[which(inv.data$fold == 2),]
         fold3 <- inv.data[which(inv.data$fold == 3),]
@@ -53,7 +52,6 @@ split.data.manual <- function(data,sd){
         train3 <- bind_rows(fold1, fold3)
         test3 <- fold2
         message(dim(test3)[1])
-        
         
         if(sd(c(dim(fold1)[1],dim(fold2)[1],dim(fold3)[1])) < sd){
             break
@@ -238,7 +236,7 @@ center.data <- function(data, split, CV, dl, mean.dl, sd.dl, env.fact.full){
 }
 
 
-preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, dl, CV){
+preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, BDM, dl, CV){
     
     # Drop columns with (taxa with) too many NAs
     too.many.na <- c()
@@ -263,10 +261,12 @@ preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, dl
     
     # Split data
     
+    prefix <- ifelse(BDM, "BDM_", "All_")
+    
     if(CV == T){
         
         # Split for CV
-        file.name <- paste0(dir.workspace,"SplitsForCV.rds")
+        file.name <- paste0(dir.workspace, prefix, "SplitsForCV.rds")
         
         # If the file with the three different splits already exist, just read it
         if (file.exists(file.name) == T ){
