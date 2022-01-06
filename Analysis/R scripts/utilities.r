@@ -214,7 +214,7 @@ center.data <- function(data, split, CV, dl, mean.dl, sd.dl, env.fact.full){
   }
 }
 
-  
+
 preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, BDM, dl, CV){
     
     # Drop columns with (taxa with) too many NAs
