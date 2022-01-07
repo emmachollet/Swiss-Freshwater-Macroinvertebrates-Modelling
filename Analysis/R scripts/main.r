@@ -214,11 +214,12 @@ comm.corr.options <- c(T,F)
 names(comm.corr.options) <- c("CF0", "UF0")
 stat.outputs <- mclapply(comm.corr.options, mc.cores = 1, function(comm.corr){
   
+  comm.corr <- comm.corr.options[[1]]
   info.file.stat.name <- paste0("Stat_model_",
                                 file.prefix,
                                 no.taxa.full, "taxa_", 
                                 sampsize,"iterations_",
-                                ifelse(comm.corr,"CF0_","UF0_"),
+                                ifelse(comm.corr,"CF0_","FF0_"),
                                 ifelse(CV, "CV_", "FIT_"),
                                 # else(dl, "DL_", "no_DL_"),
                                 "no_DL_") # for now with just apply it without DL
@@ -278,7 +279,9 @@ info.file.ml.name <-  paste0("ML_model_",
 
 
 file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
-# file.name <- paste0(dir.models.output, "ML_model_All_2algo_2taxa_CV_no_DL_.rds")
+# file.name <- paste0(dir.models.output, "glm_gamSpline_svmRadial_rf_22taxa_FIT.rds")
+# file.name <- paste0(dir.models.output, "ML_model_All_4algo_126taxa_FIT_no_DL_.rds")
+
 cat(file.name)
 
 # # If the file with the outputs already exist, just read it
@@ -474,9 +477,9 @@ info.file.name <- paste0(file.prefix,
 
 ## ---- PLOTS ----
 #Add stat models to the list of algos
-outputs <- append(outputs, stat.outputs.transformed)
+outputs <- append(ml.outputs.fit, stat.outputs.transformed)
 list.algo <- append(list.algo, list("#2CA25F" = 'CF0', "#99D8C9" = 'UF0'))
-no.algo <- no.algo + 2
+no.algo <- length(list.algo)
 # list.algo <- c(list.algo, "blue" = names(ann.outputs)[1],"red" = names(ann.outputs)[2], "grey" = names(ann.outputs)[3])
 # no.algo <- length(list.algo)
 # 
