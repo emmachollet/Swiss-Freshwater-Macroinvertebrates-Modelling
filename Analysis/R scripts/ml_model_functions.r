@@ -56,10 +56,13 @@ lowest <- function (x, metric, maximize = F){
 }
 
 # Function to apply ML algorithms
-apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.metric = "StandardizedDeviance", CV = T, ...){
+apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.metric = "StandardizedDeviance", CV = T, prev.inv, ...){
     
     data.train <- splitted.data[["Training data"]]
     data.test <- splitted.data[["Testing data"]]
+    
+    # Adapt list taxa to taxa actually present in data.train
+    list.taxa <- list.taxa[list.taxa %in% colnames(data.train)]
     
     # Make a list to store the outputs of each model
     outputs <- vector(mode = 'list', length = no.algo)
@@ -81,14 +84,14 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                  "Prediction factors", #2 
                  "Prediction probabilities", #3 
                  "Likelihood", #4
-                 "Performance", #5
-                 "Confusion matrix") #6
-        output.names <- c("Trained model", "Variable importance", c(outer(out, which.set, FUN = paste)))
+                 "Performance")#, #5
+                 # "Confusion matrix") #6
+        output.names <- c("Trained model",
+                          # "Variable importance",
+                          c(outer(out, which.set, FUN = paste)))
         
         for (j in 1:length(list.taxa)){
             
-            print(paste("Applying", algorithm, "to", j, list.taxa[j]))
-    
             temp.list <- vector(mode = 'list', length = length(output.names))
             names(temp.list) <- output.names
             
@@ -98,10 +101,8 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
             if(CV == T){temp.test <- na.omit(data.test[, c("SiteId", "SampId",
                                                    "X", "Y", 
                                                    list.taxa[j], env.fact)])
-                temp.sets <- list(temp.train, temp.test)
-            } else {
-                temp.sets <- list(temp.train)
-            } 
+                        temp.sets <- list(temp.train, temp.test)
+            } else {    temp.sets <- list(temp.train)     } 
             
             f <- reformulate(env.fact, list.taxa[j]) # write formula (target variable ~ explanatory variables) to apply the model
             
@@ -115,33 +116,70 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
             set.seed(2021) # for reproducibility of the folds
             
             folds <- groupKFold(temp.train$SiteId, 3) # create 3 folds, grouped by SiteId
+            bal1 <- summary(temp.train[folds$Fold1, list.taxa[j]])
+            bal2 <- summary(temp.train[folds$Fold2, list.taxa[j]])
+            bal3 <- summary(temp.train[folds$Fold3, list.taxa[j]])
+            bal.all <- bind_rows(bal1, bal2, bal3, .id = "Fold")
             
-            # Define the training control
-            train.control <- trainControl(
-                method = 'cv',                   # k-fold cross validation
-                number = 3,                      # number of folds
-                index = folds,                   # provide indices computed with groupKFold for the k-fold CV
-                # repeats = 1,                   # for repeated k-fold cross-validation 'repeatedcv' only: the number of complete sets of folds to compute
-                # savePredictions = 'final',     # saves predictions for optimal tuning parameter
-                classProbs = T,                  # should class probabilities be returned
-                #summaryFunction = twoClassSummary, # default metric function choosen (accuracy, ROC)
-                summaryFunction = stand.dev ,
-                selectionFunction = lowest       # we want to minimize the metric
-            )
+            any(bal.all == 0)
+            if( any(bal.all == 0) & grepl("svm", algorithm) ){
             
-            # model <- train(x = temp.train[,env.fact], y = temp.train[,list.taxa[j]], method = algorithm, trControl = train.control)
-            model <- train(f, data = temp.train, metric = selec.metric, method = algorithm, trControl = train.control)
+                cat("During training, classes are too unbalanced for the algorithm", algorithm,
+                "\nin fold 1:", summary(temp.train[folds$Fold1, list.taxa[j]]),
+                "\nin fold 2:", summary(temp.train[folds$Fold2, list.taxa[j]]),
+                "\nin fold 3:", summary(temp.train[folds$Fold3, list.taxa[j]]),
+                "\nWe apply Null model instead.", "\n")
+                
+                model <- "NULL_MODEL"
+                prev.taxa <- prev.inv[which(prev.inv[,"Occurrence.taxa"] == list.taxa[j]), "Prevalence"]
+                
+            } else {
+                
+                cat(paste("\nApplying", algorithm, "to", j, list.taxa[j], "\n"))
+                
+                # folds1 <- create_folds(temp.train[,list.taxa[j]], k =3) # create stratified folds
+                # folds2 <- groupKFold(temp.train$SiteId, 2) # try to have less folds but balanced better
+    
+                # Define the training control
+                train.control <- trainControl(
+                    method = 'cv',                   # k-fold cross validation
+                    number = 3,                      # number of folds
+                    index = folds,                   # provide indices computed with groupKFold for the k-fold CV
+                    # repeats = 1,                   # for repeated k-fold cross-validation 'repeatedcv' only: the number of complete sets of folds to compute
+                    # savePredictions = 'final',     # saves predictions for optimal tuning parameter
+                    classProbs = T,                  # should class probabilities be returned
+                    #summaryFunction = twoClassSummary, # default metric function choosen (accuracy, ROC)
+                    summaryFunction = stand.dev ,
+                    selectionFunction = lowest       # we want to minimize the metric
+                )
+                
+                # Tried another training control to avoid unbalenced classes
+                # train.control2 <- trainControl(
+                #     method = 'boot',                   # k-fold cross validation
+                #     number = 3,                      # number of folds
+                #     classProbs = T,                  # should class probabilities be returned
+                #     summaryFunction = stand.dev ,
+                #     selectionFunction = lowest       # we want to minimize the metric
+                # ) 
+                # model <- train(x = temp.train[,env.fact], y = temp.train[,list.taxa[j]], method = algorithm, trControl = train.control) # alternative to formula writing
+                model <- train(f, data = temp.train, metric = selec.metric, method = algorithm, trControl = train.control)
+                # model2 <- train(f, data = temp.train, metric = selec.metric, method = algorithm, trControl = train.control2) # Tried with the alternative training control
             
             temp.list[["Trained model"]] <- model
-            temp.list[["Variable importance"]] <- varImp(model)
+            # temp.list[["Variable importance"]] <- varImp(model)
             
             for(n in 1:length(which.set)){
                 # Observation
                 temp.list[[paste(out[1],which.set[n])]] <- temp.sets[[n]]
+                n.obs <- dim(temp.sets[[n]])[1]
                 # Prediction factors
-                temp.list[[paste(out[2],which.set[n])]] <- predict(model, temp.sets[[n]])
+                temp.list[[paste(out[2],which.set[n])]] <- if(model[1] == "NULL_MODEL"){
+                    ifelse(prev.taxa > 0.5, rep("present", n.obs), rep("absent", n.obs))
+                } else { predict(model, temp.sets[[n]]) }
                 # Prediction probabilities
-                temp.list[[paste(out[3],which.set[n])]] <- predict(model, temp.sets[[n]], type = 'prob')
+                temp.list[[paste(out[3],which.set[n])]] <- if(model[1] == "NULL_MODEL"){
+                    data.frame("absent" = rep(1-prev.taxa, n.obs), "present" = rep(prev.taxa, n.obs))
+                } else { predict(model, temp.sets[[n]], type = 'prob') }
                 # Likelihood
                 likeli <- 1:nrow(temp.sets[[n]])
                 for(i in 1:nrow(temp.sets[[n]])){
@@ -155,11 +193,11 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                 # Performance
                 temp.list[[paste(out[5],which.set[n])]] <- -2 * sum(log(likeli)) / nrow(temp.sets[[n]])
                 # Confusion matrix
-                temp.list[[paste(out[6],which.set[n])]] <- confusionMatrix(reference = temp.sets[[n]][,list.taxa[j]], 
-                                                                   data = temp.list[[paste(out[2],which.set[n])]], mode='everything', positive='present')
-                
+                # temp.list[[paste(out[6],which.set[n])]] <- if(model[1] != "NULL_MODEL"){confusionMatrix(reference = temp.sets[[n]][,list.taxa[j]], 
+                #                                                    data = temp.list[[paste(out[2],which.set[n])]], mode='everything', positive='present')}
+                # 
             }
-            
+            }
             list.outputs[[j]] <- temp.list
         }
     

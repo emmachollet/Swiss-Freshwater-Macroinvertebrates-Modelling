@@ -18,25 +18,26 @@
 
 if ( !require("parallel") ) { install.packages("parallel"); library("parallel") } # need to run things in parallel
 
-# data management
+# Data management
 if ( !require("dplyr") ) { install.packages("dplyr"); library("dplyr") } # to sort, join, merge data
 if ( !require("tidyr") ) { install.packages("tidyr"); library("tidyr") } # to sort, join, merge data
+if ( !require("splitTools") ) { install.packages("splitTools"); library("splitTools") } # to split the data
 
-# plots
+# Plots
 if ( !require("ggplot2") ) { install.packages("ggplot2"); library("ggplot2") } # to do nice plots
-if ( !require("ggpubr") ) { install.packages("ggpubr"); library("ggpubr") } # to arrange multiple plots on a page
+#if ( !require("ggpubr") ) { install.packages("ggpubr"); library("ggpubr") } # to arrange multiple plots on a page
 if ( !require("gridExtra") ) { install.packages("gridExtra"); library("gridExtra") } # to arrange multiple plots on a page
 if ( !require("cowplot") ) { install.packages("cowplot"); library("cowplot") } # to arrange multiple plots on a page
 if ( !require("pdp") ) { install.packages("pdp"); library("pdp") } # to plot partial dependance plots
 if ( !require("gt") ) { install.packages("gt"); library("gt") } # to plot nice tables
 if ( !require("plot.matrix") ) { install.packages("plot.matrix"); library("plot.matrix") } # to plot nice tables
 if ( !require("viridis")) {install.packages("viridis", repos="http://cloud.r-project.org"); library("viridis")} # to do even nicer plots
-if ( !require("sf") ) { install.packages("sf"); library("sf") } # to read layers for map
+#if ( !require("sf") ) { install.packages("sf"); library("sf") } # to read layers for map
 
-# stat model
+# Stat model
 if ( !require("rstan") ) { install.packages("rstan"); library("rstan") } # to read layers for map
 
-# ml algorithms
+# ML algorithms
 if ( !require("caret") ) { install.packages("caret"); library("caret") } # comprehensive framework to build machine learning models
 if ( !require("mgcv") ) { install.packages("mgcv"); library("mgcv") } # to run generalized additive model (GAM) algorithm
 if ( !require("gam") ) { install.packages("gam"); library("gam") } # to run generalized additive model (GAM) algorithm
@@ -63,33 +64,19 @@ dir.workspace     <- "../Intermediate results/"
 dir.plots.output  <- "../Plots/Models analysis plots/"
 dir.models.output <- "../Intermediate results/Trained models/"
 
-file.inv.data     <- "All_occ_data_2020-06-25.dat"
-file.inv.BDM.data <- "BDM_occ_data_2020-06-25.dat"
-file.env.data     <- "All_environmental_data_2020-06-25.dat"
-file.env.BDM.data <- "BDM_environmental_data_2020-06-25.dat"
-
-file.prev         <- "All_prevalence_2020-06-25.dat"
-file.prev.BDM     <- "BDM_prevalence_2020-06-25.dat"
+file.env.data     <- "environmental_data_2020-06-25.dat"
+file.inv.data     <- "occ_data_2020-06-25.dat"
+file.prev         <- "prevalence_2020-06-25.dat"
 
 
 # Set if we want to compute for the All or the BDM dataset
 BDM <- F
 
-if( BDM == TRUE){
+file.prefix <- ifelse(BDM, "BDM_", "All_")
 
-    data.inv      <- read.delim(paste(dir.inv.data,file.inv.BDM.data,sep=""),header=T,sep="\t", stringsAsFactors=F)
-    prev.inv      <- read.delim(paste(dir.inv.data,file.prev.BDM,sep=""),header=T,sep="\t", stringsAsFactors=F)
-    data.env      <- read.delim(paste(dir.env.data,file.env.BDM.data,sep=""),header=T,sep="\t", stringsAsFactors=T)
-    file.prefix   <- "BDM_"
-    
-} else {
-    
-    data.inv          <- read.delim(paste(dir.inv.data,file.inv.data,sep=""),header=T,sep="\t", stringsAsFactors=F)
-    prev.inv          <- read.delim(paste(dir.inv.data,file.prev,sep=""),header=T,sep="\t", stringsAsFactors=F)
-    data.env          <- read.delim(paste(dir.env.data,file.env.data,sep=""),header=T,sep="\t", stringsAsFactors=T)
-    file.prefix       <- "All_"
-    
-}
+data.env          <- read.delim(paste0(dir.env.data, file.prefix, file.env.data),header=T,sep="\t", stringsAsFactors=T)
+data.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.inv.data),header=T,sep="\t", stringsAsFactors=F)
+prev.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.prev),header=T,sep="\t", stringsAsFactors=F)
 
 # set date for file names
 d <- Sys.Date()    # e.g. 2021-12-17
@@ -108,20 +95,21 @@ CV <- T # Cross-Validation
 dl <- F # Data Leakage
 
 # Set number of cores
-n.cores <-  1
-
+n.cores.splits <-  3 # a core for each split, 3 in our case
+n.cores.stat.models <- 2 # a core for each stat model 2 in our case (UF0, and CF0)
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
 # also make sure the cross-validation (CV) flag is set correctly
-sampsize <- 100 #10000
+sampsize <- 1000 #10000 #I think this needs to be an even number for some reason (stan error)
 n.chain  <- 2 #2
-comm.corr <- T
 
 # Select taxa
-all.taxa = F
+all.taxa <- F
 # set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
 # set to TRUE to apply models to all taxa
 
+# Run the script on the server
+server <- T
 
 ## ---- DATA WRANGLING  ----
 
@@ -141,421 +129,223 @@ env.fact.full <- c(env.fact,
               "temperature2",
               "velocity2")
 
-#env.fact <- env.fact.full
+# env.fact <- env.fact.full
 no.env.fact <- length(env.fact)
 
-# Select ml algorithms ####
+# Preprocess data ####
 
-# Select models to apply (! their packages have to be installed first)
-# Already select the colors assigned to each algorithms for the plots
-list.algo <- c("#030AE8" = 'glm', # Random Forest
-              #"#048504" = 'bam', # Generalized Additive Model using splines
-               "#948B8B" = 'gamSpline',#
-               # 'earth', # MARS: Multivariate Adaptive Regression Splines
-               # "#A84E05" = 'elm', # Extreme Learning Machine (Neural Network)
-               # 'bayesglm') #, # Bayesian Generalized Linear Model
-               "#DB1111" = 'svmRadial', # Support Vector Machine
-               "#790FBF" = 'rf') # Random Forest
+# DISCUSS TAXA DELETING WITH NELE ? ####
+# JW: THERE IS ALSO ONE MORE SPECIES THAT GETS DROPPED IN THE CENTERING (ENDS UP AT 126 rather tha 127, move to
+#data prep as well)
 
-no.algo <- length(list.algo)
+prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv, 
+                                 env.fact.full = env.fact.full, dir.workspace = dir.workspace, 
+                                 BDM = BDM, dl = dl, CV = CV)
+data <- prepro.data$data
+if(CV){ splits <- prepro.data$splits ; rem.taxa <- prepro.data$rem.taxa }
+list.taxa <- prepro.data$list.taxa # list taxa after data pre-processing 
+centered.data <- prepro.data$centered.data
+centered.data.factors <- prepro.data$centered.data.factors
+normalization.data <- prepro.data$normalization.data
 
-# MOVE THIS TO DATA PREPARATION SCRIPTS ####
-
-# Construct main dataset (with inv and env)
-
-# Drop columns with (taxa with) too many NAs
-# spot taxa columns with too many NA
-too.many.na <- c()
-for(i in 1:dim(data.inv)[2]){
-    if(sum(is.na(data.inv[,i])) > 200){ too.many.na <- c(too.many.na, i)}
-}
-cat("The following", length(too.many.na), "taxa are excluded because too many missing information:", colnames(data.inv)[too.many.na])
-
-# remove col with too many NA
-data.inv <- data.inv[, -too.many.na]
-
-cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
-
-data.full <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact.full)] %>%
-    left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
-dim(data.full)
-
-# Drop rows with incomplete taxa or influence factors
-ind <- !apply(is.na(data.full),1,FUN=any)
-ind <- ifelse(is.na(ind),FALSE,ind)
-data.full <- data.full[ind,]
-print(paste(sum(!ind),"sites/samples excluded because of incomplete taxa or influence factors"))
-data <- subset(data.full, select = -c(temperature2, velocity2))
+remove(prepro.data)
 
 # Select taxa ####
 
 cind.taxa <- which(grepl("Occurrence.",colnames(data)))
-list.taxa.full <- colnames(data)[cind.taxa]
+list.taxa.full <- colnames(data)[cind.taxa] # list of all taxa, before removing these too unbalanced or with too many NA
+remove(cind.taxa)
 
-# Select taxa for prediction
+# 2 taxa
+# list.taxa.int       <- list.taxa[list.taxa %in% c("Occurrence.Gammaridae", "Occurrence.Heptageniidae")]
+
+# 5 taxa
+# list.taxa.int       <- list.taxa[list.taxa %in% prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55),
+#                            "Occurrence.taxa"]] # Select only few taxa
+
+# Intermediate prevalence taxa
+list.taxa.int     <- list.taxa[list.taxa %in% prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25),
+                                                               "Occurrence.taxa"]] # Select with prevalence percentage between 25 and 75%
+
+# Select taxa for prediction and analyses
 if (all.taxa == F){
-    # 2 taxa
-    list.taxa       <- list.taxa.full[list.taxa.full %in% c("Occurrence.Gammaridae", "Occurrence.Heptageniidae")]
-    # 
-    # 5 taxa
-    # list.taxa       <- list.taxa.full[list.taxa.full %in% prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55),
-    #                            "Occurrence.taxa"]] # Select only few taxa
-    
-    # 22 taxa
-    # list.taxa       <- list.taxa.full[list.taxa.full %in% prev.inv[which(prev.inv[, "Prevalence"] < 0.75 & prev.inv[,"Prevalence"] > 0.25),
-    #                              "Occurrence.taxa"]] # Select with prevalence percentage between 25 and 75%
-
+    list.taxa <- list.taxa.int
 }
 
 no.taxa.full <- length(list.taxa.full)
+no.taxa.int <- length(list.taxa.int)
 no.taxa <- length(list.taxa)
 
-# Summary of prevalence of chosen taxa
-for ( i in 1:no.taxa){
-    cat("Summary of absence, presence and NA for", list.taxa[i], ":", summary(data.inv[, list.taxa[i]]), "\n")
-}
-
-# Split for CV (and save) data ####
-
-# Split for ml purpose (e.g. 80% training, 20% testing)
-# ratio <- 0.8 # set a ratio for training dataset (can be 1)
-# split.var <- "random" # data splitted according to this variable (default is "random")
-# splitted.data <- split.data(data = data, training.ratio = ratio, variable = split.var)
-
-if(CV == T){
-    
-    # Split for CV
-    file.name <- paste0(dir.workspace,"SplitsForCV.rds")
-    
-    # If the file with the three different splits already exist, just read it
-    if (file.exists(file.name) == T ){
-      
-      if(exists("splits") == F){ splits <- readRDS(file = file.name)
-        cat("File with data splits already exists, we read it from", file.name, "and save it in object 'splits'")}
-        else{
-        cat("List with data splits already exists as object 'splits' in this environment.")
-        }
-      } else {
-      
-      cat("No data splits exist yet, we produce it and save it in", file.name)
-      splits <- split.data(data.full)
-      saveRDS(splits, file = file.name)
-      }
-}
-
-# Normalize data ####
-
-# Calculate mean and sd for env data for normalisation with data leakage
-mean.dl <- apply(select(data.full, all_of(env.fact.full)), 2, function(k){
-    mean(k, na.rm = TRUE)
-})
-sd.dl <- apply(select(data.full, all_of(env.fact.full)), 2, function(k){
-    sd(k, na.rm = TRUE)
-})
-
-# Normalize the data (each folds for CV and whole data set else)
-if(CV == T){
-   
-    # Center the splits
-    centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full)
-    # centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV)
-    # Extract necessary information
-    centered.splits <- lapply(centered.splits.tmp,"[", 1:2) # only the splits without the mean, sd info
-    normalization.data <- lapply(centered.splits.tmp,"[", 3:4) # the mean and sd of the splits
-    
-    # Normalize the folds but replace '0' and '1' by factors
-    centered.splits.factors <- lapply(centered.splits, function(split){
-    
-        return(lapply(split, function(fold){
-       
-        cind.taxa <- which(grepl("Occurrence.",colnames(fold)))
-        #Replace "0" and "1" by "absent" and "present" and convert them to factors
-        for (i in cind.taxa ) {
-          fold[which(fold[,i] == 0),i] <- "absent"
-          fold[which(fold[,i] == 1),i] <- "present"
-          fold[,i] = as.factor(fold[,i])
-        }
-        return(fold)
-      })
-      )
-    })
-    remove(centered.splits.tmp)
-} else {
-    
-    centered.data <- center.data(list(data.full), CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full)
-    centered.data.factors <- centered.data
-    
-    # Replace '0' and '1' by factors
-    cind.taxa <- which(grepl("Occurrence.",colnames(centered.data.factors[[1]])))
-    #Replace "0" and "1" by "absent" and "present" and convert them to factors
-    for (i in cind.taxa ) {
-        centered.data.factors[[1]][which(centered.data.factors[[1]][,i] == 0),i] <- "absent"
-        centered.data.factors[[1]][which(centered.data.factors[[1]][,i] == 1),i] <- "present"
-        centered.data.factors[[1]][,i] = as.factor(centered.data.factors[[1]][,i])
-    }
-}
-
-# Test centering
-if(exists("centered.splits") == T){
-  if(mean(centered.splits$Split1$`Training data`$temperature) <= 0.001){
-    cat("The data is normalized.")
-    }else{
-      cat("The data isn't normalized.")
-      break()
-    }
-}else if (exists("centered.data") == T){
-  if(mean(centered.data$`Entire dataset`$temperature) <= 0.001){
-    cat("The data is normalized.")
-  }else{
-    cat("The data isn't normalized.")
-    break()
-  }
-}else{
-  cat("The data isn't normalized.")
-  
-}
-
-# Write information for file names
-# percentage.train.set <- ratio * 100
-info.file.name <- paste0(file.prefix, 
-                         # d, # don't need to include the date
-                         no.taxa, "taxa_", 
-                         # no.env.fact, "envfact_",
-                         no.algo, "algo_",
-                         ifelse(CV, "CV_", "FIT_"),
-                         ifelse(dl, "DL_", "no_DL_"),
-                         # "trainset", percentage.train.set, 
-                         # if( ratio != 1) {split.var}, 
-                         "")
-
-info.file.stat.name <- paste0("Stat_model_",
-                              # d, # don't need to include the date
-                              no.taxa, "taxa_", 
-                              # no.env.fact, "envfact_",
-                              sampsize,"iterations_",
-                              ifelse(comm.corr,"corr_","nocorr_"),
-                              ifelse(CV, "CV_", "FIT_"),
-                              # "trainset", percentage.train.set, 
-                              # if( ratio != 1) {split.var}, 
-                              "")
-
-### ----Investigate splits----
-
-# mean.train1 <- lapply(splits, function(split){
-#   split <- splits[[1]]
-#   test <- split[[1]][,env.fact]
-#   return(mean(split[[1]][,env.fact]))
-# })
-# 
-# 
-# mean.train1 <- as.numeric(lapply(centered.splits[[1]][[1]][,env.fact], FUN = mean))
-# mean.train2 <- as.numeric(lapply(splits[[2]][[1]][,env.fact], FUN = mean))
-# mean.train3 <- as.numeric(lapply(splits[[3]][[1]][,env.fact], FUN = mean))
-# 
-# dif1 <- 1-(mean.train1/mean.train2)
-# dif2 <- 1-(mean.train2/mean.train3)
-# 
-# splits2 <- split.data(data, 1)
-# 
-# mean2.train1 <- as.numeric(lapply(splits2[[1]][[1]][,env.fact], FUN = mean))
-# mean2.train2 <- as.numeric(lapply(splits2[[2]][[1]][,env.fact], FUN = mean))
-# mean2.train3 <- as.numeric(lapply(splits2[[3]][[1]][,env.fact], FUN = mean))
-# 
-# dif3 <- 1-(mean2.train1/mean2.train2)
-# dif4 <- 1-(mean2.train2/mean2.train3)
-# 
-# 
-# splits3 <- split.data(data, 1)
-# mean3.train1 <- as.numeric(lapply(splits3[[1]][[1]][,env.fact], FUN = mean))
-# mean3.train2 <- as.numeric(lapply(splits3[[2]][[1]][,env.fact], FUN = mean))
-# mean3.train3 <- as.numeric(lapply(splits3[[3]][[1]][,env.fact], FUN = mean))
-# dif5 <- 1-(mean3.train1/mean3.train2)
-# dif6 <- 1-(mean3.train2/mean3.train3)
-# 
-# testest <- as.data.frame(rbind(dif1,dif2,dif3,dif4, dif5, dif6))
-# testest <- as.data.frame(rbind(dif1,dif2))
-# 
-# colnames(testest) <- env.fact
-# testest.table <- lapply(testest, mean, 1)
-# 
-# 
-# split1 <- splits[[1]]
-# split2 <- splits[[2]]
-# split3 <- splits[[3]]
-# 
-# map.inputs <- map.inputs(dir.env.data, data.env)
-# 
-# 
-# g1 <- ggplot()
-# g1 <- g1 + geom_sf(data = map.inputs$ch, fill="#E8E8E8", color="black")
-# g1 <- g1 + geom_point(data = splits[[1]], aes(x=X, y=Y), color = "red")
-# g1 <- g1 + geom_point(data = splits[[2]], aes(x=X, y=Y), color = "blue")
-# g1
-# 
-# g2 <- ggplot()
-# g2 <- g2 + geom_sf(data = map.inputs$ch, fill="#E8E8E8", color="black")
-# g2 <- g2 + geom_point(data = split2[[1]], aes(x=X, y=Y), color = "red")
-# g2 <- g2 + geom_point(data = split2[[2]], aes(x=X, y=Y), color = "blue")
-# g2
-# 
-# g3 <- ggplot()
-# g3 <- g3 + geom_sf(data = map.inputs$ch, fill="#E8E8E8", color="black")
-# g3 <- g3 + geom_point(data = split3[[1]], aes(x=X, y=Y), color = "red")
-# g3 <- g3 + geom_point(data = split3[[2]], aes(x=X, y=Y), color = "blue")
-# g3
-
-# explore NAs
-# explore(data) # to see
-
-# vis_miss(data[,cind.taxa], cluster = FALSE, warn_large_data = FALSE)
-# 
-# too.many.na <- c()
-# for(i in cind.taxa){
-#     if(sum(is.na(data[,i])) > 200){ too.many.na <- c(too.many.na, i)}
+# # Summary of prevalence of chosen taxa
+# for ( i in 1:no.taxa){
+#     cat("Summary of absence, presence and NA for", list.taxa[i], ":", summary(data.inv[, list.taxa[i]]), "\n")
 # }
-# colnames(data)[too.many.na]
-# # data[complete.cases(data), "SampleId"]
-# 
-# data.test1 <- data[, -too.many.na]
-# data.test2 <- na.omit(data.test1)
-# 
-# setdiff(data$SampId, data.test2$SampId)
-# # setdiff(data.test1$SampId, data.test2$SampId)
 
-# in ALL, loosing 5 taxa and 50 rows
+# Select ml algorithms ####
 
+# Select machine learning algorithms to apply (! their packages have to be installed first)
+# Already select the colors assigned to each algorithms for the plots
+list.algo <- c( "#030AE8" = 'glm', # Random Forest
+               # "#048504" = 'bam', # Generalized Additive Model using splines
+                "#948B8B" = 'gamSpline', #
+               # 'earth', # MARS: Multivariate Adaptive Regression Splines
+               # "#A84E05" = 'elm', # Extreme Learning Machine (Neural Network)
+               # 'bayesglm') #, # Bayesian Generalized Linear Model
+                "#DB1111" = 'svmRadial', # Support Vector Machine
+               # "#DB1111" = 'svmPoly', # Support Vector Machine
+               # "#DB1111" = 'svmLinear', # Support Vector Machine
+                "#790FBF" = 'rf') # Random Forest
+
+no.algo <- length(list.algo)
+                                            
 ## ---- APPLY MODELS ----
 
- # :)
+# Null model
+
+null.model.full <- apply.null.model(data = data, list.taxa = list.taxa.full, prev.inv = prev.inv)
+null.model <- null.model.full[list.taxa]
 
 # Statistical models ####
 
 ptm <- proc.time() # to calculate time of simulation
-file.name <- paste0(dir.models.output, "Stat_model_100iterations_corr_22taxa_CV_no_DL.rds") #to test
-# file.name <- paste0(dir.models.output, "Stat_model_",sampsize,"iterations_",ifelse(comm.corr,"corr_","nocorr_"), no.taxa,
-#                     "taxa_", ifelse(CV, "CV", "FIT"),"_", ifelse(dl, "DL", "no_DL"),".rds")
+#file.name <- paste0(dir.models.output, "Stat_model_100iterations_corr_22taxa_CV_no_DL.rds") #to test
 
-cat(file.name)
-
-# If the file with the outputs already exist, just read it
-if (file.exists(file.name) == T){
-    
-    if(exists("outputs") == F){
-        cat("File with statistical model outputs already exists, we read it from", file.name, "and save it in object 'stat.outputs'")
-        stat.outputs <- readRDS(file = file.name)
-        }
-    else{
-        cat("List with statistical model outputs already exists as object 'stat.outputs' in this environment.")
-    }
-} else {
-    
-    cat("No statistical model outputs exist yet, we produce it and save it in", file.name)
-    
-    if(CV == T){
-
-      stat.outputs <- mclapply(centered.splits, mc.cores = n.cores, FUN = stat_mod_cv, CV, comm.corr, sampsize, n.chain)
+comm.corr.options <- c(T,F)
+names(comm.corr.options) <- c("CF0", "UF0")
+stat.outputs <- mclapply(comm.corr.options, mc.cores = 1, function(comm.corr){
+  
+  comm.corr <- comm.corr.options[[1]]
+  info.file.stat.name <- paste0("Stat_model_",
+                                file.prefix,
+                                no.taxa.full, "taxa_", 
+                                sampsize,"iterations_",
+                                ifelse(comm.corr,"CF0_","FF0_"),
+                                ifelse(CV, "CV_", "FIT_"),
+                                # else(dl, "DL_", "no_DL_"),
+                                "no_DL_") # for now with just apply it without DL
+  
+  file.name <- paste0(dir.models.output, info.file.stat.name, ".rds")
+  cat(file.name)
+  
+  # If the file with the output already exist, just read it
+  if (file.exists(file.name) == T){
       
-      cat("Saving outputs of statistical models in", file.name)
-      saveRDS(stat.outputs, file = file.name, version = 2) #version two here is to ensure compatibility across R versions
-      
-    } else {
-      # apply temporary on training data of Split1, later take whole dataset centered etc
-
-      stat.outputs <- stat_mod_cv(data.splits = centered.data, CV, comm.corr, sampsize, n.chain)
-      cat("Saving outputs of statistical models in", file.name)
-      saveRDS(stat.outputs, file = file.name, version = 2)
+      if(exists("stat.output") == F){
+          cat("File with statistical model output already exists, we read it from", file.name, "and save it in object 'stat.output'")
+          stat.output <- readRDS(file = file.name)
+          
+          }
+      else{
+          cat("List with statistical model output already exists as object 'stat.output' in this environment.")
       }
-    
-}
-
-print(paste("Simulation time of statistical model ", info.file.name))
+  } else {
+      
+      cat("No statistical model output exist yet, we produce it and save it in", file.name)
+      
+      if(CV == T){
+  
+        stat.output <- mclapply(centered.splits, mc.cores = n.cores, FUN = stat_mod_cv, CV, comm.corr, sampsize, n.chain)
+        
+        cat("Saving output of statistical models in", file.name)
+        saveRDS(stat.output, file = file.name, version = 2) #version two here is to ensure compatibility across R versions
+        
+      } else {
+        # apply temporary on training data of Split1, later take whole dataset centered etc
+  
+        stat.output <- stat_mod_cv(data.splits = centered.data, CV, comm.corr, sampsize, n.chain = n.chain)
+        cat("Saving output of statistical models in", file.name)
+        saveRDS(stat.output, file = file.name, version = 2)
+        }
+      
+  }
+  return(stat.output)
+})
+print(paste("Simulation time of statistical model "))
 print(proc.time()-ptm)
 
-
-# ## ---- Process output from stat models
-#plot traceplots
-# res <- stat.outputs[[1]][[1]]
-# res.extracted   <- rstan::extract(res,permuted=TRUE,inc_warmup=FALSE)
-# 
-# print(traceplot(res,pars=c(names(res)[1:32],"lp__")))
-# 
-# print(traceplot(res))
-
-#exract neeeded output (std.deviance from the testing set in this case) from the output of the stat models.
-stat_cv_nocorr <- stat.outputs
-stat_cv_nocorr_res <- lapply(stat_cv_nocorr, function(split){
-  #split <- stat_cv_nocorr[[1]]
-  dev_temp <- split[[2]]$deviance
-  dev_temp$std.deviance <- dev_temp$std.deviance
-  dev_temp <- dev_temp[c("Taxon", "Type", "std.deviance")]
-  tmp_dev_test <- subset(dev_temp, Type = "Testing")
-  return(tmp_dev_test)
-})
-
-#bind rows for all three splits
-stat_cv_nocorr_res_table <- stat_cv_nocorr_res[[1]]
-for(i in 2:length(stat_cv_nocorr_res)){
-  stat_cv_nocorr_res_table <- rbind(stat_cv_nocorr_res_table, stat_cv_nocorr_res[[i]])
-  
-}
-
-#calculate mean std.deviance across splits
-stat_cv_nocorr_res_table <- as.list(stat_cv_nocorr_res_table %>% group_by(Taxon) %>% summarise(performance = mean(std.deviance, na.rm = T)))
+#Process output from stat models to fit structure of ml models (makes plotting easier)
+stat.outputs.transformed <- transfrom.stat.outputs(CV, stat.outputs)
 
 # Machine Learning models ####
 
 ptm <- proc.time() # to calculate time of simulation
 
-# "Apply" null model
-null.model <- apply.null.model(data = data, list.taxa = list.taxa, prev.inv = prev.inv)
+info.file.ml.name <-  paste0("ML_model_",
+                             file.prefix, 
+                             no.algo, "algo_",
+                             no.taxa, "taxa_", 
+                             ifelse(CV, "CV_", "FIT_"),
+                             ifelse(dl, "DL_", "no_DL_"))
 
-file.name <- paste0(dir.models.output, info.file.name,"MLAlgoTrained", ".rds")
+
+file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
 # file.name <- paste0(dir.models.output, "glm_gamSpline_svmRadial_rf_22taxa_FIT.rds")
+# file.name <- paste0(dir.models.output, "ML_model_All_4algo_126taxa_FIT_no_DL_.rds")
+
 cat(file.name)
-# file.name <- paste0("Q:/Abteilungsprojekte/siam/Jonas Wydler/Swiss-Freshwater-Macroinvertebrates-Modelling/Analysis/Intermediate results/Trained models/", no.algo, "MLAlgoTrained.rds")
 
-# If the file with the outputs already exist, just read it
-if (file.exists(file.name) == T ){
-    
-    if(exists("outputs") == F){
-        cat("File with ML outputs already exists, we read it from", file.name, "and save it in object 'outputs'")
-        outputs <- readRDS(file = file.name)
-        }
-    else{
-        cat("List with ML outputs already exists as object 'outputs' in this environment.")
-    }
+# # If the file with the outputs already exist, just read it
+# if (file.exists(file.name) == T ){
+#     
+#     if(exists("ml.outputs") == F){
+#         cat("File with ML outputs already exists, we read it from", file.name, "and save it in object 'outputs'")
+#         ml.outputs <- readRDS(file = file.name)
+#         }
+#     else{
+#         cat("List with ML outputs already exists as object 'ml.outputs.fit' in this environment.")
+#     }
+# 
+# } else {
+#
 
-} else {
-    
-    if(CV == T){
+# File with lot of taxa already exist, we read it and subselect taxa later
+
+info1 <- paste0(file.prefix, no.algo, "algo_")
+info2 <- paste0(ifelse(CV, "CV_", "FIT_"), ifelse(dl, "DL_", "no_DL_"))
+list.ml.files <- list.files(path = dir.models.output)
+file.name.temp <- paste0(dir.models.output, list.ml.files[which(grepl(info1, list.ml.files) & grepl(info2, list.ml.files))])
+
+if( file.exists(file.name.temp) == T ){
+    # & askYesNo(paste("Another file named", file.name.temp, "already exists. Should we read it and subselect taxa later ? If no, we run the algorithms for selected information."), default = T) ){
+
+    cat("Reading", file.name.temp, "and saving it in object 'ml.outputs.fit'")
+    ml.outputs <- readRDS(file = file.name.temp)
+
+    } else {
+
         cat("No ML outputs exist yet, we produce it and save it in", file.name)
+
+    if(CV == T){
         
-        # Compute one split after the other
-        outputs.cv <- lapply(centered.splits.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV)
-        
-        # Compute three splits in paralel (should be run on the server)
-        # outputs <- mclapply(centered.splits.factors, mc.cores = 3, FUN = apply.ml.model, list.algo, list.taxa, env.fact)
+        if(server == T){
+            # Compute three splits in paralel (should be run on the server)
+            outputs.cv <- mclapply(centered.data.factors, mc.cores = n.cores.splits,
+                                   FUN = apply.ml.model, list.algo, list.taxa, env.fact, prev.inv = prev.inv)
+        } else {
+            # Compute one split after the other
+            outputs.cv <- lapply(centered.data.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV, prev.inv = prev.inv)
+        }
         
         cat("Saving outputs of algorithms in", file.name)
         saveRDS(outputs.cv, file = file.name, version = 2)
     
         } else {
         
-        # apply temporary on training data of Split1, later take whole dataset centered etc
         splitted.data <- list("Training data" =  centered.data.factors[[1]], "Testing data" = data.frame())
+        ml.outputs <- apply.ml.model(splitted.data = splitted.data, list.algo = list.algo, list.taxa = list.taxa,
+                                      env.fact = env.fact, CV = F, prev.inv = prev.inv)
         
-        outputs.fit <- apply.ml.model(splitted.data = splitted.data, list.algo = list.algo, list.taxa = list.taxa,
-                                      env.fact = env.fact, CV = F)
-        outputs <- outputs.fit
         cat("Saving outputs of algorithms in", file.name)
-        saveRDS(outputs, file = file.name, version = 2)
+        saveRDS(ml.outputs, file = file.name, version = 2)
         
         }
 }
+# }
 
-print(paste("Simulation time of different models ", info.file.name))
+print(paste("Simulation time of different models ", info.file.ml.name))
 print(proc.time()-ptm)
 
+if(!server){
 
 # Neural Networks ####
 
@@ -572,46 +362,75 @@ print(proc.time()-ptm)
 # rm(list=ls())
 # graphics.off()
 
-# make mean over splits for final cross validation
+# Clean outputs ####
 
+# Make mean over splits for final cross validation
 if(CV == T){
     
     outputs <- vector(mode = "list", length = length(list.algo))
     names(outputs) <- list.algo
     
+    out <- c("Observation", #1
+             "Prediction factors", #2 
+             "Prediction probabilities", #3 
+             "Likelihood", #4
+             "Performance", #5
+             "Performance splits") #6
+    output.names <- paste(out, "testing set")
+    
     for (l in 1:no.algo) {
         
-        temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
-        names(temp.list.st.dev) <- list.taxa
+        temp.list.taxa <- vector(mode = "list", length = length(list.taxa))
+        names(temp.list.taxa) <- list.taxa
         
-        for( j in 1:no.taxa){
+        for(j in 1:no.taxa){
             
-            temp.vect <- vector(mode ="numeric", length = length(outputs)) 
+            temp.output <- vector(mode = "list", length = length(output.names))
+            names(temp.output) <- output.names
+            
+            for (m in output.names[c(1,3)]) {
+                temp.output[[m]] <- bind_rows(outputs.cv[[1]][[l]][[j]][[m]],
+                                              outputs.cv[[2]][[l]][[j]][[m]],
+                                              outputs.cv[[3]][[l]][[j]][[m]], .id = "Split")
+                }
+            for (m in output.names[c(2,4)]) {
+                temp.output[[m]] <- c(outputs.cv[[1]][[l]][[j]][[m]],
+                                      outputs.cv[[2]][[l]][[j]][[m]],
+                                      outputs.cv[[3]][[l]][[j]][[m]])
+                }
+            
+            temp.vect <- vector(mode ="numeric", length = length(outputs.cv)) 
+            names(temp.vect) <- names(outputs.cv)
             for (n in 1:length(outputs.cv)) {
+              #n = 1
                 temp.vect[n] <- outputs.cv[[n]][[l]][[j]][["Performance testing set"]]
             }
-            temp.list.st.dev[[j]] <- mean(temp.vect)
+            
+            temp.output[[5]] <- mean(temp.vect)
+            temp.output[[6]] <- temp.vect
+            
+            temp.list.taxa[[j]] <- temp.output
         }
     
-        outputs[[l]] <- temp.list.st.dev
+        outputs[[l]] <- temp.list.taxa
     }
     # # Add output of stat model
     # # outputs.cv
-    # temp.list.stat <- vector(mode = "list", length = length(stat_cv_nocorr_res_table$Taxon))
-    # names(temp.list.stat) <- stat_cv_nocorr_res_table$Taxon
+    # temp.list.stat <- vector(mode = "list", length = length(stat.cv.res_table$Taxon))
+    # names(temp.list.stat) <- stat.cv.res_table$Taxon
     # 
-    # for( j in 1:length(stat_cv_nocorr_res_table$Taxon)){
+    # for( j in 1:length(stat.cv.res_table$Taxon)){
     #   
-    #   temp.vect <- vector(mode ="numeric", length = length(stat_cv_nocorr_res_table$Taxon))
-    #   for (n in 1:length(stat_cv_nocorr_res_table$Taxon)) {
-    #     temp.list.stat[n] <- stat_cv_nocorr_res_table$performance[[n]]
+    #   temp.vect <- vector(mode ="numeric", length = length(stat.cv.res_table$Taxon))
+    #   for (n in 1:length(stat.cv.res_table$Taxon)) {
+    #     temp.list.stat[n] <- stat.cv.res_table$performance[[n]]
     #   }
     # }
-    # FF0 <- as.list(temp.list.stat)
-    # FF0 <- FF0[list.taxa]
+    # UF0 <- as.list(temp.list.stat)
+    # UF0 <- UF0[list.taxa]
     # 
-    # outputs[[5]] <- FF0
-    # names(outputs)[[5]] <- "FF0"
+    # outputs[[5]] <- UF0
+    # names(outputs)[[5]] <- "UF0"
     
     # # Add output of ANN
     # for (a in 1:length(ann.outputs)) {
@@ -621,8 +440,46 @@ if(CV == T){
     # }
 }
 
-## ---- PLOTS ----
 
+# Make list and info for all models
+
+list.models <- c(# "Stat", 
+                 # "ANN",
+                 list.algo)
+no.models <- length(list.models)
+
+info.file.name <- paste0(file.prefix, 
+                         no.models, "models_",
+                         # d, # don't need to include the date
+                         no.taxa, "taxa_", 
+                         # no.env.fact, "envfact_",
+                         ifelse(CV, "CV_", "FIT_"),
+                         ifelse(dl, "DL_", "no_DL_"),
+                         # "trainset", percentage.train.set, 
+                         # if( ratio != 1) {split.var}, 
+                         "")
+
+
+# Select taxa in outputs for analysis
+
+# Make a list to store the outputs of each model
+# outputs <- vector(mode = 'list', length = no.models)
+# names(outputs) <- list.models
+
+# test <- lapply(outputs.full[l], "[[", list.taxa)
+# 
+# for (l in list.models) {
+#     lind <- which(names(outputs.full[l][[]]) == list.taxa)
+#     outputs[l]  <- outputs.full[l][list.taxa]
+# }
+
+# AND CHANGE THE PLOTS DEPENDING ON IF THEY NEED ML OR ALL MODELS
+
+## ---- PLOTS ----
+#Add stat models to the list of algos
+outputs <- append(ml.outputs.fit, stat.outputs.transformed)
+list.algo <- append(list.algo, list("#2CA25F" = 'CF0', "#99D8C9" = 'UF0'))
+no.algo <- length(list.algo)
 # list.algo <- c(list.algo, "blue" = names(ann.outputs)[1],"red" = names(ann.outputs)[2], "grey" = names(ann.outputs)[3])
 # no.algo <- length(list.algo)
 # 
@@ -639,6 +496,15 @@ if(CV == T){
 #                          # if( ratio != 1) {split.var}, 
 #                          "")
 
+# PROBLEM WITH PERF GAM ####
+
+for (j in 1:no.taxa) {
+    for (l in 1:no.algo) {
+        perf <- outputs[[l]][[list.taxa[j]]][["Performance training set"]]
+        outputs[[l]][[list.taxa[j]]][["Performance training set"]] <- ifelse(perf > 1.5, Inf, perf)
+    }
+}
+
 # Models comparison ####
 
 # table with perf.
@@ -654,6 +520,7 @@ if(CV == T){
     rownames(temp.df) <- list.algo
     for (j in 1:no.taxa) {
         for (l in 1:no.algo) {
+            perf <- outputs[[l]][[list.taxa[j]]][["Performance training set"]]
             temp.df[l,j] <- round(outputs[[l]][[list.taxa[j]]][["Performance training set"]], digits = 2)
         }
     }
@@ -686,10 +553,12 @@ if(CV == T){
 ptm <- proc.time() # to calculate time of pdf production
 
 # TO BE FIXED EARLIER ####
-# list.algo <- c(list.algo, "green" = "FF0")
+# list.algo <- c(list.algo, "green" = "UF0")
 # source("plot_functions.r")
+
 # Compute plots
-list.plots <- model.comparison(outputs = outputs, null.model = null.model, list.algo = list.algo, list.taxa = list.taxa, prev.inv = prev.inv, CV = CV)
+list.plots <- model.comparison(outputs = outputs, null.model = null.model, 
+                               list.algo = list.algo, list.taxa = list.taxa[1:5], prev.inv = prev.inv, CV = CV)
 
 # plot it
 ## THIS SHOULD BE FIXED ####
@@ -759,11 +628,11 @@ temp.df <- data.frame(matrix(ncol = no.algo*no.taxa, nrow = no.env.fact))
 colnames(temp.df) <- c(outer(list.algo, list.taxa, FUN = paste))
 rownames(temp.df) <- env.fact
 for (j in 1:no.taxa) {
-  for (l in 1:no.algo) {
-    for (k in 1:no.env.fact) {
-      temp.df[env.fact[k],paste(list.algo[l], list.taxa[j])] <- outputs[[l]][[j]][["Variable importance"]][["importance"]][env.fact[k],1]
+    for (l in 1:no.algo) {
+        for (k in 1:no.env.fact) {
+            temp.df[env.fact[k],paste(list.algo[l], list.taxa[j])] <- outputs[[l]][[j]][["Variable importance"]][["importance"]][env.fact[k],1]
+        }
     }
-  }
 }
 temp.df$mean.imp <- rowMeans(temp.df)
 temp.df <- as.matrix(temp.df)
@@ -779,7 +648,7 @@ plot(temp.df,
      cex.axis = 0.5,
      srt = 45,
      main = "Variable importance for ML algorithm applied to taxa"
-     )
+)
 axis(1, at=seq(1:ncol(temp.df)+1), labels = FALSE)
 text(seq(1:ncol(temp.df)+1), par("usr")[4] + 0.15, srt = 50, 
      labels = colnames(temp.df), adj= 0, cex = 0.5, xpd = T)
@@ -794,12 +663,12 @@ print(proc.time()-ptm)
 # Print accuracy
 
 for(l in 1:no.algo){
-  for(j in 1:no.taxa){
-      # cat("Accuracy on training for",list.taxa[j], "is :",
-      #    output[[j]][["Trained model"]][["resample"]][["Accuracy"]], "\n")
-      cat("Accuracy on prediction for",list.taxa[j],"with", list.algo[l], "is :",
-          outputs[[l]][[j]][["Confusion matrix testing set"]][["overall"]][["Accuracy"]], "\n")
-  }
+    for(j in 1:no.taxa){
+        # cat("Accuracy on training for",list.taxa[j], "is :",
+        #    output[[j]][["Trained model"]][["resample"]][["Accuracy"]], "\n")
+        cat("Accuracy on prediction for",list.taxa[j],"with", list.algo[l], "is :",
+            outputs[[l]][[j]][["Confusion matrix testing set"]][["overall"]][["Accuracy"]], "\n")
+    }
 }
 
 # PDP don't work ####
@@ -810,7 +679,7 @@ ptm <- proc.time() # to calculate time of simulation
 
 # PDP of one model
 list.plots <- plot.pdp(outputs = outputs[[1]], algo = "rf", list.algo = list.algo,
-                      list.taxa = list.taxa, env.fact = env.fact)
+                       list.taxa = list.taxa, env.fact = env.fact)
 
 ptm <- proc.time() # to calculate time of simulation
 
@@ -861,7 +730,7 @@ ptm <- proc.time() # to calculate time of simulation
 
 # Multiple (2) predictors PDP (of one model) for now just for 1 algo and 1 taxa
 list.plots <- plot.mult.pred.pdp(outputs = outputs, list.algo = list.algo,
-                       list.taxa = list.taxa, env.fact = env.fact)
+                                 list.taxa = list.taxa, env.fact = env.fact)
 
 file.name <- "multpredPDP.pdf"
 print.pdf.plots(list.plots = list.plots, width = 17, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
@@ -869,24 +738,15 @@ print.pdf.plots(list.plots = list.plots, width = 17, dir.output = dir.plots.outp
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
 
-# print("hey")
-# # Stop execution if there is no (prediction on) testing set
-# # stopifnot(ratio != 1)
-# if( length(outputs[[1]][[1]]) < 9){
-#   break
-# }
-# print("salut")
 
 # Map predictions ####
-
-source("plot_functions.r")
 
 ptm <- proc.time() # to calculate time of pdf production
 
 inputs <- map.inputs(dir.env.data = dir.env.data, data.env = data.env)
 
 # make a list with all plots and plot them in a pdf
-list.plots <- lapply(list.taxa, FUN = map.ml.pred.taxa, inputs, outputs, list.algo)
+list.plots <- lapply(list.taxa, FUN = map.ml.pred.taxa, inputs, outputs, list.algo, CV)
 
 name <- "ObsvsPred_map"
 
@@ -911,7 +771,7 @@ ptm <- proc.time() # to calculate time of pdf production
 algo <- list.algo[4]
 
 # make a list with all plots and plot them in a pdf
-list.plots <- lapply(list.taxa, FUN = response.ml.pred.taxa, outputs, list.algo, env.fact, algo)
+list.plots <- lapply(list.taxa, FUN = response.ml.pred.taxa, outputs, list.algo, env.fact, algo, CV)
 
 name <- paste0(algo, "_Resp_EnvFactvsTax")
 
@@ -927,3 +787,4 @@ dev.off()
 print("Producing PDF time:")
 print(proc.time()-ptm)
 
+} # closing server braket

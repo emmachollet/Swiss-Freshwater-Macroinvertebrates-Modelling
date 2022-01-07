@@ -2,8 +2,8 @@ stat_mod_cv <- function (data.splits, CV, comm.corr, sampsize, n.chain){
     
     ##To test
     #comm.corr <- T
-    #CV <- T
-    #sampsize        <- 40 #10000
+    #CV <- F
+    #sampsize        <- 11 #10000
     #n.chain         <- 1 #2
   
     # global parameters ####
@@ -22,15 +22,15 @@ stat_mod_cv <- function (data.splits, CV, comm.corr, sampsize, n.chain){
     prob.defpri     <- 0.02
     thresh.sig      <- 1
     fact.sd         <- 1  
-  
+    max.warmup      <- 1000 # max warm up iterations for runs with a lot of iterations
     
     #data.splits <- centered.splits[[1]] # to test
     #data.splits <- splits[[1]] # to test
     output <- list("deviance" = tibble(), "probability" = tibble(), "parameters" = tibble()) #this is where the data is gathered in the end for the return
     training.data <- data.splits[[1]]
     
-    inv.names <- colnames(select(training.data, SiteId, SampId, contains("Occurrence.group."), contains("Occurrence.")))
-    env.names <- colnames(select(training.data, colnames(training.data), -contains("Occurrence.group."), -contains("Occurrence.")))
+    inv.names <- colnames(select(training.data, SiteId, SampId, contains("Occurrence.")))
+    env.names <- colnames(select(training.data, colnames(training.data), -contains("Occurrence.")))
     
     env.cond <- training.data[,env.names]
     occur.taxa <- training.data[,inv.names]
@@ -573,7 +573,7 @@ stat_mod_cv <- function (data.splits, CV, comm.corr, sampsize, n.chain){
     
     # Run model ####
     # perform Bayesian inference:
-    res <- stan(file.model,data=data,init=init,iter=sampsize,chains=n.chain,warmup=min(0.5*sampsize,100),thin=thin)
+    res <- stan(file.model,data=data,init=init,iter=sampsize,chains=n.chain,warmup=min(0.5*sampsize,max.warmup),thin=thin)
     #res2 <- stat.outputs[[1]][[1]]
     #res <- res2[[3]]
     

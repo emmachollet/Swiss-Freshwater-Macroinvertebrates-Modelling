@@ -174,8 +174,8 @@ model.comparison <- function(outputs, null.model, list.algo, list.taxa, prev.inv
   n = 1
   
   # Plot performance on training and testing set
-  if( length(outputs[[1]][[1]]) > 8){ # check if testing set isn't empty
-    c <- c("Performance training set", "Performance testing set")
+  if(CV){ # check if testing set isn't empty
+    c <- c("Performance testing set")
   } else {
     c <- c("Performance training set") # if empty, then only plot for training set
   }
@@ -196,10 +196,10 @@ model.comparison <- function(outputs, null.model, list.algo, list.taxa, prev.inv
     expl.pow <- paste0("expl.pow_", list.algo)
     plot.data[,expl.pow] <- NA
     for (j in 1:no.taxa) {
-      plot.data[j,"Null model"] <- null.model[[j]][["Performance"]]
+      plot.data[j,"Null model"] <- null.model[[list.taxa[j]]][["Performance"]]
       for(l in 1:no.algo){
         plot.data[j,list.algo[l]] <- outputs[[l]][[j]][[c[m]]]
-        val.expl.pow <- null.model[[j]][["Performance"]] - outputs[[l]][[j]][[c[m]]] / null.model[[j]][["Performance"]]
+        val.expl.pow <- null.model[[list.taxa[j]]][["Performance"]] - outputs[[l]][[j]][[c[m]]] / null.model[[list.taxa[j]]][["Performance"]]
         plot.data[j, paste0("expl.pow_",list.algo[l])] <- val.expl.pow
         # plot.data[j, "expl.pow_null.model"] <- NA
       }
@@ -328,10 +328,10 @@ model.comparison.cv <- function(outputs, outputs.cv, null.model, list.algo, list
         expl.pow <- paste0("expl.pow_", list.algo)
         plot.data[,expl.pow] <- NA
         for (j in 1:no.taxa) {
-            plot.data[j,"Null model"] <- null.model[[j]][["Performance"]]
+            plot.data[j,"Null model"] <- null.model[[list.taxa[j]]][["Performance"]]
             for(l in 1:no.algo){
                 plot.data[j,list.algo[l]] <- outputs.cv[[l]][[j]]
-                val.expl.pow <- null.model[[j]][["Performance"]] - outputs.cv[[l]][[j]] / null.model[[j]][["Performance"]]
+                val.expl.pow <- null.model[[list.taxa[j]]][["Performance"]] - outputs.cv[[l]][[j]] / null.model[[list.taxa[j]]][["Performance"]]
                 plot.data[j, paste0("expl.pow_",list.algo[l])] <- val.expl.pow
                 # plot.data[j, "expl.pow_null.model"] <- NA
             }
@@ -720,17 +720,18 @@ plot.ice <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
 }
 
 
-map.ml.pred.taxa <- function(taxa, inputs, outputs, list.algo){
+map.ml.pred.taxa <- function(taxa, inputs, outputs, list.algo, CV){
         
+        m <- ifelse(CV, "testing set", "training set")
         taxon <- sub("Occurrence.", "", taxa)
         cat("Constructing ggplot for:", taxon, "\n")
         
         df.st.dev <- data.frame("model" = list.algo)
             
-        temp.df <- data.frame(outputs[[l]][[taxa]][["Observation training set"]][, c("X","Y", taxa)])
+        temp.df <- data.frame(outputs[[l]][[taxa]][[paste("Observation", m)]][, c("X","Y", taxa)])
         for (l in 1:no.algo) {
-            temp.df[,list.algo[l]] <- outputs[[l]][[taxa]][["Prediction probabilities training set"]][,"present"]
-            df.st.dev[l, "st.dev"] <-  round(outputs[[l]][[taxa]][["Performance training set"]], digits = 3)
+            temp.df[,list.algo[l]] <- outputs[[l]][[taxa]][[paste("Prediction probabilities",m)]][,"present"]
+            df.st.dev[l, "st.dev"] <-  round(outputs[[l]][[taxa]][[paste("Performance",m)]], digits = 3)
             
         }
         plot.data <- gather(temp.df, key = model, value = pred, -X, -Y, -taxa)
@@ -755,7 +756,7 @@ map.ml.pred.taxa <- function(taxa, inputs, outputs, list.algo){
                        plot.margin = unit(c(0.1,0.1,0.1,0.1), "lines"),
                        legend.title = element_text(size=14))
         
-        g <- g + labs(title = paste("Geographic distribution to compare observation\nand model prediction:", taxa),
+        g <- g + labs(title = paste("Geographic distribution to compare observation\nand model prediction on", m,":", taxa),
                       subtitle = paste("Stand. dev.:", subtitle),
                       x = "",
                       y = "",
@@ -775,13 +776,15 @@ map.ml.pred.taxa <- function(taxa, inputs, outputs, list.algo){
     
 }
 
-response.ml.pred.taxa <- function(taxa, outputs, list.algo, env.fact, algo = list.algo[1]){
+response.ml.pred.taxa <- function(taxa, outputs, list.algo, env.fact, algo = list.algo[1], CV){
+    
+        m <- ifelse(CV, "testing set", "training set")
     
         taxon <- sub("Occurrence.", "", taxa)
         cat("Constructing ggplot for:", taxon, "\n")
         
-        plot.data <- outputs[[algo]][[taxa]][["Observation training set"]]
-        plot.data$pred <- outputs[[algo]][[taxa]][["Prediction probabilities training set"]][,"present"]
+        plot.data <- outputs[[algo]][[taxa]][[paste("Observation",m)]]
+        plot.data$pred <- outputs[[algo]][[taxa]][[paste("Prediction probabilities",m)]][,"present"]
         plot.data <- gather(plot.data, key = factors, value = value, -SiteId, -SampId, -X, -Y, -taxa, -pred)
         
         g <- ggplot(data = plot.data, aes(x = value, y = pred, color = plot.data[,taxa]))
@@ -793,7 +796,8 @@ response.ml.pred.taxa <- function(taxa, outputs, list.algo, env.fact, algo = lis
                              strip.position="bottom")
 
         g <- g + scale_color_manual(name = "Observation", values=c(absent = "#c2141b", present = "#007139"), labels = c("Absence", "Presence"))
-        g <- g + labs(title = paste("Predicted probability of occurrence vs explanatory variables:",algo, "applied to",paste(taxon)),
+        g <- g + labs(title = paste("Probability of occurrence vs explanatory variables:",algo, "applied to",paste(taxon)),
+                      subtitle = paste("Predicted on", m),
                       x = "Explanatory variable",
                       y = "Predicted probability of occurrence",
                       color = "Observation")
