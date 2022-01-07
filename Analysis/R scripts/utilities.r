@@ -428,7 +428,7 @@ transfrom.stat.outputs <- function(CV, stat.outputs){
         return(stat.output.list)
     } else { # Prediction (CV)
         stat.cv.res <- lapply(stat.outputs, function(models){
-            #models <- stat.outputs[[1]]
+            # models <- stat.outputs[[1]]
             
             stat.cv.res.splits <- lapply(models, function(split){
                 #split <- models[[1]]
@@ -443,7 +443,7 @@ transfrom.stat.outputs <- function(CV, stat.outputs){
                 
                 return(list("Performance" = tmp_dev_test, "Prediction" = tmp_prop_test))
             })
-            #bind rows for all three splits
+            # bind rows for all three splits
             stat.cv.res.splits[[1]]$Performance$Split <- 1
             stat.cv.res.splits[[1]]$Prediction$Split <- 1
             

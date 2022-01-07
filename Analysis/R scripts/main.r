@@ -104,7 +104,7 @@ sampsize <- 1000 #10000 #I think this needs to be an even number for some reason
 n.chain  <- 2 #2
 
 # Select taxa
-all.taxa <- T
+all.taxa <- F
 # set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
 # set to TRUE to apply models to all taxa
 
@@ -157,8 +157,8 @@ list.taxa.full <- colnames(data)[cind.taxa] # list of all taxa, before removing 
 remove(cind.taxa)
 
 # 2 taxa
-#list.taxa.int       <- list.taxa[list.taxa %in% c("Occurrence.Gammaridae", "Occurrence.Heptageniidae")]
-# 
+# list.taxa.int       <- list.taxa[list.taxa %in% c("Occurrence.Gammaridae", "Occurrence.Heptageniidae")]
+
 # 5 taxa
 # list.taxa.int       <- list.taxa[list.taxa %in% prev.inv[which(prev.inv[, "Prevalence"] < 0.7 & prev.inv[,"Prevalence"] > 0.55),
 #                            "Occurrence.taxa"]] # Select only few taxa
@@ -185,16 +185,16 @@ no.taxa <- length(list.taxa)
 
 # Select machine learning algorithms to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
-list.algo <- c("#030AE8" = 'glm', # Random Forest
+list.algo <- c( "#030AE8" = 'glm', # Random Forest
                # "#048504" = 'bam', # Generalized Additive Model using splines
-               "#948B8B" = 'gamSpline',#
+                "#948B8B" = 'gamSpline', #
                # 'earth', # MARS: Multivariate Adaptive Regression Splines
                # "#A84E05" = 'elm', # Extreme Learning Machine (Neural Network)
                # 'bayesglm') #, # Bayesian Generalized Linear Model
-               "#DB1111" = 'svmRadial', # Support Vector Machine
+                "#DB1111" = 'svmRadial', # Support Vector Machine
                # "#DB1111" = 'svmPoly', # Support Vector Machine
                # "#DB1111" = 'svmLinear', # Support Vector Machine
-               "#790FBF" = 'rf') # Random Forest
+                "#790FBF" = 'rf') # Random Forest
 
 no.algo <- length(list.algo)
                                             
@@ -206,10 +206,6 @@ null.model.full <- apply.null.model(data = data, list.taxa = list.taxa.full, pre
 null.model <- null.model.full[list.taxa]
 
 # Statistical models ####
-
-# For now apply only without DL
-
-if(dl == F){
 
 ptm <- proc.time() # to calculate time of simulation
 #file.name <- paste0(dir.models.output, "Stat_model_100iterations_corr_22taxa_CV_no_DL.rds") #to test
@@ -224,7 +220,8 @@ stat.outputs <- mclapply(comm.corr.options, mc.cores = 1, function(comm.corr){
                                 sampsize,"iterations_",
                                 ifelse(comm.corr,"CF0_","UF0_"),
                                 ifelse(CV, "CV_", "FIT_"),
-                                ifelse(dl, "DL_", "no_DL_"))
+                                # else(dl, "DL_", "no_DL_"),
+                                "no_DL_") # for now with just apply it without DL
   
   file.name <- paste0(dir.models.output, info.file.stat.name, ".rds")
   cat(file.name)
@@ -268,8 +265,6 @@ print(proc.time()-ptm)
 #Process output from stat models to fit structure of ml models (makes plotting easier)
 stat.outputs.transformed <- transfrom.stat.outputs(CV, stat.outputs)
 
-} # braket to close DL's if clause
-
 # Machine Learning models ####
 
 ptm <- proc.time() # to calculate time of simulation
@@ -283,66 +278,68 @@ info.file.ml.name <-  paste0("ML_model_",
 
 
 file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
-# file.name <- paste0(dir.models.output, "glm_gamSpline_svmRadial_rf_22taxa_FIT.rds")
+# file.name <- paste0(dir.models.output, "ML_model_All_2algo_2taxa_CV_no_DL_.rds")
 cat(file.name)
 
-# If the file with the outputs already exist, just read it
-if (file.exists(file.name) == T ){
-    
-    if(exists("ml.outputs.fit") == F){
-        cat("File with ML outputs already exists, we read it from", file.name, "and save it in object 'outputs'")
-        ml.outputs.fit <- readRDS(file = file.name)
-        }
-    else{
-        cat("List with ML outputs already exists as object 'ml.outputs.fit' in this environment.")
-    }
+# # If the file with the outputs already exist, just read it
+# if (file.exists(file.name) == T ){
+#     
+#     if(exists("ml.outputs") == F){
+#         cat("File with ML outputs already exists, we read it from", file.name, "and save it in object 'outputs'")
+#         ml.outputs <- readRDS(file = file.name)
+#         }
+#     else{
+#         cat("List with ML outputs already exists as object 'ml.outputs.fit' in this environment.")
+#     }
+# 
+# } else {
+#
 
-} else {
-    
-    info1 <- paste0(file.prefix, no.algo, "algo_") 
-    info2 <- paste0(ifelse(CV, "CV_", "FIT_"), ifelse(dl, "DL_", "no_DL_"))
-    list.ml.files <- list.files(path = dir.models.output)
-    file.name.temp <- paste0(dir.models.output, list.ml.files[which(grepl(info1, list.ml.files) & grepl(info2, list.ml.files))])
-    
-    if( file.exists(file.name.temp) == T ){
-        # & askYesNo(paste("Another file named", file.name.temp, "already exists. Should we read it and subselect taxa later ? If no, we run the algorithms for selected information."), default = T) ){
+# File with lot of taxa already exist, we read it and subselect taxa later
+
+info1 <- paste0(file.prefix, no.algo, "algo_")
+info2 <- paste0(ifelse(CV, "CV_", "FIT_"), ifelse(dl, "DL_", "no_DL_"))
+list.ml.files <- list.files(path = dir.models.output)
+file.name.temp <- paste0(dir.models.output, list.ml.files[which(grepl(info1, list.ml.files) & grepl(info2, list.ml.files))])
+
+if( file.exists(file.name.temp) == T ){
+    # & askYesNo(paste("Another file named", file.name.temp, "already exists. Should we read it and subselect taxa later ? If no, we run the algorithms for selected information."), default = T) ){
+
+    cat("Reading", file.name.temp, "and saving it in object 'ml.outputs.fit'")
+    ml.outputs <- readRDS(file = file.name.temp)
+
+    } else {
+
+        cat("No ML outputs exist yet, we produce it and save it in", file.name)
+
+    if(CV == T){
         
-        cat("Reading", file.name.temp, "and saving it in object 'ml.outputs.fit'")
-        ml.outputs.fit <- readRDS(file = file.name.temp)
+        if(server == T){
+            # Compute three splits in paralel (should be run on the server)
+            outputs.cv <- mclapply(centered.data.factors, mc.cores = n.cores.splits,
+                                   FUN = apply.ml.model, list.algo, list.taxa, env.fact, prev.inv = prev.inv)
+        } else {
+            # Compute one split after the other
+            outputs.cv <- lapply(centered.data.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV, prev.inv = prev.inv)
+        }
+        
+        cat("Saving outputs of algorithms in", file.name)
+        saveRDS(outputs.cv, file = file.name, version = 2)
     
         } else {
-            
-            cat("No ML outputs exist yet, we produce it and save it in", file.name)
-            
-        if(CV == T){
-            
-            if(server == T){
-                # Compute three splits in paralel (should be run on the server)
-                outputs.cv <- mclapply(centered.data.factors, mc.cores = n.cores.splits, 
-                                       FUN = apply.ml.model, list.algo, list.taxa, env.fact)
-            } else {
-                # Compute one split after the other
-                outputs.cv <- lapply(centered.data.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV)
-            }
-            
-            cat("Saving outputs of algorithms in", file.name)
-            saveRDS(outputs.cv, file = file.name, version = 2)
         
-            } else {
-            
-            splitted.data <- list("Training data" =  centered.data.factors[[1]], "Testing data" = data.frame())
-            ml.outputs.fit <- apply.ml.model(splitted.data = splitted.data, list.algo = list.algo, list.taxa = list.taxa,
-                                          env.fact = env.fact, CV = F, prev.inv = prev.inv)
-            
-            cat("Saving outputs of algorithms in", file.name)
-            saveRDS(ml.outputs.fit, file = file.name, version = 2)
-            
-            }
-    }
+        splitted.data <- list("Training data" =  centered.data.factors[[1]], "Testing data" = data.frame())
+        ml.outputs <- apply.ml.model(splitted.data = splitted.data, list.algo = list.algo, list.taxa = list.taxa,
+                                      env.fact = env.fact, CV = F, prev.inv = prev.inv)
+        
+        cat("Saving outputs of algorithms in", file.name)
+        saveRDS(ml.outputs, file = file.name, version = 2)
+        
+        }
 }
+# }
 
-
-print(paste("Simulation time of different models ", info.file.name))
+print(paste("Simulation time of different models ", info.file.ml.name))
 print(proc.time()-ptm)
 
 if(!server){
