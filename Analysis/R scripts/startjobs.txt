@@ -1,1 +1,1 @@
-R --vanilla <main.r &> Stat_model_127taxa_1000iterations_FF0_CV_no_DL.txt &
+R --vanilla <main.r &> ML_model_All_2algo_126taxa_CV_no_DL_.txt &

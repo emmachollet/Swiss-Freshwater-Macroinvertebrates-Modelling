@@ -61,6 +61,9 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
     data.train <- splitted.data[["Training data"]]
     data.test <- splitted.data[["Testing data"]]
     
+    # Adapt list taxa to taxa actually present in data.train
+    list.taxa <- list.taxa[list.taxa %in% colnames(data.train)]
+    
     # Make a list to store the outputs of each model
     outputs <- vector(mode = 'list', length = no.algo)
     names(outputs) <- list.algo
@@ -161,7 +164,6 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                 # model <- train(x = temp.train[,env.fact], y = temp.train[,list.taxa[j]], method = algorithm, trControl = train.control) # alternative to formula writing
                 model <- train(f, data = temp.train, metric = selec.metric, method = algorithm, trControl = train.control)
                 # model2 <- train(f, data = temp.train, metric = selec.metric, method = algorithm, trControl = train.control2) # Tried with the alternative training control
-            }
             
             temp.list[["Trained model"]] <- model
             # temp.list[["Variable importance"]] <- varImp(model)
@@ -195,7 +197,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                 #                                                    data = temp.list[[paste(out[2],which.set[n])]], mode='everything', positive='present')}
                 # 
             }
-            
+            }
             list.outputs[[j]] <- temp.list
         }
     
