@@ -104,7 +104,7 @@ sampsize <- 1000 #10000 #I think this needs to be an even number for some reason
 n.chain  <- 2 #2
 
 # Select taxa
-all.taxa <- F
+all.taxa <- T
 # set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
 # set to TRUE to apply models to all taxa
 
@@ -277,11 +277,7 @@ info.file.ml.name <-  paste0("ML_model_",
                              ifelse(CV, "CV_", "FIT_"),
                              ifelse(dl, "DL_", "no_DL_"))
 
-
 file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
-# file.name <- paste0(dir.models.output, "glm_gamSpline_svmRadial_rf_22taxa_FIT.rds")
-# file.name <- paste0(dir.models.output, "ML_model_All_4algo_126taxa_FIT_no_DL_.rds")
-
 cat(file.name)
 
 # # If the file with the outputs already exist, just read it
@@ -319,15 +315,15 @@ if( file.exists(file.name.temp) == T ){
         
         if(server == T){
             # Compute three splits in paralel (should be run on the server)
-            outputs.cv <- mclapply(centered.data.factors, mc.cores = n.cores.splits,
+            ml.outputs.cv <- mclapply(centered.data.factors, mc.cores = n.cores.splits,
                                    FUN = apply.ml.model, list.algo, list.taxa, env.fact, prev.inv = prev.inv)
         } else {
             # Compute one split after the other
-            outputs.cv <- lapply(centered.data.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV, prev.inv = prev.inv)
+            ml.outputs.cv <- lapply(centered.data.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV, prev.inv = prev.inv)
         }
         
         cat("Saving outputs of algorithms in", file.name)
-        saveRDS(outputs.cv, file = file.name, version = 2)
+        saveRDS(ml.outputs.cv, file = file.name, version = 2)
     
         } else {
         
@@ -342,10 +338,40 @@ if( file.exists(file.name.temp) == T ){
 }
 # }
 
+remove(info1, info2, list.ml.files, file.name.temp)
+
+if(CV){
+    list.splits <- names(ml.outputs.cv)
+    no.splits <- length(list.splits)
+}
+
+# PROBLEM WITH PERF ####
+if(CV){
+    for (s in list.splits) {
+    print(s)
+        for (l in list.algo) {
+            print(l)
+            list.taxa.temp <- names(ml.outputs.cv[[s]][[l]])
+            for (j in list.taxa.temp) {
+                    perf <- ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]]
+                    ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]] <- ifelse(perf > 1.5, Inf, perf)
+                }
+        }
+    }
+} else {
+    for (l in list.algo) {
+        print(l)
+        list.taxa.temp <- names(ml.outputs[[l]])
+        for (j in list.taxa.temp) {
+            perf <- ml.outputs[[l]][[j]][["Performance testing set"]]
+            ml.outputs[[l]][[j]][["Performance testing set"]] <- ifelse(perf > 1.5, Inf, perf)
+        }
+    }
+}
 print(paste("Simulation time of different models ", info.file.ml.name))
 print(proc.time()-ptm)
 
-if(!server){
+# if(!server){
 
 # Neural Networks ####
 
@@ -362,13 +388,60 @@ if(!server){
 # rm(list=ls())
 # graphics.off()
 
+
+
 # Clean outputs ####
+
+list.models <- c(# "Stat", 
+    # "ANN",
+    list.algo)
+no.models <- length(list.models)
+
+info.file.name <- paste0(file.prefix, 
+                         no.models, "models_",
+                         # d, # don't need to include the date
+                         no.taxa, "taxa_", 
+                         # no.env.fact, "envfact_",
+                         ifelse(CV, "CV_", "FIT_"),
+                         ifelse(dl, "DL_", "no_DL_"),
+                         # "trainset", percentage.train.set, 
+                         # if( ratio != 1) {split.var}, 
+                         "")
+
+df.perf.cv <- data.frame(matrix(ncol = no.taxa, nrow = no.splits*no.models))
+colnames(df.perf.cv) <- list.taxa
+rownames(df.perf.cv) <- apply(expand.grid(list.splits,list.models), 1, paste, collapse="_")
+for (s in list.splits) {
+    print(s)
+    for (l in list.models) {
+        print(l)
+        list.taxa.temp <- names(ml.outputs.cv[[s]][[l]])
+        for (j in list.taxa.temp) {
+            print(j)
+            perf <- ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]]
+            df.perf.cv[paste(s,l, sep="_"), j] <- ifelse(is.numeric(perf), perf, NA)
+        }
+    }
+}
+    
+df.perf <- data.frame(matrix(ncol = no.taxa, nrow = no.models))
+colnames(df.perf) <- list.taxa
+rownames(df.perf) <- list.models
+for (j in list.taxa) {
+    for(l in list.models){
+        splits.model <- apply(expand.grid(list.splits,l), 1, paste, collapse="_")
+        mean.temp <- mean(df.perf.cv[splits.model, j], na.rm = T)
+        df.perf[l,j] <- mean.temp
+    }
+}
+df.perf$mean.perf <- rowMeans(df.perf)
+
 
 # Make mean over splits for final cross validation
 if(CV == T){
     
-    outputs <- vector(mode = "list", length = length(list.algo))
-    names(outputs) <- list.algo
+    outputs <- vector(mode = "list", length = length(list.models))
+    names(outputs) <- list.models
     
     out <- c("Observation", #1
              "Prediction factors", #2 
@@ -378,35 +451,36 @@ if(CV == T){
              "Performance splits") #6
     output.names <- paste(out, "testing set")
     
-    for (l in 1:no.algo) {
+    for (l in list.models) {
         
         temp.list.taxa <- vector(mode = "list", length = length(list.taxa))
         names(temp.list.taxa) <- list.taxa
         
-        for(j in 1:no.taxa){
+        for(j in list.taxa){
             
             temp.output <- vector(mode = "list", length = length(output.names))
             names(temp.output) <- output.names
             
             for (m in output.names[c(1,3)]) {
-                temp.output[[m]] <- bind_rows(outputs.cv[[1]][[l]][[j]][[m]],
-                                              outputs.cv[[2]][[l]][[j]][[m]],
-                                              outputs.cv[[3]][[l]][[j]][[m]], .id = "Split")
+                temp.output[[m]] <- bind_rows(ml.outputs.cv[[1]][[l]][[j]][[m]],
+                                              ml.outputs.cv[[2]][[l]][[j]][[m]],
+                                              ml.outputs.cv[[3]][[l]][[j]][[m]], .id = "Split")
                 }
             for (m in output.names[c(2,4)]) {
-                temp.output[[m]] <- c(outputs.cv[[1]][[l]][[j]][[m]],
-                                      outputs.cv[[2]][[l]][[j]][[m]],
-                                      outputs.cv[[3]][[l]][[j]][[m]])
+                temp.output[[m]] <- c(ml.outputs.cv[[1]][[l]][[j]][[m]],
+                                      ml.outputs.cv[[2]][[l]][[j]][[m]],
+                                      ml.outputs.cv[[3]][[l]][[j]][[m]])
                 }
             
-            temp.vect <- vector(mode ="numeric", length = length(outputs.cv)) 
-            names(temp.vect) <- names(outputs.cv)
-            for (n in 1:length(outputs.cv)) {
+            temp.vect <- vector(mode ="numeric", length = length(ml.outputs.cv)) 
+            names(temp.vect) <- names(ml.outputs.cv)
+            for (n in 1:length(ml.outputs.cv)) {
               #n = 1
-                temp.vect[n] <- outputs.cv[[n]][[l]][[j]][["Performance testing set"]]
+                perf <- ml.outputs.cv[[n]][[l]][[j]][["Performance testing set"]]
+                temp.vect[n] <- ifelse(is.numeric(perf), perf, NA)
             }
             
-            temp.output[[5]] <- mean(temp.vect)
+            temp.output[[5]] <- mean(temp.vect, na.rm = T)
             temp.output[[6]] <- temp.vect
             
             temp.list.taxa[[j]] <- temp.output
@@ -414,30 +488,6 @@ if(CV == T){
     
         outputs[[l]] <- temp.list.taxa
     }
-    # # Add output of stat model
-    # # outputs.cv
-    # temp.list.stat <- vector(mode = "list", length = length(stat.cv.res_table$Taxon))
-    # names(temp.list.stat) <- stat.cv.res_table$Taxon
-    # 
-    # for( j in 1:length(stat.cv.res_table$Taxon)){
-    #   
-    #   temp.vect <- vector(mode ="numeric", length = length(stat.cv.res_table$Taxon))
-    #   for (n in 1:length(stat.cv.res_table$Taxon)) {
-    #     temp.list.stat[n] <- stat.cv.res_table$performance[[n]]
-    #   }
-    # }
-    # UF0 <- as.list(temp.list.stat)
-    # UF0 <- UF0[list.taxa]
-    # 
-    # outputs[[5]] <- UF0
-    # names(outputs)[[5]] <- "UF0"
-    
-    # # Add output of ANN
-    # for (a in 1:length(ann.outputs)) {
-    #     outputs[[4 + a]] <- ann.outputs[[a]]
-    #     names(outputs)[4 + a] <- names(ann.outputs)[a]
-    #     
-    # }
 }
 
 
@@ -482,28 +532,6 @@ list.algo <- append(list.algo, list("#2CA25F" = 'CF0', "#99D8C9" = 'UF0'))
 no.algo <- length(list.algo)
 # list.algo <- c(list.algo, "blue" = names(ann.outputs)[1],"red" = names(ann.outputs)[2], "grey" = names(ann.outputs)[3])
 # no.algo <- length(list.algo)
-# 
-# # Write information for file names
-# # percentage.train.set <- ratio * 100
-# info.file.name <- paste0(file.prefix, 
-#                          # d, # don't need to include the date
-#                          no.taxa, "taxa_", 
-#                          # no.env.fact, "envfact_",
-#                          no.algo, "algo_",
-#                          ifelse(CV, "CV_", "FIT_"),
-#                          ifelse(dl, "DL_", "no_DL_"),
-#                          # "trainset", percentage.train.set, 
-#                          # if( ratio != 1) {split.var}, 
-#                          "")
-
-# PROBLEM WITH PERF GAM ####
-
-for (j in 1:no.taxa) {
-    for (l in 1:no.algo) {
-        perf <- outputs[[l]][[list.taxa[j]]][["Performance training set"]]
-        outputs[[l]][[list.taxa[j]]][["Performance training set"]] <- ifelse(perf > 1.5, Inf, perf)
-    }
-}
 
 # Models comparison ####
 
@@ -552,17 +580,13 @@ if(CV == T){
 
 ptm <- proc.time() # to calculate time of pdf production
 
-# TO BE FIXED EARLIER ####
-# list.algo <- c(list.algo, "green" = "UF0")
-# source("plot_functions.r")
-
 # Compute plots
 list.plots <- model.comparison(outputs = outputs, null.model = null.model, 
                                list.algo = list.algo, list.taxa = list.taxa[1:5], prev.inv = prev.inv, CV = CV)
 
 # plot it
 ## THIS SHOULD BE FIXED ####
-# list.plots <- model.comparison.cv(outputs = outputs, outputs.cv = outputs.cv, null.model = null.model, list.algo = list.algo, list.taxa = list.taxa, prev.inv = prev.inv)
+# list.plots <- model.comparison.cv(outputs = outputs, outputs.cv = ml.outputs.cv, null.model = null.model, list.algo = list.algo, list.taxa = list.taxa, prev.inv = prev.inv)
 
 name <- "ModelsCompar"
 file.name <- paste0(name, ".pdf")
@@ -787,4 +811,4 @@ dev.off()
 print("Producing PDF time:")
 print(proc.time()-ptm)
 
-} # closing server braket
+# } # closing server braket
