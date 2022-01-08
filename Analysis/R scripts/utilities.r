@@ -390,6 +390,7 @@ preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, BD
 
 ## ---- Process output from stat models to fit structure of ml models (makes plotting easier)
 #JW: THE CODE IS QUITE UGLY AND DUPLICATE ATM BUT AT LEAST IT WORKS
+#ECR: I won't be the one blaming you for ugly code ':D (akward smiley)
 transfrom.stat.outputs <- function(CV, stat.outputs){
     #CV = F
     #stat.outputs = stat.outputs
@@ -416,7 +417,7 @@ transfrom.stat.outputs <- function(CV, stat.outputs){
             
             temp.list.st.dev[[j]] <- list("Prediction factors training set" = ifelse(prop.temp$Pred >= 0.5,"present","absent"),
                                           "Prediction probabilities training set" = list("present" = prop.temp$Pred, "absent" = 1 - prop.temp$Pred),
-                                          "Likelyhood training set" = prop.temp$Likelihood.train,
+                                          "Likelihood training set" = prop.temp$Likelihood.train,
                                           "Performance training set" = dev.temp$Performance.train
             )
           }
@@ -486,12 +487,12 @@ transfrom.stat.outputs <- function(CV, stat.outputs){
                 
                 temp.list.st.dev[[j]] <- list("Prediction factors training set" = ifelse(prop.temp.train$Pred >= 0.5,"present","absent"),
                                               "Prediction probabilities training set" = list("present" = prop.temp.train$Pred, "absent" = 1 - prop.temp.train$Pred),
-                                              "Likelyhood training set" = prop.temp.train$Likelihood.train,
+                                              "Likelihood training set" = prop.temp.train$Likelihood.train,
                                               "Performance training set" = dev.temp.train$Performance.train,
                                               
                                               "Prediction factors testing set" = ifelse(prop.temp.test$Pred >= 0.5,"present","absent"),
                                               "Prediction probabilities testing set" = list("present" = prop.temp.test$Pred,"absent" = 1 - prop.temp.test$Pred),
-                                              "Likelyhood testing set" = prop.temp.test$Likelihood.test,
+                                              "Likelihood testing set" = prop.temp.test$Likelihood.test,
                                               "Performance testing set" = dev.temp.test$Performance.test
                                               )
                 
@@ -573,3 +574,62 @@ transfrom.stat.outputs <- function(CV, stat.outputs){
     return(stat.cv.res)
     }
 }
+
+make.tables.perf.cv <- function(outputs.cv, list.taxa, list.models, list.splits){
+    
+    no.splits <- length(list.splits)
+    no.taxa <- length(list.taxa)
+    
+    # make table with perf for each split
+    df.perf.cv <- data.frame(matrix(ncol = no.taxa, nrow = no.splits*no.models))
+    colnames(df.perf.cv) <- list.taxa
+    rownames(df.perf.cv) <- apply(expand.grid(list.splits,list.models), 1, paste, collapse="_")
+    for (s in list.splits) {
+        for (l in list.models) {
+            list.taxa.temp <- names(outputs.cv[[s]][[l]])
+            for (j in list.taxa.temp) {
+                perf <- outputs.cv[[s]][[l]][[j]][["Performance testing set"]]
+                df.perf.cv[paste(s,l, sep="_"), j] <- ifelse(is.numeric(perf), perf, NA)
+            }
+        }
+    }
+    
+    # make table with mean perf across splits
+    df.perf <- data.frame(matrix(ncol = no.taxa, nrow = no.models))
+    colnames(df.perf) <- list.taxa
+    rownames(df.perf) <- list.models
+    for (j in list.taxa) {
+        for(l in list.models){
+            splits.model <- apply(expand.grid(list.splits,l), 1, paste, collapse="_")
+            mean.temp <- mean(df.perf.cv[splits.model, j], na.rm = T)
+            df.perf[l,j] <- mean.temp
+        }
+    }
+    df.perf$mean.perf <- rowMeans(df.perf)
+    
+    return(list("Table performance CV" = df.perf.cv, "Table performance" = df.perf))
+}
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
