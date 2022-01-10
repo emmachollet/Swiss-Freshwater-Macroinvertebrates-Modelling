@@ -94,7 +94,7 @@ source("utilities.r")
 
 # Set if we want to fit models to whole dataset or perform cross-validation (CV)
 CV <- T # Cross-Validation
-dl <- F # Data Leakage
+dl <- T # Data Leakage
 
 # Set number of cores
 n.cores.splits <-  1 # a core for each split, 3 in our case
@@ -102,7 +102,7 @@ n.cores.stat.models <- 1 # a core for each stat model 2 in our case (UF0, and CF
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
 # also make sure the cross-validation (CV) flag is set correctly
-sampsize <- 1000 #10000 #I think this needs to be an even number for some reason (stan error)
+sampsize <- 2000 #10000 #I think this needs to be an even number for some reason (stan error)
 n.chain  <- 2 #2
 
 # Select taxa
@@ -111,7 +111,7 @@ all.taxa <- T
 # set to TRUE to apply models to all taxa
 
 # Run the script on the server
-server <- T
+server <- F
 
 ## ---- DATA WRANGLING  ----
 
@@ -150,6 +150,14 @@ list.taxa <- list.taxa[order(match(list.taxa, prev.inv$Occurrence.taxa))] # reor
 centered.data <- prepro.data$centered.data
 centered.data.factors <- prepro.data$centered.data.factors
 normalization.data <- prepro.data$normalization.data
+
+# check normalization
+mean(centered.data$Split1$`Training data`$temperature)
+mean(centered.data$Split1$`Testing data`$temperature)
+
+mean(centered.data$Split2$`Training data`$temperature)
+mean(centered.data$Split2$`Testing data`$temperature)
+
 
 remove(prepro.data)
 
@@ -280,7 +288,9 @@ info.file.ml.name <-  paste0("ML_model_",
                              ifelse(CV, "CV_", "FIT_"),
                              ifelse(dl, "DL_", "no_DL_"))
 
+#JW: is this even still needed?
 file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
+file.name.temp <- paste0(dir.models.output, "ML_model_All_2algo_2taxa_CV_no_DL_.rds")
 cat(file.name)
 
 # If the file with the outputs already exist we read it, else we run the algorithms
@@ -430,6 +440,15 @@ source("ml_model_functions.r")
 source("plot_functions.r")
 # rm(list=ls())
 # graphics.off()
+
+# Stat model traceplots ####
+
+# res <- stat.outputs[[1]][[1]][[1]]
+# res.extracted   <- rstan::extract(res,permuted=TRUE,inc_warmup=FALSE)
+#  
+# print(traceplot(res,pars=c(names(res)[100:132],"lp__")))
+# 
+# print(traceplot(res))
 
 # Models comparison ####
 
