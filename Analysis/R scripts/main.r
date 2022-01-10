@@ -102,7 +102,7 @@ n.cores.stat.models <- 1 # a core for each stat model 2 in our case (UF0, and CF
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
 # also make sure the cross-validation (CV) flag is set correctly
-sampsize <- 20 #10000 #I think this needs to be an even number for some reason (stan error)
+sampsize <- 8 #10000 #I think this needs to be an even number for some reason (stan error)
 n.chain  <- 2 #2
 
 # Select taxa
@@ -289,7 +289,7 @@ info.file.ml.name <-  paste0("ML_model_",
 
 #JW: is this even still needed?
 file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
-file.name.temp <- paste0(dir.models.output, "ML_model_All_2algo_2taxa_CV_no_DL_.rds")
+#file.name.temp <- paste0(dir.models.output, "ML_model_All_2algo_2taxa_CV_no_DL_.rds")
 cat(file.name)
 
 # If the file with the outputs already exist we read it, else we run the algorithms
