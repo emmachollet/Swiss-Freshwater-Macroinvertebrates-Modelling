@@ -173,13 +173,26 @@ center.data <- function(data, split, CV, dl, mean.dl, sd.dl, env.fact.full){
     sd(k, na.rm = TRUE)
   })
   
+  if(dl == T){
+    
     for(env in env.names){
-    training.data[env] <- training.data[env] -  mean.env.cond[env]
+      training.data[env] <- training.data[env] -  mean.dl[env]
     }
-  
+    
+    for(env in env.names){
+      training.data[env] <- training.data[env] / sd.dl[env]
+    }
+    
+  }else{
+    
+    for(env in env.names){
+      training.data[env] <- training.data[env] -  mean.env.cond[env]
+    }
+    
     for(env in env.names){
       training.data[env] <- training.data[env] / sd.env.cond[env]
     }
+  }
 
   if(CV == F){
     return(list( "Entire dataset" = training.data))
