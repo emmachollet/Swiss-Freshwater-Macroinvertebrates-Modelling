@@ -264,12 +264,11 @@ model.comparison <- function(df.perf, list.models, CV){
 
 plot.perf.hyperparam <- function(outputs, list.algo, list.taxa){
     
-    list.algo <- list.algo[! list.algo %in% c("glm")] # glm doesn't have hyperparam
+    list.algo <- list.algo[! list.algo %in% c("glm")] # glm doesn't have hyperparameters
     no.algo <- length(list.algo)
     no.taxa <- length(list.taxa)
     
     list.plots <- list()
-    n = 1
     
     for(j in list.taxa){
         
@@ -285,11 +284,10 @@ plot.perf.hyperparam <- function(outputs, list.algo, list.taxa){
             if(trained.mod != "NULL_MODEL"){temp.list.plots[[l]] <- plot(trained.mod, main = l)}
         }
         
-        title <- j
+        title <- paste("Performance for each hyperparameter for taxa", j)
         p <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title))
         
-        list.plots[[n]] <- p
-        n <- n + 1
+        list.plots[[j]] <- p
     }
     return(list.plots)
 }
@@ -303,7 +301,7 @@ plot.varimp <- function(outputs, list.algo, list.taxa, env.fact){
   list.plots <- list()
   n = 1
   
-  # ECR: Will try to fix the table later ####
+  # ECR: Will try to fix the table later
   # # print directly table with variable importance for each algo and taxa (too complicated to put in a fct)
   # file.name <- "TableVarImp.pdf"
   # pdf(paste0(dir.plots.output, info.file.name, file.name), paper = 'special', width = 12, height = 9, onefile = TRUE)
@@ -395,6 +393,85 @@ plot.varimp <- function(outputs, list.algo, list.taxa, env.fact){
 #                            main = "Variable importance for ML algorithm applied to taxa")
 #  return(temp.list)
 # }
+
+# Plot ICE manually 
+
+plot.ice.per.taxa <- function(taxa, outputs, list.algo, env.fact, normalization.data){
+    
+    no.algo <- length(list.algo)
+    
+    # Initialize final list with all arranged plots
+    list.plots <- list()
+    
+    for(k in env.fact){
+        
+        # Make temporary list of ICE plots for env.fact k for each algorithm
+        temp.list.plots <- vector(mode = 'list', length = no.algo)
+        names(temp.list.plots) <- list.algo
+        
+        for(l in list.algo){
+            
+            # Extract trained model
+            trained.mod <- outputs[[l]][[taxa]][["Trained model"]]
+            if(trained.mod != "NULL_MODEL"){ # need this because some models are "NULL" (svmRadial didn't work for all taxa)
+                
+                # Extract environmental dataframe of each sample
+                env.df <- outputs[[l]][[j]][["Observation training set"]][, env.fact]
+                
+                # Make range of values to test for env. fact. k
+                no.steps <- 10 # 30 was way too long to compute ....
+                m <- min(env.df[,k])
+                M <- max(env.df[,k])
+                range.test <- seq(m, M, length.out = no.steps)
+                
+                # Make range of backward normalized values for labelling x axis
+                # !! Might mathematically false 
+                m2 <- (m * normalization.data$SD[k]) + normalization.data$Mean[k]
+                M2 <- (M * normalization.data$SD[k]) + normalization.data$Mean[k]
+                range.orig.fact <- round(seq(m2, M2, length.out = no.steps), digits = 1)
+                
+                # I think that the 2'600 samples are too much, we could maybe randomly select 500 of these
+                set.seed(2021)
+                env.df <- env.df[sample(nrow(env.df), size = 300),]
+                no.samples <- nrow(env.df)
+                
+                # Make a dataframe for predicted values for each sample
+                pred.df <- data.frame(matrix(nrow = no.samples, ncol = no.steps))
+                
+                for(n in 1:no.samples){
+                    for (s in 1:no.steps) {
+                        
+                        # Make test vector for sample n with with each value in range s of env. fact k 
+                        env.fact.test <- env.df[n,]
+                        env.fact.test[,k] <- range.test[s]
+                        
+                        # Use function predict with type probability for each test env. vector
+                        pred.df[n,s] <- predict(trained.mod, env.fact.test, type = 'prob')[,"present"]
+                    }
+                }
+                
+                plot.data <- melt(pred.df)
+                plot.data$rind <- 1:no.samples
+                
+                p <- ggplot(plot.data, aes(x = variable, y = value, group=factor(rind))) 
+                p <- p + geom_line(aes(color=factor(rind)), alpha = 0.3, show.legend = FALSE) # remove legend that would be the number of samples
+                p <- p + labs(title = paste("Model:", l),
+                              x = k,
+                              y = "Predicted probability")
+                p <- p + scale_x_discrete(labels = factor(range.orig.fact))
+                p <- p + theme_bw(base_size = 20)
+                
+                temp.list.plots[[l]] <- p
+                
+            }
+        }
+        
+        title <- paste("ICE of", taxa, "for", k)
+        q <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title, ncol = 2))
+        list.plots[[k]] <- q
+    }
+}
+
 
 # Plot PDP
 
