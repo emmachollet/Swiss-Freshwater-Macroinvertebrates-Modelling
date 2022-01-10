@@ -102,7 +102,7 @@ n.cores.stat.models <- 1 # a core for each stat model 2 in our case (UF0, and CF
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
 # also make sure the cross-validation (CV) flag is set correctly
-sampsize <- 2000 #10000 #I think this needs to be an even number for some reason (stan error)
+sampsize <- 20 #10000 #I think this needs to be an even number for some reason (stan error)
 n.chain  <- 2 #2
 
 # Select taxa
@@ -111,7 +111,7 @@ all.taxa <- T
 # set to TRUE to apply models to all taxa
 
 # Run the script on the server
-server <- F
+server <- T
 
 ## ---- DATA WRANGLING  ----
 
@@ -152,12 +152,12 @@ centered.data.factors <- prepro.data$centered.data.factors
 normalization.data <- prepro.data$normalization.data
 
 # check normalization
-mean(centered.data$Split1$`Training data`$temperature)
-mean(centered.data$Split1$`Testing data`$temperature)
-
-mean(centered.data$Split2$`Training data`$temperature)
-mean(centered.data$Split2$`Testing data`$temperature)
-
+# mean(centered.data$Split1$`Training data`$temperature)
+# mean(centered.data$Split1$`Testing data`$temperature)
+# 
+# mean(centered.data$Split2$`Training data`$temperature)
+# mean(centered.data$Split2$`Testing data`$temperature)
+# 
 
 remove(prepro.data)
 
@@ -218,7 +218,7 @@ ptm <- proc.time() # to calculate time of simulation
 
 comm.corr.options <- c(T,F)
 names(comm.corr.options) <- c("CF0", "UF0")
-stat.outputs <- mclapply(comm.corr.options, mc.cores = 1, function(comm.corr){
+stat.outputs <- mclapply(comm.corr.options, mc.cores = n.cores.stat.models, function(comm.corr){
   
   #comm.corr <- comm.corr.options[[1]]
   info.file.stat.name <- paste0("Stat_model_",
@@ -227,9 +227,8 @@ stat.outputs <- mclapply(comm.corr.options, mc.cores = 1, function(comm.corr){
                                 sampsize,"iterations_",
                                 ifelse(comm.corr,"CF0_","UF0_"),
                                 ifelse(CV, "CV_", "FIT_"),
-                                # else(dl, "DL_", "no_DL_"),
-                                "no_DL_") # for now with just apply it without DL
-  
+                                ifelse(dl, "DL_", "no_DL_"))
+                                
   file.name <- paste0(dir.models.output, info.file.stat.name, ".rds")
   cat(file.name)
   
@@ -250,7 +249,7 @@ stat.outputs <- mclapply(comm.corr.options, mc.cores = 1, function(comm.corr){
       
       if(CV == T){
   
-        stat.output <- mclapply(centered.splits, mc.cores = 1, FUN = stat_mod_cv, CV, comm.corr, sampsize, n.chain)
+        stat.output <- mclapply(centered.data, mc.cores = n.cores.splits, FUN = stat_mod_cv, CV, comm.corr, sampsize, n.chain)
         
         cat("Saving output of statistical models in", file.name)
         saveRDS(stat.output, file = file.name, version = 2) #version two here is to ensure compatibility across R versions
