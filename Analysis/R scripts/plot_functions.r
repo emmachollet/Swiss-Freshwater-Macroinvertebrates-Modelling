@@ -159,55 +159,71 @@ plot.data.envvstax <- function(data, env.fact, list.taxa){
 
 ## ---- Models analysis plots ----
 
+plot.df.perf <- function(df.perf, list.models, list.taxa, CV){
+    
+    size.val <- ifelse(length(list.taxa) < 25, 5, 1)
+    title <- ifelse(CV, "Table of models predictive performance \n during Cross Validation",
+                    "Table of models quality of fit \n during Calibration")
+    # Old table
+    
+    # temp.df <- as.matrix(df.perf)
+    # par(mar=c(1,5,15,3)+ 0.2, xaxt = "n")
+    # plot(temp.df, 
+    #      digits = 2, text.cell=list(cex=0.5),
+    #      axis.row = list(side=2, las=1),
+    #      col = viridis,
+    #      xlab = "",
+    #      ylab = "",
+    #      cex.axis = 0.5,
+    #      srt = 45,
+    #      main = "Quality of fit across ML algorithms and taxa"
+    # )
+    # axis(1, at=seq(1:ncol(temp.df)+1), labels = FALSE)
+    # text(seq(1:ncol(temp.df)+1), par("usr")[4] + 0.15, srt = 50, 
+    #      labels = colnames(temp.df), adj= 0, cex = 0.5, xpd = T)
+    if(CV){ cind <- 1:which(colnames(df.perf) == "Taxa")
+    } else { cind <- which(colnames(df.perf) %in% list.models | colnames(df.perf) == "Taxa") }
+    temp.df <- df.perf[,cind]
+    # temp.df$models <- row.names(df.perf)
+    melted.df <- melt(temp.df, id = "Taxa")
+    p <- ggplot(data = melted.df, aes(x = Taxa, y = variable, fill = value)) +
+        geom_tile() +
+        scale_fill_gradient2(midpoint = 1, mid ="grey70", 
+                             limits = c(0, 2)) +
+        scale_x_discrete(limits = list.taxa) +
+        labs(title = title, 
+             x = "", y = "", fill = "Standardized \n deviance") +
+        theme(plot.title = element_text(hjust = 0.5, colour = "black"), 
+              axis.title.x = element_text(face="bold", colour="darkgreen", size = 2),
+              axis.text.x = element_text(angle=90),
+              axis.title.y = element_text(face="bold", colour="darkgreen", size = 2),
+              legend.title = element_text(face="bold", colour="brown", size = 10))  +
+        geom_text(aes(x = Taxa, y = variable, label = round(value, 2)),
+                  color = "black", fontface = "bold", size = size.val)
+    
+    return(list(p))
+    
+}
+
 # Compare models
-model.comparison <- function(outputs, null.model, list.algo, list.taxa, prev.inv, CV){
-  
-  no.algo <- length(list.algo)
-  no.taxa <- length(list.taxa)
-  
-  # make a vector of colors
-  col.vect <- names(list.algo)
-  names(col.vect) <- list.algo
-  col.vect <- c("Null model" = "#000000", col.vect)
-  
-  list.plots <- list()
-  n = 1
-  
-  # Plot performance on training and testing set
-  if(CV){ # check if testing set isn't empty
-    c <- c("Performance testing set")
-  } else {
-    c <- c("Performance training set") # if empty, then only plot for training set
-  }
-  for (m in 1:length(c)){
-    if(CV == F){
-      title <- paste("Models comparison in quality of fit")
+model.comparison <- function(df.perf, list.models, CV){
+    
+    # make a vector of colors
+    col.vect <- names(list.models)
+    names(col.vect) <- list.models
+    col.vect <- c("Null model" = "#000000", col.vect)
+    
+    if(CV){
+        title <- paste("Models comparison in predictive performance")
     } else {
-      title <- paste("Models comparison in predictive performance")
+        title <- paste("Models comparison in quality of fit")
     }
-    print(paste("Plotting comparison for", c[m]))
-    # fill data frame with all performances
-    plot.data <- data.frame(matrix(ncol = no.algo, nrow = no.taxa))
-    colnames(plot.data) <- list.algo
-    plot.data$Taxa <- list.taxa
-    plot.data$Prevalence <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Prevalence"]
-    plot.data[, "Taxonomic level"] <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Taxonomic.level"]
-    plot.data[,"Null model"] <- NA
-    expl.pow <- paste0("expl.pow_", list.algo)
-    plot.data[,expl.pow] <- NA
-    for (j in 1:no.taxa) {
-      plot.data[j,"Null model"] <- null.model[[list.taxa[j]]][["Performance"]]
-      for(l in 1:no.algo){
-        plot.data[j,list.algo[l]] <- outputs[[l]][[j]][[c[m]]]
-        val.expl.pow <- null.model[[list.taxa[j]]][["Performance"]] - outputs[[l]][[j]][[c[m]]] / null.model[[list.taxa[j]]][["Performance"]]
-        plot.data[j, paste0("expl.pow_",list.algo[l])] <- val.expl.pow
-        # plot.data[j, "expl.pow_null.model"] <- NA
-      }
-    }
-    # transform data frame to plot easier
+    
+    plot.data <- df.perf
     plot.data$null.perf <- plot.data[,"Null model"]
-    plot.data <- gather(plot.data, key = model, value = performance, all_of(c("Null model",list.algo)))
-    plot.data <- gather(plot.data, key = expl.pow_model, value = expl.pow, all_of(paste0("expl.pow_", list.algo)))
+    
+    plot.data <- gather(plot.data, key = model, value = performance, all_of(c("Null model",list.models)))
+    plot.data <- gather(plot.data, key = expl.pow_model, value = expl.pow, all_of(paste0("expl.pow_", list.models)))
     
     # Prevalence vs stand dev
     p1 <- ggplot()
@@ -218,207 +234,29 @@ model.comparison <- function(outputs, null.model, list.algo, list.taxa, prev.inv
                            size = 3)
     p1 <- p1 + geom_line(data = plot.data, aes(x = Prevalence, y = null.perf), linetype = "dashed", alpha=0.4, show.legend = FALSE)
     p1 <- p1  + labs(y = "Standardized deviance",
-                      x = "Prevalence (%)",
-                      shape = "Taxonomic level",
-                      color = "Model")
+                     x = "Prevalence (%)",
+                     shape = "Taxonomic level",
+                     color = "Model",
+                     title = title)
     p1 <- p1 + scale_colour_manual(values=col.vect)
     p1 <- p1 + theme_bw(base_size = 20)
-    p1 <- p1 + theme(axis.text=element_text(size=14),
-                     plot.title = element_blank())
     p1 <- p1 + guides(colour = guide_legend(override.aes = list(size=6)))
     
-    # # Prevalence vs stand dev with LOESS curves
-    # p2 <- ggplot()
-    # p2 <- p2 + geom_point(data = plot.data, aes(x = Prevalence, y = performance, 
-    #                                             colour = model, 
-    #                                             shape = plot.data[,"Taxonomic level"]), alpha = 0.4)
-    # p2 <- p2 + stat_smooth(data = plot.data, aes(x=Prevalence, y = performance, 
-    #                            colour = model), size = 2, geom='line', alpha=0.50, 
-    #                        # se=TRUE, 
-    #                        method = "loess")
-    # p2 <- p2 + geom_line(data = plot.data, aes(x = Prevalence, y = null.perf), linetype = "dashed", alpha=0.4, show.legend = FALSE)
-    # p2 <- p2  + labs(y = "Standardized deviance",
-    #                  x = "Prevalence (%)",
-    #                  shape = "Taxonomic level",
-    #                  color = "Model")
-    # p2 <- p2 + scale_colour_manual(values=col.vect) #,
-    # p2 <- p2 + theme_bw(base_size = 20)
-    # p2 <- p2 + theme(axis.text=element_text(size=14),
-    #                  plot.title = element_blank())
-    # p2 <- p2 + guides(colour = guide_legend(override.aes = list(size=6)))
-
     # Boxplots
-    p3 <- ggplot(plot.data, aes(x=model, y =performance, fill = model), alpha = 0.4) 
+    p3 <- ggplot(plot.data, aes(x=model, y = performance, fill = model), alpha = 0.4) 
     p3 <- p3 + geom_boxplot()
     p3 <- p3 + scale_fill_manual(values=col.vect)
+    p3 <- p3 + labs(title = title)
+    p3 <- p3 + scale_x_discrete(limits = rev(list.models))
     p3 <- p3 + coord_flip()
     p3 <- p3 + theme_bw(base_size = 20)
-    p3 <- p3 + labs(x="Model",
-                    y="Standardized deviance")
+    p3 <- p3 + labs(x="Models",
+                    y="Standardized deviance",
+                    title = title,
+                    fill = "Models")
     
-    p <- as_ggplot(grid.arrange(p3, 
-                                p1,
-                                # arrangeGrob(p1, p2, ncol = 2), 
-                                top = title))
-    list.plots[[n]] <- p
-    n <- n + 1
-  }
-  
-  # # Plot performance for each taxa after resampling
-  # n = 3
-  # for (j in 1:no.taxa){
-  #   
-  #   print(paste("Plotting comparison after resampling for", list.taxa[j]))
-  #   
-  #   temp.list.trmod <- vector(mode = 'list', length = no.algo)
-  #   names(temp.list.trmod) <- list.algo
-  #   for (l in 1:no.algo){
-  #     temp.list.trmod[[l]] <- outputs[[l]][[j]][["Trained model"]]
-  #   }
-  #   
-  #   # Use caret function resamples 
-  #   models.compare <- resamples(temp.list.trmod, metric = "StandardizedDeviance")
-  #   summary(models.compare)
-  #   
-  #   # Draw box plots to compare models from this resampling
-  #   scales <- list(x=list(relation="free"), y=list(relation="free"))
-  #   title <- paste("Comparison of model performance after resampling for",list.taxa[[j]])
-  #   list.plots[[n]] <- bwplot(models.compare, scales=scales, main = title) # see how algorithms perform in terms of metric
-  #   n = n + 1  
-  #   }
-  return(list.plots)
-}
-
-# Compare models
-model.comparison.cv <- function(outputs, outputs.cv, null.model, list.algo, list.taxa, prev.inv){
+    return(list(p1,p3))
     
-    list.algo <- c(list.algo, "green" = "FF0")
-    no.algo <- length(list.algo)
-    no.taxa <- length(list.taxa)
-    
-    # make a vector of colors
-    col.vect <- names(list.algo)
-    names(col.vect) <- list.algo
-    col.vect <- c("Null model" = "#000000", col.vect)
-    
-    list.plots <- list()
-    n = 1
-    
-    # Plot performance on training and testing set
-    # if( length(outputs[[1]][[1]]) > 6){ # check if testing set isn't empty
-    #     c <- c("Performance training set", "Performance testing set")
-    # } else {
-    #     c <- c("Performance training set") # if empty, then only plot for training set
-    # }
-    # for (m in 1:length(c)){
-    #     if(m == 1){
-    #         title <- paste("Comparison of models performance on training set")
-    #     } else {
-    #         title <- paste("Comparison of models performance on testing set")
-    #     }
-        # print(paste("Plotting comparison for", c[m]))
-        # fill data frame with all performances
-        title <- "Models comparison in predictive performance"
-        plot.data <- data.frame(matrix(ncol = no.algo, nrow = no.taxa))
-        colnames(plot.data) <- list.algo
-        plot.data$Taxa <- list.taxa
-        plot.data$Prevalence <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Prevalence"]
-        plot.data[, "Taxonomic level"] <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Taxonomic.level"]
-        plot.data[,"Null model"] <- NA
-        expl.pow <- paste0("expl.pow_", list.algo)
-        plot.data[,expl.pow] <- NA
-        for (j in 1:no.taxa) {
-            plot.data[j,"Null model"] <- null.model[[list.taxa[j]]][["Performance"]]
-            for(l in 1:no.algo){
-                plot.data[j,list.algo[l]] <- outputs.cv[[l]][[j]]
-                val.expl.pow <- null.model[[list.taxa[j]]][["Performance"]] - outputs.cv[[l]][[j]] / null.model[[list.taxa[j]]][["Performance"]]
-                plot.data[j, paste0("expl.pow_",list.algo[l])] <- val.expl.pow
-                # plot.data[j, "expl.pow_null.model"] <- NA
-            }
-        }
-        # transform data frame to plot easier
-        plot.data$null.perf <- plot.data[,"Null model"]
-        plot.data <- gather(plot.data, key = model, value = performance, all_of(c("Null model",list.algo)))
-        plot.data <- gather(plot.data, key = expl.pow_model, value = expl.pow, all_of(paste0("expl.pow_", list.algo)))
-        
-        # Prevalence vs stand dev
-        p1 <- ggplot()
-        p1 <- p1  + geom_point(data = plot.data, aes(x = Prevalence, y = performance, 
-                                                     colour = model, 
-                                                     shape = plot.data[,"Taxonomic level"]), 
-                               alpha = 0.4,
-                               size = 3)
-        p1 <- p1 + geom_line(data = plot.data, aes(x = Prevalence, y = null.perf), linetype = "dashed", alpha=0.4, show.legend = FALSE)
-        p1 <- p1  + labs(y = "Standardized deviance",
-                         x = "Prevalence (%)",
-                         shape = "Taxonomic level",
-                         color = "Model")
-        p1 <- p1 + scale_colour_manual(values=col.vect)
-        p1 <- p1 + theme_bw(base_size = 20)
-        p1 <- p1 + theme(axis.text=element_text(size=14),
-                         plot.title = element_blank())
-        p1 <- p1 + guides(colour = guide_legend(override.aes = list(size=6)))
-        
-        # # Prevalence vs stand dev with LOESS curves
-        # p2 <- ggplot()
-        # p2 <- p2 + geom_point(data = plot.data, aes(x = Prevalence, y = performance, 
-        #                                             colour = model, 
-        #                                             shape = plot.data[,"Taxonomic level"]), alpha = 0.4)
-        # p2 <- p2 + stat_smooth(data = plot.data, aes(x=Prevalence, y = performance, 
-        #                            colour = model), size = 2, geom='line', alpha=0.50, 
-        #                        # se=TRUE, 
-        #                        method = "loess")
-        # p2 <- p2 + geom_line(data = plot.data, aes(x = Prevalence, y = null.perf), linetype = "dashed", alpha=0.4, show.legend = FALSE)
-        # p2 <- p2  + labs(y = "Standardized deviance",
-        #                  x = "Prevalence (%)",
-        #                  shape = "Taxonomic level",
-        #                  color = "Model")
-        # p2 <- p2 + scale_colour_manual(values=col.vect) #,
-        # p2 <- p2 + theme_bw(base_size = 20)
-        # p2 <- p2 + theme(axis.text=element_text(size=14),
-        #                  plot.title = element_blank())
-        # p2 <- p2 + guides(colour = guide_legend(override.aes = list(size=6)))
-        
-        # Boxplots
-        p3 <- ggplot(plot.data, aes(x=model, y =performance, fill = model), alpha = 0.4) 
-        p3 <- p3 + geom_boxplot()
-        p3 <- p3 + scale_fill_manual(values=col.vect)
-        p3 <- p3 + coord_flip()
-        p3 <- p3 + theme_bw(base_size = 20)
-        p3 <- p3 + labs(x="Model",
-                        y="Standardized deviance")
-        
-        p <- as_ggplot(grid.arrange(p3, 
-                                    p1,
-                                    # arrangeGrob(p1, p2, ncol = 2), 
-                                    top = title))
-        list.plots[[n]] <- p
-        #n <- n + 1
-    #}
-    
-    # # Plot performance for each taxa after resampling
-    # n = 3
-    # for (j in 1:no.taxa){
-    #     
-    #     print(paste("Plotting comparison after resampling for", list.taxa[j]))
-    #     
-    #     temp.list.trmod <- vector(mode = 'list', length = no.algo)
-    #     names(temp.list.trmod) <- list.algo
-    #     for (l in 1:no.algo){
-    #         temp.list.trmod[[l]] <- outputs[[l]][[j]][["Trained model"]]
-    #     }
-    #     
-    #     # Use caret function resamples 
-    #     models.compare <- resamples(temp.list.trmod, metric = "StandardizedDeviance")
-    #     summary(models.compare)
-    #     
-    #     # Draw box plots to compare models from this resampling
-    #     scales <- list(x=list(relation="free"), y=list(relation="free"))
-    #     title <- paste("Comparison of model performance after resampling for",list.taxa[[j]])
-    #     list.plots[[n]] <- bwplot(models.compare, scales=scales, main = title) # see how algorithms perform in terms of metric
-    #     n = n + 1  
-    # }
-    return(list.plots)
 }
 
 
@@ -426,27 +264,28 @@ model.comparison.cv <- function(outputs, outputs.cv, null.model, list.algo, list
 
 plot.perf.hyperparam <- function(outputs, list.algo, list.taxa){
     
+    list.algo <- list.algo[! list.algo %in% c("glm")] # glm doesn't have hyperparam
     no.algo <- length(list.algo)
     no.taxa <- length(list.taxa)
     
     list.plots <- list()
     n = 1
     
-    for(j in 1:no.taxa){
+    for(j in list.taxa){
         
-        temp.list.plots <- vector(mode = 'list', length = no.algo-1) # glm doesn't have hyperparam
-        names(temp.list.plots) <- list.algo[2:no.algo]  
+        temp.list.plots <- vector(mode = 'list', length = no.algo) 
+        names(temp.list.plots) <- list.algo 
         
-        for (l in 2:no.algo){ 
+        for (l in list.algo){ 
             
-            print(paste("Computing performance of hyperparameters of", list.algo[l], "for", j, list.taxa[j]))
+            # cat(paste("Computing performance of hyperparameters of", list.algo[l], "for", which(list.taxa == j), j))
             
+            trained.mod <- outputs[[l]][[j]][["Trained model"]]
             # Show how the various iterations of hyperparameter search performed
-            temp.list.plots[[l-1]] <- plot(outputs[[l]][[j]][["Trained model"]], main = l)
-            
+            if(trained.mod != "NULL_MODEL"){temp.list.plots[[l]] <- plot(trained.mod, main = l)}
         }
         
-        title <- paste(list.taxa[j])
+        title <- j
         p <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title))
         
         list.plots[[n]] <- p
@@ -464,37 +303,65 @@ plot.varimp <- function(outputs, list.algo, list.taxa, env.fact){
   list.plots <- list()
   n = 1
   
-  for(j in 1:no.taxa){
+  # ECR: Will try to fix the table later ####
+  # # print directly table with variable importance for each algo and taxa (too complicated to put in a fct)
+  # file.name <- "TableVarImp.pdf"
+  # pdf(paste0(dir.plots.output, info.file.name, file.name), paper = 'special', width = 12, height = 9, onefile = TRUE)
+  # temp.df <- data.frame(matrix(ncol = no.algo*no.taxa, nrow = no.env.fact))
+  # colnames(temp.df) <- c(outer(list.algo, list.taxa, FUN = paste))
+  # rownames(temp.df) <- env.fact
+  # for (j in list.taxa) {
+  #     for (l in list.algo) {
+  #         for (k in 1:no.env.fact) {
+  #             temp.df[env.fact[k],paste(l, j)] <- outputs[[l]][[j]][["Variable importance"]][["importance"]][env.fact[k],1]
+  #         }
+  #     }
+  # }
+  # temp.df$mean.imp <- rowMeans(temp.df)
+  # temp.df <- as.matrix(temp.df)
+  # par(mar=c(1,5,15,3)+ 0.2, xaxt = "n")
+  # plot(temp.df, 
+  #      #key = NULL,
+  #      digits = 2, text.cell=list(cex=0.5),
+  #      # axis.col=list(side=3, las=2), 
+  #      axis.row = list(side=2, las=1),
+  #      col = viridis,
+  #      xlab = "",
+  #      ylab = "",
+  #      cex.axis = 0.5,
+  #      srt = 45,
+  #      main = "Variable importance for ML algorithm applied to taxa"
+  # )
+  # axis(1, at=seq(1:ncol(temp.df)+1), labels = FALSE)
+  # text(seq(1:ncol(temp.df)+1), par("usr")[4] + 0.15, srt = 50, 
+  #      labels = colnames(temp.df), adj= 0, cex = 0.5, xpd = T)
+  # 
+  # dev.off()
+  
+  for(j in list.taxa){
     
     temp.list.plots <- vector(mode = 'list', length = no.algo)
     names(temp.list.plots) <- list.algo  
     
-    for (l in 1:no.algo){
-      
-      # Show how the various iterations of hyperparameter search performed
-      # print(plot(outputs[[l]][[j]][["Trained model"]], main = title))
-      
+    for (l in list.algo){
+
       # Plot variable importance
       perf <- round(outputs[[l]][[j]][["Performance training set"]], digits = 3)
-      plot.title <- paste("Algo:", list.algo[l], 
+      plot.title <- paste("Algo:", l, 
                           "\nPerformance on training set:", 
                           ifelse(length(perf) > 1, perf, perf[1] ))
       
       temp.list.plots[[l]] <- ggplot(outputs[[l]][[j]][["Variable importance"]]) +
         ggtitle(plot.title)
-      print(c(list.taxa[j], list.algo[l]))
-      
-      # # Plot confusion matrix
-      # plot(output[[j]][["Confusion matrix"]][["table"]], main = list.taxa[j])
-      # 
-      
-      }
-    title <- paste(list.taxa[j])
+    }
+    
+    title <- j
     p <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title))
       
     list.plots[[n]] <- p
     n <- n + 1
-    }
+  }
+  
   return(list.plots)
 }
 
@@ -546,20 +413,20 @@ plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
   
   if ( algo == "all"){
     
-    for(j in 1:no.taxa){
-      plot.title <- paste("PDP for", list.taxa[j])
+    for(j in list.taxa){
+      plot.title <- paste("PDP for", j)
       plot.data <- data.frame(matrix(ncol = 4, nrow = 0))
       colnames(plot.data) <- c("value","factor","model","fct")
       plot.data$factor <- as.character(plot.data$factor)
       plot.data$model <- as.character(plot.data$model)
         
       for (k in 1:no.env.fact) {
-        print(paste("Producing PDP of", k, env.fact[k], "for", j,  list.taxa[j]))
+        print(paste("Producing PDP of", k, env.fact[k], "for", j,  j))
         temp.df <- data.frame(pdp::partial(outputs[[1]][[j]][["Trained model"]], pred.var = env.fact[k])[,env.fact[k]])
         colnames(temp.df) <- "value"
         temp.df$factor <- env.fact[k]
-        for (l in 1:no.algo){ 
-        temp.df[,list.algo[l]] <- pdp::partial(outputs[[l]][[j]][["Trained model"]], pred.var = env.fact[k])[,"yhat"]
+        for (l in list.algo){ 
+        temp.df[,l] <- pdp::partial(outputs[[l]][[j]][["Trained model"]], pred.var = env.fact[k])[,"yhat"]
         }
         temp.df <- gather(temp.df, key = model, value = fct, -value, - factor)
         plot.data <- union(plot.data,temp.df)
@@ -590,7 +457,7 @@ plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
       names(temp.list.plots) <- env.fact  
       
       for (k in 1:no.env.fact) {
-          print(paste("Producing PDP of", k, env.fact[k], "for", j,  list.taxa[j]))
+          print(paste("Producing PDP of", k, env.fact[k], "for", j,  j))
           plot.title <- paste("PDP of", env.fact[k])
         
         p <- partial(outputs[[algo]][[j]][["Trained model"]], pred.var = env.fact[k])
@@ -601,7 +468,7 @@ plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
         temp.list.plots[[k]] <- p
         
       }
-      title <- paste(algo, "applied to", list.taxa[j])
+      title <- paste(algo, "applied to", j)
       p <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title))
         
       list.plots[[j]] <- p
@@ -638,14 +505,14 @@ plot.mult.pred.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.
   rwb <- colorRampPalette(c("blue", "white", "red"))
   p2 <- plotPartial(p, contour = TRUE, # add contour lines and colors
                     col.regions = rwb,
-                    main = paste(list.algo[l], "applied to", list.taxa[j], "\nPDP with two predictors"))
+                    main = paste(l, "applied to", j, "\nPDP with two predictors"))
   
   # p3 <- plotPartial(p, levelplot = FALSE, # 3D surface
   #                   zlab = "bruh", colorkey = TRUE,
   #                   screen = list(z = -20, x = -60),
   #                   main = "3D surface 2 predict. PDP")
   
-  # title <- paste(list.algo[l], "applied to", list.taxa[j])
+  # title <- paste(l, "applied to", j)
   # p <- as_ggplot(grid.arrange(p1, p2, p3, ncol = 3, top = title))
     
   list.plots[[n]] <- p2
@@ -683,7 +550,7 @@ plot.ice <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
           temp.list.plots[[k]] <- p
           
         }
-        title <- paste(list.algo[l], "applied to", list.taxa[j])
+        title <- paste(l, "applied to", j)
         p <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title))
           
         list.plots[[n]] <- p
@@ -698,7 +565,7 @@ plot.ice <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
         
         for (k in 1:no.env.fact) {
             
-            print(paste("Producing ICE of", k, env.fact[k], "for", j,  list.taxa[j]))
+            print(paste("Producing ICE of", k, env.fact[k], "for", j,  j))
             plot.title <- paste("ICE of", env.fact[k])
           
           p <- partial(outputs[[algo]][[j]][["Trained model"]], pred.var = env.fact[k], ice = TRUE, alpha = 0.1)
@@ -709,7 +576,7 @@ plot.ice <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
           temp.list.plots[[k]] <- p
           
         }
-        title <- paste(algo, "applied to", list.taxa[j])
+        title <- paste(algo, "applied to", j)
         p <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title))
           
         list.plots[[n]] <- p

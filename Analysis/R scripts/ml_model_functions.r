@@ -168,6 +168,8 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
             temp.list[["Trained model"]] <- model
             # temp.list[["Variable importance"]] <- varImp(model)
             
+            }
+            
             for(n in 1:length(which.set)){
                 # Observation
                 temp.list[[paste(out[1],which.set[n])]] <- temp.sets[[n]]
@@ -197,7 +199,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                 #                                                    data = temp.list[[paste(out[2],which.set[n])]], mode='everything', positive='present')}
                 # 
             }
-            }
+            
             list.outputs[[j]] <- temp.list
         }
     

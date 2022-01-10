@@ -389,105 +389,167 @@ preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, BD
 
 
 ## ---- Process output from stat models to fit structure of ml models (makes plotting easier)
-
+#JW: THE CODE IS QUITE UGLY AND DUPLICATE ATM BUT AT LEAST IT WORKS
+#ECR: I won't be the one blaming you for ugly code ':D (awkward smiley)
 transfrom.stat.outputs <- function(CV, stat.outputs){
-    #CV = T
+    #CV = F
     #stat.outputs = stat.outputs
     
-    stat.output.list <- vector(mode = "list", length = length(stat.outputs))
+    #stat.output.list <- vector(mode = "list", length = length(stat.outputs))
     
     if ( CV == F){ # Model performance (FIT)
-        
+        stat.fit.res <- lapply(stat.outputs, function(models){
+          #models <- stat.outputs[[1]]
+          temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
+          
+          for(j in 1:length(list.taxa)){
+            #j = 1
+            dev.temp <- models[[2]]$deviance
+            dev.temp <- dev.temp[c("Taxon", "std.deviance")]
+            dev.temp <- subset(dev.temp, Taxon == list.taxa[[j]])
+         
+            dev.temp$Performance.train <- as.numeric(dev.temp$std.deviance)
+
+            prop.temp <- models[[2]]$probability
+            prop.temp <- subset(prop.temp, Taxon == list.taxa[[j]])
+            
+            prop.temp$Likelihood.train <- ifelse(prop.temp$Obs == 1, prop.temp$Pred, 1 - prop.temp$Pred)
+            
+            temp.list.st.dev[[j]] <- list("Prediction factors training set" = ifelse(prop.temp$Pred >= 0.5,"present","absent"),
+                                          "Prediction probabilities training set" = data.frame("present" = prop.temp$Pred, "absent" = 1 - prop.temp$Pred),
+                                          "Likelihood training set" = prop.temp$Likelihood.train,
+                                          "Performance training set" = dev.temp$Performance.train
+            )
+          }
+          names(temp.list.st.dev) <-  list.taxa
+          #stat.output.list[[n]] <- temp.list.st.dev
+          return(temp.list.st.dev)
+        })
         #stat.outputs[[1]] <- stat.outputs[[1]]$deviance[c("Taxon", "std.deviance")]
         
-        for(n in 1:length(stat.outputs)){
-            #n = 1
-            # :) REM dangerous to use list.taxa in the function without declaring it  ####
-            temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
-            
-            for(j in 1:length(list.taxa)){
-                #j = 1
-                temp.dat.dev <- subset(stat.outputs[[n]][[2]]$deviance)
-                
-                temp.dat.dev <- subset(temp.dat.dev, Taxon == list.taxa[[j]])
-                
-                temp.dat.dev$Performance <- as.numeric(temp.dat.dev$std.deviance)
-                
-                temp.dat.prop <- subset(stat.outputs[[n]][[2]]$probability)
-                temp.dat.prop <- subset(temp.dat.prop, Taxon == list.taxa[[j]])
-                temp.dat.prop$Likelihood  <- ifelse(temp.dat.prop$Obs == 1, temp.dat.prop$Pred, 1 - temp.dat.prop$Pred)
-                
-                temp.list.st.dev[[j]] <- list("Performance training set" = temp.dat.dev$Performance, "Likelihood " = temp.dat.prop$Likelihood )
-                
-            }
-            names(temp.list.st.dev) <-  list.taxa
-            stat.output.list[[n]] <- temp.list.st.dev
-            
-        }
-        names(stat.output.list) <- names(stat.outputs)
-        return(stat.output.list)
+        # for(n in 1:length(stat.outputs)){
+        #     #n = 1
+        #     # :) REM dangerous to use list.taxa in the function without declaring it  ####
+        #     # JW you are right, I'm not quite sure yet what to do about this yet
+        #     temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
+        #     
+        #     for(j in 1:length(list.taxa)){
+        #         #j = 1
+        #         temp.dat.dev <- subset(stat.outputs[[n]][[2]]$deviance)
+        #         
+        #         temp.dat.dev <- subset(temp.dat.dev, Taxon == list.taxa[[j]])
+        #         
+        #         temp.dat.dev$Performance <- as.numeric(temp.dat.dev$std.deviance)
+        #         
+        #         temp.dat.prop <- subset(stat.outputs[[n]][[2]]$probability)
+        #         temp.dat.prop <- subset(temp.dat.prop, Taxon == list.taxa[[j]])
+        #         
+        #         temp.dat.prop$Likelihood  <- ifelse(temp.dat.prop$Obs == 1, temp.dat.prop$Pred, 1 - temp.dat.prop$Pred)
+        #         
+        #         temp.list.st.dev[[j]] <- list("Performance training set" = temp.dat.dev$Performance, "Likelihood " = temp.dat.prop$Likelihood )
+        #         
+        #     }
+        #     names(temp.list.st.dev) <-  list.taxa
+        #     stat.output.list[[n]] <- temp.list.st.dev
+        #     
+        # }
+        # names(stat.output.list) <- names(stat.outputs)
+        # return(stat.output.list)
+        return(stat.fit.res) # this return statments are not really needed
     } else { # Prediction (CV)
         stat.cv.res <- lapply(stat.outputs, function(models){
-            # models <- stat.outputs[[1]]
+            #models <- stat.outputs[[2]]
             
             stat.cv.res.splits <- lapply(models, function(split){
-                #split <- models[[1]]
-                dev_temp <- split[[2]]$deviance
-                dev_temp$std.deviance <- dev_temp$std.deviance
-                dev_temp <- dev_temp[c("Taxon", "Type", "std.deviance")]
-                tmp_dev_test <- subset(dev_temp, Type == "Testing")
-                
-                temp.dat.prop <- split[[2]]$probability
-                temp.dat.prop$Likelihood  <- ifelse(temp.dat.prop$Obs == 1, temp.dat.prop$Pred, 1 - temp.dat.prop$Pred)
-                tmp_prop_test <- subset(temp.dat.prop, Type == "Testing")
-                
-                return(list("Performance" = tmp_dev_test, "Prediction" = tmp_prop_test))
-            })
-            # bind rows for all three splits
-            stat.cv.res.splits[[1]]$Performance$Split <- 1
-            stat.cv.res.splits[[1]]$Prediction$Split <- 1
-            
-            stat.cv.res.splits.table <- stat.cv.res.splits[[1]]
-            
-            for(i in 2:length(stat.cv.res.splits)){
-                # i = 2
-                stat.cv.res.splits[[i]]$Performance$Split <- i
-                stat.cv.res.splits[[i]]$Prediction$Split <- i
-                
-                stat.cv.res.splits.table$Performance <- rbind(stat.cv.res.splits.table$Performance, stat.cv.res.splits[[i]]$Performance)
-                stat.cv.res.splits.table$Prediction <- rbind(stat.cv.res.splits.table$Prediction, stat.cv.res.splits[[i]]$Prediction)
-            }
-            stat.cv.res.splits.table2 <- as.data.frame(stat.cv.res.splits.table$Performance %>% group_by(Taxon) %>% summarise(Performance = mean(std.deviance, na.rm = T)))
-            stat.cv.res.splits.table3 <- as.data.frame(stat.cv.res.splits.table$Prediction %>% group_by(Taxon, SiteId) %>% summarise(Likelihood  = mean(Likelihood , na.rm = T), Pred = mean(Pred, na.rm = T)))
-            return(list("Performance" = stat.cv.res.splits.table2, "Prediction" = stat.cv.res.splits.table3))  
-        })
-        
-        for(n in 1:length(stat.outputs)){
-            #n = 1
-            temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
-            
-            for(j in 1:length(list.taxa)){
+              #split <- models[[3]]
+              temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
+              
+              for(j in 1:length(list.taxa)){
                 #j = 1
+                dev.temp <- split[[2]]$deviance
+                dev.temp <- dev.temp[c("Taxon", "Type", "std.deviance")]
+                dev.temp <- subset(dev.temp, Taxon == list.taxa[[j]])
+                dev.temp.train <- subset(dev.temp, Type == "Training")
+                dev.temp.test <- subset(dev.temp, Type == "Testing")
                 
-                temp.dat.dev <- subset(stat.cv.res[[n]]$Performance, Taxon == list.taxa[[j]])
-                temp.dat.pred <- subset(stat.cv.res[[n]]$Prediction, Taxon == list.taxa[[j]])
                 
-                temp.list.st.dev[[j]]$Performance <- temp.dat.dev
-                temp.list.st.dev[[j]]$Prediction <- temp.dat.pred
+                dev.temp.train$Performance.train <- as.numeric(dev.temp.train$std.deviance)
+                dev.temp.test$Performance.test <- as.numeric(dev.temp.test$std.deviance)
+
+                prop.temp <- split[[2]]$probability
+                prop.temp <- subset(prop.temp, Taxon == list.taxa[[j]])
+                prop.temp.train <- subset(prop.temp, Type == "Training")
+                prop.temp.test <- subset(prop.temp, Type == "Testing")
                 
-                #names(temp.list.st.dev[[2]]) <- "Performance testing set"
-                #temp.dat.prop <- subset(stat.outputs$Split1[[2]]$probability, Type == "Testing")
-                #temp.dat.prop$Likelihood  <- ifelse(temp.dat.prop$Obs == 1, temp.dat.prop$Pred, 1 - temp.dat.prop$Pred)
+                prop.temp.train$Likelihood.train <- ifelse(prop.temp.train$Obs == 1, prop.temp.train$Pred, 1 - prop.temp.train$Pred)
+                prop.temp.test$Likelihood.test <- ifelse(prop.temp.test$Obs == 1, prop.temp.test$Pred, 1 - prop.temp.test$Pred)
                 
-                #temp.list.st.dev[[1]] <- list("Performance" = temp.dat.dev$Performance)
                 
-            }
-            names(temp.list.st.dev) <-  list.taxa
-            stat.output.list[[n]] <- temp.list.st.dev
+                temp.list.st.dev[[j]] <- list("Prediction factors training set" = ifelse(prop.temp.train$Pred >= 0.5,"present","absent"),
+                                              "Prediction probabilities training set" = data.frame("present" = prop.temp.train$Pred, "absent" = 1 - prop.temp.train$Pred),
+                                              "Likelihood training set" = prop.temp.train$Likelihood.train,
+                                              "Performance training set" = dev.temp.train$Performance.train,
+                                              
+                                              "Prediction factors testing set" = ifelse(prop.temp.test$Pred >= 0.5,"present","absent"),
+                                              "Prediction probabilities testing set" = data.frame("present" = prop.temp.test$Pred,"absent" = 1 - prop.temp.test$Pred),
+                                              "Likelihood testing set" = prop.temp.test$Likelihood.test,
+                                              "Performance testing set" = dev.temp.test$Performance.test
+                                              )
+                
+                
+                
+                }
+                names(temp.list.st.dev) <-  list.taxa
+                return(temp.list.st.dev)})
+            return(stat.cv.res.splits)
+            })
+            #JW: I LEAVE THIS STUFF IN RIGHT NOW FOR IDEAS BUT CAN BE DELETED LATER
+            #bind rows for all three splits
+            #stat.cv.res.splits[[1]]$Performance$Split <- 1
+            #stat.cv.res.splits[[1]]$Prediction$Split <- 1
             
-        }
-        names(stat.output.list) <- names(stat.outputs)
-    }
+            #stat.cv.res.splits.table <- stat.cv.res.splits[[1]]
+            
+            # for(i in 2:length(stat.cv.res.splits)){
+            #     # i = 2
+            #     stat.cv.res.splits[[i]]$Performance$Split <- i
+            #     stat.cv.res.splits[[i]]$Prediction$Split <- i
+            #     
+            #     stat.cv.res.splits.table$Performance <- rbind(stat.cv.res.splits.table$Performance, stat.cv.res.splits[[i]]$Performance)
+            #     stat.cv.res.splits.table$Prediction <- rbind(stat.cv.res.splits.table$Prediction, stat.cv.res.splits[[i]]$Prediction)
+            # }
+            # stat.cv.res.splits.table2 <- as.data.frame(stat.cv.res.splits.table$Performance %>% group_by(Taxon) %>% summarise(Performance = mean(std.deviance, na.rm = T)))
+            # stat.cv.res.splits.table3 <- as.data.frame(stat.cv.res.splits.table$Prediction %>% group_by(Taxon, SiteId) %>% summarise(Likelihood  = mean(Likelihood , na.rm = T), Pred = mean(Pred, na.rm = T)))
+            #return(list("Performance" = stat.cv.res.splits.table2, "Prediction" = stat.cv.res.splits.table3))
+            #return(stat.cv.res.splits)
+        #})
+    #     
+    #     for(n in 1:length(stat.outputs)){
+    #         #n = 1
+    #         temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
+    #         
+    #         for(j in 1:length(list.taxa)){
+    #             #j = 1
+    #             
+    #             temp.dat.dev <- subset(stat.cv.res[[n]]$Performance, Taxon == list.taxa[[j]])
+    #             temp.dat.pred <- subset(stat.cv.res[[n]]$Prediction, Taxon == list.taxa[[j]])
+    #             
+    #             temp.list.st.dev[[j]]$Performance <- temp.dat.dev
+    #             temp.list.st.dev[[j]]$Prediction <- temp.dat.pred
+    #             
+    #             #names(temp.list.st.dev[[2]]) <- "Performance testing set"
+    #             #temp.dat.prop <- subset(stat.outputs$Split1[[2]]$probability, Type == "Testing")
+    #             #temp.dat.prop$Likelihood  <- ifelse(temp.dat.prop$Obs == 1, temp.dat.prop$Pred, 1 - temp.dat.prop$Pred)
+    #             
+    #             #temp.list.st.dev[[1]] <- list("Performance" = temp.dat.dev$Performance)
+    #             
+    #         }
+    #         names(temp.list.st.dev) <-  list.taxa
+    #         stat.output.list[[n]] <- temp.list.st.dev
+    #         
+    #     }
+    #     names(stat.output.list) <- names(stat.outputs)
+    # }
     
     # #plot traceplots
     # # res <- stat.outputs[[1]][[1]]
@@ -508,6 +570,142 @@ transfrom.stat.outputs <- function(CV, stat.outputs){
     #   return(tmp_dev_test)
     # })
     # 
-    return(stat.output.list)
-    
+    #return(stat.output.list)
+    return(stat.cv.res)
+    }
 }
+
+make.final.outputs.cv <- function(outputs.cv, list.models, list.taxa){
+    
+    outputs <- vector(mode = "list", length = length(list.models))
+    names(outputs) <- list.models
+    
+    out <- c("Observation", #1
+             "Prediction factors", #2 
+             "Prediction probabilities", #3 
+             "Likelihood", #4
+             "Performance", #5
+             "Performance splits") #6
+    output.names <- paste(out, "testing set")
+    
+    for (l in list.models){
+        
+        temp.list.taxa <- vector(mode = "list", length = length(list.taxa))
+        names(temp.list.taxa) <- list.taxa
+
+        for(j in list.taxa){
+            
+            temp.output <- vector(mode = "list", length = length(output.names))
+            names(temp.output) <- output.names
+            
+            for (m in output.names[3]) {
+                temp.output[[m]] <- bind_rows(outputs.cv[[1]][[l]][[j]][[m]],
+                                              outputs.cv[[2]][[l]][[j]][[m]],
+                                              outputs.cv[[3]][[l]][[j]][[m]], .id = "Split")
+            }
+            for (m in output.names[c(2,4)]) {
+                temp.output[[m]] <- c(outputs.cv[[1]][[l]][[j]][[m]],
+                                      outputs.cv[[2]][[l]][[j]][[m]],
+                                      outputs.cv[[3]][[l]][[j]][[m]])
+            }
+            
+            temp.vect <- vector(mode ="numeric", length = length(outputs.cv)) 
+            names(temp.vect) <- names(outputs.cv)
+            for (n in 1:length(outputs.cv)) {
+                #n = 1
+                perf <- outputs.cv[[n]][[l]][[j]][["Performance testing set"]]
+                temp.vect[n] <- ifelse(is.numeric(perf), perf, NA)
+            }
+            temp.output[[5]] <- mean(temp.vect, na.rm = T)
+            temp.output[[6]] <- temp.vect
+            
+            temp.list.taxa[[j]] <- temp.output
+        }
+        outputs[[l]] <- temp.list.taxa
+    }
+    return(outputs)
+}
+
+make.df.outputs <- function(outputs, list.models, list.taxa, 
+                            list.splits = c("Split1", "Split2", "Split3"), null.model, prev.inv, CV){
+    
+    if(CV){
+        outputs.cv <- outputs
+        no.splits <- length(list.splits)
+        no.taxa <- length(list.taxa)
+        
+        # make table with perf for each split
+        df.perf.cv <- data.frame(matrix(nrow = no.taxa, ncol = no.splits*no.models))
+        colnames(df.perf.cv) <- apply(expand.grid(list.splits,list.models), 1, paste, collapse="_")
+        df.perf.cv$Taxa <- list.taxa
+
+        for (s in list.splits) {
+            for (l in list.models) {
+                list.taxa.temp <- names(outputs.cv[[s]][[l]])
+                for (j in list.taxa.temp) {
+                    rind.taxa <- which(df.perf.cv$Taxa == j)
+                    perf <- outputs.cv[[s]][[l]][[j]][["Performance testing set"]]
+                    df.perf.cv[rind.taxa,paste(s,l, sep="_")] <- ifelse(is.numeric(perf), perf, NA)
+                }
+            }
+        }
+    }
+    
+    # make table with mean perf across splits
+    df.perf <- data.frame(matrix(nrow = no.taxa, ncol = no.models))
+    colnames(df.perf) <- list.models
+    df.perf$Taxa <- list.taxa
+    df.perf$Prevalence <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Prevalence"]
+    df.perf[, "Taxonomic level"] <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Taxonomic.level"]
+    df.perf[,"Null model"] <- NA
+    expl.pow <- paste0("expl.pow_", list.models)
+    df.perf[,expl.pow] <- NA
+    
+    for (j in list.taxa) {
+        rind.taxa <- which(df.perf$Taxa == j)
+        df.perf[rind.taxa, "Null model"] <- null.model[[j]][["Performance"]]
+        for(l in list.models){
+            if(CV){
+                splits.model <- apply(expand.grid(list.splits,l), 1, paste, collapse="_")
+                mean.temp <- mean(as.matrix(df.perf.cv[rind.taxa, splits.model]), na.rm = T)
+                df.perf[rind.taxa,l] <- mean.temp
+            } else {
+                df.perf[rind.taxa,l] <- outputs[[l]][[j]][["Performance training set"]]
+            }
+            val.expl.pow <- null.model[[j]][["Performance"]] - mean.temp / null.model[[j]][["Performance"]]
+            df.perf[rind.taxa, paste0("expl.pow_",l)] <- val.expl.pow
+        }
+    }
+    
+    if(CV){
+        result <- list("Table performance CV" = df.perf.cv, "Table performance" = df.perf)
+    } else {
+        result <- df.perf
+    }
+    
+    return(result)
+}
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
