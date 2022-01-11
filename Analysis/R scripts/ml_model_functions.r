@@ -40,7 +40,7 @@ stand.dev <- function(data, lev = c("present","absent"), model = NULL){
     likeli[which(data$obs == lev[1])] <- data[which(data$obs == lev[1]), lev[1]]
     likeli[which(data$obs == lev[2])] <- data[which(data$obs == lev[2]), lev[2]]
     
-    likeli[which(likeli < 0.01)] <- 0.01
+    likeli[which(likeli < 0.1)] <- 0.1
     
     st.dev <- -2 * sum(log(likeli)) / no.obs
     names(st.dev) <- "StandardizedDeviance"
