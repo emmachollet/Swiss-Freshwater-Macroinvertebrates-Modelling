@@ -25,7 +25,7 @@ if ( !require("splitTools") ) { install.packages("splitTools"); library("splitTo
 
 # Plots
 if ( !require("ggplot2") ) { install.packages("ggplot2"); library("ggplot2") } # to do nice plots
-#if ( !require("ggpubr") ) { install.packages("ggpubr"); library("ggpubr") } # to arrange multiple plots on a page
+if ( !require("ggpubr") ) { install.packages("ggpubr"); library("ggpubr") } # to arrange multiple plots on a page
 if ( !require("gridExtra") ) { install.packages("gridExtra"); library("gridExtra") } # to arrange multiple plots on a page
 if ( !require("cowplot") ) { install.packages("cowplot"); library("cowplot") } # to arrange multiple plots on a page
 if ( !require("pdp") ) { install.packages("pdp"); library("pdp") } # to plot partial dependance plots
@@ -34,7 +34,7 @@ if ( !require("plot.matrix") ) { install.packages("plot.matrix"); library("plot.
 if ( !require("viridis")) {install.packages("viridis", repos="http://cloud.r-project.org"); library("viridis")} # to do even nicer plots
 #if ( !require("sf") ) { install.packages("sf"); library("sf") } # to read layers for map
 if ( !require("scales") ) { install.packages("scales"); library("scales") } # to look at colors
-if ( !require("reshape2") ) { install.packages("reshape2"); library("reshape2") } # to reshape 
+if ( !require("reshape2") ) { install.packages("reshape2"); library("reshape2") } # to reshape dataframes
 
 # Stat model
 if ( !require("rstan") ) { install.packages("rstan"); library("rstan") } # to read layers for map
@@ -94,7 +94,7 @@ source("utilities.r")
 
 # Set if we want to fit models to whole dataset or perform cross-validation (CV)
 CV <- T # Cross-Validation
-dl <- F # Data Leakage
+dl <- T # Data Leakage
 
 # Set number of cores
 n.cores.splits <-  1 # a core for each split, 3 in our case
@@ -102,7 +102,7 @@ n.cores.stat.models <- 1 # a core for each stat model 2 in our case (UF0, and CF
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
 # also make sure the cross-validation (CV) flag is set correctly
-sampsize <- 1000 #10000 #I think this needs to be an even number for some reason (stan error)
+sampsize <- 8 #10000 #I think this needs to be an even number for some reason (stan error)
 n.chain  <- 2 #2
 
 # Select taxa
@@ -150,6 +150,14 @@ list.taxa <- list.taxa[order(match(list.taxa, prev.inv$Occurrence.taxa))] # reor
 centered.data <- prepro.data$centered.data
 centered.data.factors <- prepro.data$centered.data.factors
 normalization.data <- prepro.data$normalization.data
+
+# check normalization
+# mean(centered.data$Split1$`Training data`$temperature)
+# mean(centered.data$Split1$`Testing data`$temperature)
+# 
+# mean(centered.data$Split2$`Training data`$temperature)
+# mean(centered.data$Split2$`Testing data`$temperature)
+# 
 
 remove(prepro.data)
 
@@ -210,7 +218,7 @@ ptm <- proc.time() # to calculate time of simulation
 
 comm.corr.options <- c(T,F)
 names(comm.corr.options) <- c("CF0", "UF0")
-stat.outputs <- mclapply(comm.corr.options, mc.cores = 1, function(comm.corr){
+stat.outputs <- mclapply(comm.corr.options, mc.cores = n.cores.stat.models, function(comm.corr){
   
   #comm.corr <- comm.corr.options[[1]]
   info.file.stat.name <- paste0("Stat_model_",
@@ -219,9 +227,8 @@ stat.outputs <- mclapply(comm.corr.options, mc.cores = 1, function(comm.corr){
                                 sampsize,"iterations_",
                                 ifelse(comm.corr,"CF0_","UF0_"),
                                 ifelse(CV, "CV_", "FIT_"),
-                                # else(dl, "DL_", "no_DL_"),
-                                "no_DL_") # for now with just apply it without DL
-  
+                                ifelse(dl, "DL_", "no_DL_"))
+                                
   file.name <- paste0(dir.models.output, info.file.stat.name, ".rds")
   cat(file.name)
   
@@ -242,7 +249,7 @@ stat.outputs <- mclapply(comm.corr.options, mc.cores = 1, function(comm.corr){
       
       if(CV == T){
   
-        stat.output <- mclapply(centered.splits, mc.cores = 1, FUN = stat_mod_cv, CV, comm.corr, sampsize, n.chain)
+        stat.output <- mclapply(centered.data, mc.cores = n.cores.splits, FUN = stat_mod_cv, CV, comm.corr, sampsize, n.chain)
         
         cat("Saving output of statistical models in", file.name)
         saveRDS(stat.output, file = file.name, version = 2) #version two here is to ensure compatibility across R versions
@@ -280,7 +287,9 @@ info.file.ml.name <-  paste0("ML_model_",
                              ifelse(CV, "CV_", "FIT_"),
                              ifelse(dl, "DL_", "no_DL_"))
 
+#JW: is this even still needed?
 file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
+#file.name.temp <- paste0(dir.models.output, "ML_model_All_2algo_2taxa_CV_no_DL_.rds")
 cat(file.name)
 
 # If the file with the outputs already exist we read it, else we run the algorithms
@@ -353,8 +362,8 @@ if(CV){
         print(l)
         list.taxa.temp <- names(ml.outputs[[l]])
         for (j in list.taxa.temp) {
-            perf <- ml.outputs[[l]][[j]][["Performance testing set"]]
-            ml.outputs[[l]][[j]][["Performance testing set"]] <- ifelse(perf > 1.5, Inf, perf)
+            perf <- ml.outputs[[l]][[j]][["Performance training set"]]
+            ml.outputs[[l]][[j]][["Performance training set"]] <- ifelse(perf > 1.5, Inf, perf)
         }
     }
 }
@@ -373,9 +382,13 @@ if(!server){
 # list.ann.files <- list.files(path = dir.models.output)
 # file.name.temp <- paste0(dir.models.output, list.ann.files[which(grepl(info1, list.ann.files) & grepl(info2, list.ann.files))])
 
-file.name <- paste0(dir.models.output, "ANN_model_All_3ann_126taxa_CV_no_DL_.rds")
-if(CV){ ann.outputs.cv <- readRDS(file = file.name)
-} else {ann.outputs <- readRDS(file = file.name) }
+if(CV){ 
+    file.name <- paste0(dir.models.output, "ANN_model_All_3ann_126taxa_CV_no_DL_.rds")
+    ann.outputs.cv <- readRDS(file = file.name)
+} else {
+    file.name <- paste0(dir.models.output, "ANN_model_All_3ann_126taxa_FIT_no_DL_.rds")
+    ann.outputs <- readRDS(file = file.name) 
+    }
 
 # Make vector neural networks
 list.ann <- if(CV){names(ann.outputs.cv[[1]])} else {names(ann.outputs)}
@@ -418,11 +431,19 @@ if(CV){
     # Make final outputs as tables
     df.cv <- make.df.outputs(outputs = outputs.cv, list.models = list.models, 
                                  list.taxa = list.taxa, list.splits = list.splits,
-                                 null.model = null.model, prev.inv = prev.inv, CV)
+                                 null.model = null.model, prev.inv = prev.inv, CV = CV)
     df.perf.cv <- df.cv$`Table performance CV`
     df.perf <- df.cv$`Table performance`
     remove(df.cv)
-}
+} else {
+    # Make final outputs as list
+    outputs <- append(append(ml.outputs, stat.outputs.transformed), ann.outputs)
+    
+    # Make final outputs as tables
+    df.perf <- make.df.outputs(outputs = outputs, list.models = list.models, 
+                             list.taxa = list.taxa, list.splits = list.splits,
+                             null.model = null.model, prev.inv = prev.inv, CV = CV)
+    }
 
 ## ---- PLOTS ----
 source("utilities.r")
@@ -430,6 +451,15 @@ source("ml_model_functions.r")
 source("plot_functions.r")
 # rm(list=ls())
 # graphics.off()
+
+# Stat model traceplots ####
+
+# res <- stat.outputs[[1]][[1]][[1]]
+# res.extracted   <- rstan::extract(res,permuted=TRUE,inc_warmup=FALSE)
+#  
+# print(traceplot(res,pars=c(names(res)[100:132],"lp__")))
+# 
+# print(traceplot(res))
 
 # Models comparison ####
 
@@ -439,7 +469,7 @@ if(CV){
         list.plots <- plot.df.perf(df.perf = df.perf, list.models = list.models, list.taxa = list.taxa, CV)
         list.plots <- append(list.plots.cv, list.plots)
     } else {
-        list.plots <- HEYHEY
+        list.plots <- plot.df.perf(df.perf = df.perf, list.models = list.models, list.taxa = list.taxa, CV)
 }
 
 name <- "TablesPerf"
@@ -448,7 +478,6 @@ print.pdf.plots(list.plots = list.plots, width = 12, dir.output = dir.plots.outp
 
 # Performance against prevalence and boxplots
 list.plots <- model.comparison(df.perf = df.perf, list.models = list.models, CV = CV)
-
 name <- "ModelsCompar"
 file.name <- paste0(name, ".pdf")
 print.pdf.plots(list.plots = list.plots, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
@@ -459,7 +488,7 @@ print.pdf.plots(list.plots = list.plots, width = 12, height = 9, dir.output = di
 # print(list.plots[[1]])
 # dev.off()
 
-# Plots specifically related to trained models
+# Plots specifically related to trained models (and not to CV)
 
 if(!CV){
     
@@ -472,8 +501,9 @@ if(!CV){
     # Print a pdf file
     name <- "PerfvsHyperparam"
     file.name <- paste0(name, ".pdf")
-    print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-    
+    if( file.exists(paste0(dir.plots.output, info.file.name, file.name)) == F ){ # produce pdf only if it doesn't exist yet (takes too much time)
+        print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+    }
     # # Print a jpeg file
     # file.name <- paste0(name, ".jpg")
     # jpeg(paste0(dir.plots.output,"JPEG/",info.file.name,file.name))
@@ -486,17 +516,33 @@ if(!CV){
     
     name <- "VarImp"
     file.name <- paste0(name, ".pdf")
-    print.pdf.plots(list.plots = list.plots, width = 10, height = 10, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-    
+    if( file.exists(paste0(dir.plots.output, info.file.name, file.name)) == F ){ # produce pdf only if it doesn't exist yet (takes too much time)
+        print.pdf.plots(list.plots = list.plots, width = 10, height = 10, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+    }
     # # Print a jpeg file
     # file.name <- paste0(name, ".jpg")
     # jpeg(paste0(dir.plots.output,"JPEG/",info.file.name,file.name))
     # print(list.plots[[1]])
     # dev.off()
 
+    # ICE Manual ####
+    
+    list.list.plots <- lapply(list.taxa, FUN= plot.ice.per.taxa, outputs, list.algo, env.fact, normalization.data)
+    
+    for (j in list.taxa) {
+        taxon <- sub("Occurrence.", "", j)
+        file.name <- paste0("ICE_", taxon, ".pdf")
+        print.pdf.plots(list.plots = list.list.plots[[j]], width = 20, height = 20, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+    }
+    # file.name <- "testICE.pdf"
+    # pdf(paste0(dir.plots.output, info.file.name, file.name), paper = 'special', width = 20, # height = height, 
+    #     onefile = TRUE)
+    # print(q)
+    # dev.off()
+    
     # PDP ####
     
-    source("plot_functions.r")
+    # source("plot_functions.r")
     
     ptm <- proc.time() # to calculate time of simulation
     

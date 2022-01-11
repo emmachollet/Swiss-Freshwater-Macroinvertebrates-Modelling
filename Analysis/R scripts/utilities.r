@@ -173,13 +173,26 @@ center.data <- function(data, split, CV, dl, mean.dl, sd.dl, env.fact.full){
     sd(k, na.rm = TRUE)
   })
   
+  if(dl == T){
+    
     for(env in env.names){
-    training.data[env] <- training.data[env] -  mean.env.cond[env]
+      training.data[env] <- training.data[env] -  mean.dl[env]
     }
-  
+    
+    for(env in env.names){
+      training.data[env] <- training.data[env] / sd.dl[env]
+    }
+    
+  }else{
+    
+    for(env in env.names){
+      training.data[env] <- training.data[env] -  mean.env.cond[env]
+    }
+    
     for(env in env.names){
       training.data[env] <- training.data[env] / sd.env.cond[env]
     }
+  }
 
   if(CV == F){
     return(list( "Entire dataset" = training.data))
@@ -429,7 +442,7 @@ transfrom.stat.outputs <- function(CV, stat.outputs){
         
         # for(n in 1:length(stat.outputs)){
         #     #n = 1
-        #     # :) REM dangerous to use list.taxa in the function without declaring it  ####
+        #     # ECR: Maybe later fix that environment variables used here (like list.taxa) are also declared in the function  ####
         #     # JW you are right, I'm not quite sure yet what to do about this yet
         #     temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
         #     
@@ -669,10 +682,12 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
                 splits.model <- apply(expand.grid(list.splits,l), 1, paste, collapse="_")
                 mean.temp <- mean(as.matrix(df.perf.cv[rind.taxa, splits.model]), na.rm = T)
                 df.perf[rind.taxa,l] <- mean.temp
+                val.expl.pow <- null.model[[j]][["Performance"]] - mean.temp / null.model[[j]][["Performance"]]
             } else {
-                df.perf[rind.taxa,l] <- outputs[[l]][[j]][["Performance training set"]]
+                perf <- outputs[[l]][[j]][["Performance training set"]]
+                df.perf[rind.taxa,l] <- perf
+                val.expl.pow <- null.model[[j]][["Performance"]] - perf / null.model[[j]][["Performance"]]
             }
-            val.expl.pow <- null.model[[j]][["Performance"]] - mean.temp / null.model[[j]][["Performance"]]
             df.perf[rind.taxa, paste0("expl.pow_",l)] <- val.expl.pow
         }
     }
