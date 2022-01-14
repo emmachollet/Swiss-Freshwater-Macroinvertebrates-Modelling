@@ -93,7 +93,7 @@ source("utilities.r")
 # Setup options ####
 
 # Set if we want to fit models to whole dataset or perform cross-validation (CV)
-CV <- F # Cross-Validation
+CV <- T # Cross-Validation
 dl <- F # Data Leakage
 
 # Set number of cores
@@ -135,10 +135,6 @@ env.fact.full <- c(env.fact,
 no.env.fact <- length(env.fact)
 
 # Preprocess data ####
-
-# ECR: We need to discuss taxa selection (removing NAs reduce their number) ####
-# JW: THERE IS ALSO ONE MORE SPECIES THAT GETS DROPPED IN THE CENTERING (ENDS UP AT 126 rather tha 127, move to
-#data prep as well)
 
 prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv, 
                                  env.fact.full = env.fact.full, dir.workspace = dir.workspace, 

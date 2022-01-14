@@ -4,7 +4,8 @@ Analysis/Intermediate results/Trained models/*
 Data/Original data/*
 ~$*
 *.docx
-Analysis/Plots/*
+Analysis/Plots/Explorative plots/*
+Analysis/Plots/Models analysis plots/*
 Documents/*
 *.stan
 *_nolatvar.rds
