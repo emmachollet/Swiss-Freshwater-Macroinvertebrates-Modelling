@@ -467,7 +467,7 @@ plot.ice.per.taxa <- function(taxa, outputs, list.algo, env.fact, normalization.
         }
         
         title <- paste("ICE of", taxa, "for", k)
-        q <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title, ncol = 2))
+        q <- grid.arrange(grobs = temp.list.plots, ncol = 2)
         list.plots[[k]] <- q
     }
 }
