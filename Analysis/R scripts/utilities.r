@@ -646,6 +646,7 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
         outputs.cv <- outputs
         no.splits <- length(list.splits)
         no.taxa <- length(list.taxa)
+        no.models <- length(list.models)
         
         # make table with perf for each split
         df.perf.cv <- data.frame(matrix(nrow = no.taxa, ncol = no.splits*no.models))
