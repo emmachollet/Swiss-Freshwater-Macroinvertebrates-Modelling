@@ -94,7 +94,7 @@ source("utilities.r")
 
 # Set if we want to fit models to whole dataset or perform cross-validation (CV)
 CV <- T # Cross-Validation
-dl <- T # Data Leakage
+dl <- F # Data Leakage
 
 # Set number of cores
 n.cores.splits <-  1 # a core for each split, 3 in our case
@@ -102,11 +102,11 @@ n.cores.stat.models <- 1 # a core for each stat model 2 in our case (UF0, and CF
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
 # also make sure the cross-validation (CV) flag is set correctly
-sampsize <- 8 #10000 #I think this needs to be an even number for some reason (stan error)
+sampsize <- 2000 #10000 #I think this needs to be an even number for some reason (stan error)
 n.chain  <- 2 #2
 
 # Select taxa
-all.taxa <- T
+all.taxa <- F
 # set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
 # set to TRUE to apply models to all taxa
 
@@ -135,10 +135,6 @@ env.fact.full <- c(env.fact,
 no.env.fact <- length(env.fact)
 
 # Preprocess data ####
-
-# ECR: We need to discuss taxa selection (removing NAs reduce their number) ####
-# JW: THERE IS ALSO ONE MORE SPECIES THAT GETS DROPPED IN THE CENTERING (ENDS UP AT 126 rather tha 127, move to
-#data prep as well)
 
 prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv, 
                                  env.fact.full = env.fact.full, dir.workspace = dir.workspace, 
@@ -283,27 +279,19 @@ ptm <- proc.time() # to calculate time of simulation
 info.file.ml.name <-  paste0("ML_model_",
                              file.prefix, 
                              no.algo, "algo_",
-                             no.taxa, "taxa_", 
+                             no.taxa.full, "taxa_", 
                              ifelse(CV, "CV_", "FIT_"),
                              ifelse(dl, "DL_", "no_DL_"))
 
-#JW: is this even still needed?
 file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
-#file.name.temp <- paste0(dir.models.output, "ML_model_All_2algo_2taxa_CV_no_DL_.rds")
 cat(file.name)
 
-# If the file with the outputs already exist we read it, else we run the algorithms
-info1 <- paste0(file.prefix, no.algo, "algo_")
-info2 <- paste0(ifelse(CV, "CV_", "FIT_"), ifelse(dl, "DL_", "no_DL_"))
-list.ml.files <- list.files(path = dir.models.output)
-file.name.temp <- paste0(dir.models.output, list.ml.files[which(grepl(info1, list.ml.files) & grepl(info2, list.ml.files))])
-
-if( file.exists(file.name.temp) == T ){
+if( file.exists(file.name) == T ){
     # & askYesNo(paste("Another file named", file.name.temp, "already exists. Should we read it and subselect taxa later ? If no, we run the algorithms for selected information."), default = T) ){
 
-    cat("Reading", file.name.temp, "and saving it in object 'ml.outputs.fit'")
-    if(CV){ ml.outputs.cv <- readRDS(file = file.name.temp)
-    } else { ml.outputs <- readRDS(file = file.name.temp) }
+    cat("Reading", file.name, "and saving it in object 'ml.outputs.fit'")
+    if(CV){ ml.outputs.cv <- readRDS(file = file.name)
+    } else { ml.outputs <- readRDS(file = file.name) }
 
     } else {
 
@@ -336,7 +324,6 @@ if( file.exists(file.name.temp) == T ){
 }
 # }
 
-remove(info1, info2, list.ml.files, file.name.temp)
 
 # Write down the number of splits and their names
 if(CV){

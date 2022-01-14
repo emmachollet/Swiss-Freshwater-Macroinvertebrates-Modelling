@@ -230,12 +230,12 @@ center.data <- function(data, split, CV, dl, mean.dl, sd.dl, env.fact.full){
 
 preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, BDM, dl, CV){
     
-    # Drop columns with (taxa with) too many NAs
+    # Drop taxa with too many NAs
     too.many.na <- c()
     for(i in 1:dim(data.inv)[2]){
         if(sum(is.na(data.inv[,i])) > 200){ too.many.na <- c(too.many.na, i)}
     }
-    cat("\nThe following", length(too.many.na), "taxa are excluded because too many missing information:", colnames(data.inv)[too.many.na], "\n")
+    cat("\nThe following", length(too.many.na), "taxa are excluded because too many missing information:\n", colnames(data.inv)[too.many.na], "\n")
     data.inv <- data.inv[, -too.many.na]
     
     # Merge data sets
@@ -249,15 +249,18 @@ preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, BD
     rind <- ifelse(is.na(rind), FALSE, rind)
     cat(paste("\n", sum(!rind),"sites/samples excluded because of incomplete taxa or influence factors.\n"))
     data <- data[rind,]
+    dim(data)
     
     # Delete taxa with only presence or absence (happens because we deleted rows)
+    # Delete taxa with less than 5% of only present or absent
     cind.taxa <- which(grepl("Occurrence.",colnames(data)))
     no.samples <- nrow(data)
+    five.perc <- 0.05*no.samples
     cind.rem <- c()
     for (j in cind.taxa) {
-        if(sum(data[,j]) == 0 | sum(data[,j]) == no.samples){ cind.rem <- c(cind.rem, j) }
+        if(sum(data[,j]) < five.perc | sum(data[,j]) > no.samples - five.perc){ cind.rem <- c(cind.rem, j) }
     }
-    cat("\nThe following", length(cind.rem), "taxa are excluded because only present or absent after preprocessing:", colnames(data)[cind.rem], "\n")
+    cat("\nThe following", length(cind.rem), "taxa are excluded because they are only present (or absent) in less than 5% of samples:\n", colnames(data)[cind.rem], "\n")
     data <- data[,-cind.rem]
     dim(data)
     
