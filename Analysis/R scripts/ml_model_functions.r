@@ -40,7 +40,7 @@ stand.dev <- function(data, lev = c("present","absent"), model = NULL){
     likeli[which(data$obs == lev[1])] <- data[which(data$obs == lev[1]), lev[1]]
     likeli[which(data$obs == lev[2])] <- data[which(data$obs == lev[2]), lev[2]]
     
-    likeli[which(likeli < 0.1)] <- 0.1
+    likeli[which(likeli < 0.01)] <- 0.01
     
     st.dev <- -2 * sum(log(likeli)) / no.obs
     names(st.dev) <- "StandardizedDeviance"
@@ -116,24 +116,26 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
             set.seed(2021) # for reproducibility of the folds
             
             folds <- groupKFold(temp.train$SiteId, 3) # create 3 folds, grouped by SiteId
-            bal1 <- summary(temp.train[folds$Fold1, list.taxa[j]])
-            bal2 <- summary(temp.train[folds$Fold2, list.taxa[j]])
-            bal3 <- summary(temp.train[folds$Fold3, list.taxa[j]])
-            bal.all <- bind_rows(bal1, bal2, bal3, .id = "Fold")
             
-            any(bal.all == 0)
-            if( any(bal.all == 0) & grepl("svm", algorithm) ){
-            
-                cat("During training, classes are too unbalanced for the algorithm", algorithm,
-                "\nin fold 1:", summary(temp.train[folds$Fold1, list.taxa[j]]),
-                "\nin fold 2:", summary(temp.train[folds$Fold2, list.taxa[j]]),
-                "\nin fold 3:", summary(temp.train[folds$Fold3, list.taxa[j]]),
-                "\nWe apply Null model instead.", "\n")
-                
-                model <- "NULL_MODEL"
-                prev.taxa <- prev.inv[which(prev.inv[,"Occurrence.taxa"] == list.taxa[j]), "Prevalence"]
-                
-            } else {
+            # Things below were done because the folds were too unbalanced and we had to replace the svm by a NULL model
+            # bal1 <- summary(temp.train[folds$Fold1, list.taxa[j]])
+            # bal2 <- summary(temp.train[folds$Fold2, list.taxa[j]])
+            # bal3 <- summary(temp.train[folds$Fold3, list.taxa[j]])
+            # bal.all <- bind_rows(bal1, bal2, bal3, .id = "Fold")
+            # 
+            # any(bal.all == 0)
+            # if( any(bal.all == 0) & grepl("svm", algorithm) ){
+            # 
+            #     cat("During training, classes are too unbalanced for the algorithm", algorithm,
+            #     "\nin fold 1:", summary(temp.train[folds$Fold1, list.taxa[j]]),
+            #     "\nin fold 2:", summary(temp.train[folds$Fold2, list.taxa[j]]),
+            #     "\nin fold 3:", summary(temp.train[folds$Fold3, list.taxa[j]]),
+            #     "\nWe apply Null model instead.", "\n")
+            #     
+            #     model <- "NULL_MODEL"
+            #     prev.taxa <- prev.inv[which(prev.inv[,"Occurrence.taxa"] == list.taxa[j]), "Prevalence"]
+            #     
+            # } else {
                 
                 cat(paste("\nApplying", algorithm, "to", j, list.taxa[j], "\n"))
                 
@@ -153,7 +155,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                     selectionFunction = lowest       # we want to minimize the metric
                 )
                 
-                # Tried another training control to avoid unbalenced classes
+                # Tried another training control to avoid unbalanced classes
                 # train.control2 <- trainControl(
                 #     method = 'boot',                   # k-fold cross validation
                 #     number = 3,                      # number of folds
@@ -168,20 +170,22 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
             temp.list[["Trained model"]] <- model
             # temp.list[["Variable importance"]] <- varImp(model)
             
-            }
+            # }
             
             for(n in 1:length(which.set)){
                 # Observation
                 temp.list[[paste(out[1],which.set[n])]] <- temp.sets[[n]]
                 n.obs <- dim(temp.sets[[n]])[1]
                 # Prediction factors
-                temp.list[[paste(out[2],which.set[n])]] <- if(model[1] == "NULL_MODEL"){
-                    ifelse(prev.taxa > 0.5, rep("present", n.obs), rep("absent", n.obs))
-                } else { predict(model, temp.sets[[n]]) }
+                temp.list[[paste(out[2],which.set[n])]] <- predict(model, temp.sets[[n]])
+                #   if(model[1] == "NULL_MODEL"){
+                #     ifelse(prev.taxa > 0.5, rep("present", n.obs), rep("absent", n.obs))
+                # } else { predict(model, temp.sets[[n]]) }
                 # Prediction probabilities
-                temp.list[[paste(out[3],which.set[n])]] <- if(model[1] == "NULL_MODEL"){
-                    data.frame("absent" = rep(1-prev.taxa, n.obs), "present" = rep(prev.taxa, n.obs))
-                } else { predict(model, temp.sets[[n]], type = 'prob') }
+                temp.list[[paste(out[3],which.set[n])]] <- predict(model, temp.sets[[n]], type = 'prob')
+                #   if(model[1] == "NULL_MODEL"){
+                #     data.frame("absent" = rep(1-prev.taxa, n.obs), "present" = rep(prev.taxa, n.obs))
+                # } else { predict(model, temp.sets[[n]], type = 'prob') }
                 # Likelihood
                 likeli <- 1:nrow(temp.sets[[n]])
                 for(i in 1:nrow(temp.sets[[n]])){
@@ -191,6 +195,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                         likeli[i] <- temp.list[[paste(out[3],which.set[n])]][i, "absent"]
                     }
                 }
+                likeli[which(likeli < 0.01)] <- 0.01 # avoid problems when likelihood too small
                 temp.list[[paste(out[4],which.set[n])]] <- likeli
                 # Performance
                 temp.list[[paste(out[5],which.set[n])]] <- -2 * sum(log(likeli)) / nrow(temp.sets[[n]])
@@ -208,41 +213,11 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
     
     return(outputs)
 }
-# 
-# calc.stand.deviance <- function(likeli){
-#     
-#     return()
-#     
-# }
 
-apply.null.model <- function(data, list.taxa, prev.inv){
-    
-    # Make a list with the "outputs" of null model
-    list.outputs <- vector(mode = 'list', length = length(list.taxa))
-    names(list.outputs) <- list.taxa
-    
-    for (j in 1:length(list.taxa)){
-            
-        temp.output <- c("Likelihood", "Performance")
-        temp.list <- vector(mode = 'list', length = length(temp.output))
-        names(temp.list) <- temp.output
-        
-        no.pres <- sum(data[, list.taxa[j]] == 1, na.rm = TRUE)
-        no.abs  <- sum(data[, list.taxa[j]] == 0, na.rm = TRUE)
-        no.obs  <- no.pres + no.abs
-        prev    <- prev.inv[prev.inv$Occurrence.taxa == list.taxa[j],"Prevalence"]
-        likeli <- rep(c(prev, 1-prev),c(no.pres,no.abs))
-        temp.list[["Likelihood"]] <- likeli
-        
-        st.dev <- -2 * sum(log(likeli)) / no.obs
-        temp.list[["Performance"]] <- st.dev
-        
-        list.outputs[[j]] <- temp.list
-    }
-    return(list.outputs)
-}
 
-# from here should be useless ####
+
+
+# from here should be useless
 
 stand.deviance.null.model <- function(list.taxa, prev.inv, data.inv){
     

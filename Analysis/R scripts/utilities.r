@@ -403,6 +403,33 @@ preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, BD
     return(preprocessed.data)
 }
 
+# Apply NULL model
+apply.null.model <- function(data, list.taxa, prev.inv){
+  
+  # Make a list with the "outputs" of null model
+  list.outputs <- vector(mode = 'list', length = length(list.taxa))
+  names(list.outputs) <- list.taxa
+  
+  for (j in list.taxa){
+    
+    temp.output <- c("Likelihood", "Performance")
+    temp.list <- vector(mode = 'list', length = length(temp.output))
+    names(temp.list) <- temp.output
+    
+    no.pres <- sum(data[, j] == 1, na.rm = TRUE)
+    no.abs  <- sum(data[, j] == 0, na.rm = TRUE)
+    no.obs  <- no.pres + no.abs
+    prev    <- prev.inv[prev.inv$Occurrence.taxa == j,"Prevalence"]
+    likeli <- rep(c(prev, 1-prev),c(no.pres,no.abs))
+    temp.list[["Likelihood"]] <- likeli
+    
+    st.dev <- -2 * sum(log(likeli)) / no.obs
+    temp.list[["Performance"]] <- st.dev
+    
+    list.outputs[[j]] <- temp.list
+  }
+  return(list.outputs)
+}
 
 ## ---- Process output from stat models to fit structure of ml models (makes plotting easier)
 #JW: THE CODE IS QUITE UGLY AND DUPLICATE ATM BUT AT LEAST IT WORKS

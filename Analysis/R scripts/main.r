@@ -70,6 +70,24 @@ file.env.data     <- "environmental_data_2020-06-25.dat"
 file.inv.data     <- "occ_data_2020-06-25.dat"
 file.prev         <- "prevalence_2020-06-25.dat"
 
+# Setup options ####
+
+# Set if we want to run ANN models or not (and consequently load libraries)
+run.ann <- F
+
+if(run.ann){  
+  library("reticulate")
+  # install_miniconda()
+  # 
+  # install.packages("tensorflow")
+  library("tensorflow")
+  # install_tensorflow() # uncomment and run this line only when opening R
+  # 
+  # install.packages("keras")
+  library("keras")
+  # install_keras() # uncomment and run this line only when opening R
+  # use_condaenv()
+}
 
 # Set if we want to compute for the All or the BDM dataset
 BDM <- F
@@ -80,21 +98,13 @@ data.env          <- read.delim(paste0(dir.env.data, file.prefix, file.env.data)
 data.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.inv.data),header=T,sep="\t", stringsAsFactors=F)
 prev.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.prev),header=T,sep="\t", stringsAsFactors=F)
 
-# set date for file names
+# Set date for file names
 d <- Sys.Date()    # e.g. 2021-12-17
-
-# Load functions ####
-
-source("ml_model_functions.r")
-source("stat_model_functions.r")
-source("plot_functions.r")
-source("utilities.r")
-
-# Setup options ####
 
 # Set if we want to fit models to whole dataset or perform cross-validation (CV)
 CV <- T # Cross-Validation
 dl <- F # Data Leakage
+if(!CV){ dl <- F } # if it's only fitting, we don't need with or without dataleakage
 
 # Set number of cores
 n.cores.splits <-  1 # a core for each split, 3 in our case
@@ -106,12 +116,20 @@ sampsize <- 2000 #10000 #I think this needs to be an even number for some reason
 n.chain  <- 2 #2
 
 # Select taxa
-all.taxa <- F
+all.taxa <- T
 # set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
 # set to TRUE to apply models to all taxa
 
 # Run the script on the server
 server <- T
+
+# Load functions ####
+
+source("ml_model_functions.r")
+source("stat_model_functions.r")
+source("plot_functions.r")
+source("utilities.r")
+if(run.ann){ source("ann_model_functions.r")}
 
 ## ---- DATA WRANGLING  ----
 
@@ -180,7 +198,8 @@ if (all.taxa == F){
     list.taxa <- list.taxa.int
 }
 
-no.taxa.full <- length(list.taxa.full)
+no.taxa.full <- 126 # Ugly but temporary
+  # length(list.taxa.full)
 no.taxa.int <- length(list.taxa.int)
 no.taxa <- length(list.taxa)
 
@@ -279,7 +298,7 @@ ptm <- proc.time() # to calculate time of simulation
 info.file.ml.name <-  paste0("ML_model_",
                              file.prefix, 
                              no.algo, "algo_",
-                             no.taxa.full, "taxa_", 
+                             no.taxa, "taxa_", 
                              ifelse(CV, "CV_", "FIT_"),
                              ifelse(dl, "DL_", "no_DL_"))
 
@@ -289,7 +308,7 @@ cat(file.name)
 if( file.exists(file.name) == T ){
     # & askYesNo(paste("Another file named", file.name.temp, "already exists. Should we read it and subselect taxa later ? If no, we run the algorithms for selected information."), default = T) ){
 
-    cat("Reading", file.name, "and saving it in object 'ml.outputs.fit'")
+    cat("Reading", file.name, "and saving it in object 'ml.outputs'")
     if(CV){ ml.outputs.cv <- readRDS(file = file.name)
     } else { ml.outputs <- readRDS(file = file.name) }
 
@@ -338,21 +357,34 @@ if(CV){
         for (l in list.algo) {
             print(l)
             list.taxa.temp <- names(ml.outputs.cv[[s]][[l]])
+            cat(length(list.taxa.temp), "taxa for this algorithm\n")
             for (j in list.taxa.temp) {
-                    perf <- ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]]
-                    ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]] <- ifelse(perf > 1.5, Inf, perf)
+                    perf.test <- ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]]
+                    perf.train <- ml.outputs.cv[[s]][[l]][[j]][["Performance training set"]]
+                    
+                    if(perf.train > 1.5){
+                      cat(j, "has training performance bigger than 1.5", perf.train, "\n")
+                    }
+                    if(perf.test > 1.5){
+                      cat(j, "has testing performance bigger than 1.5", perf.test, "\n")
+                    }
+                    if(length(ml.outputs.cv[[s]][[l]][[j]][["Trained model"]]) == 1){
+                      ml.outputs.cv[[s]][[l]][[j]][["Trained model"]]
+                      cat("This model has NULL MODEL instead of trained algorithm\n")
+                    }
+                    # ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]] <- ifelse(perf > 1.5, Inf, perf)
                 }
         }
     }
 } else {
-    for (l in list.algo) {
-        print(l)
-        list.taxa.temp <- names(ml.outputs[[l]])
-        for (j in list.taxa.temp) {
-            perf <- ml.outputs[[l]][[j]][["Performance training set"]]
-            ml.outputs[[l]][[j]][["Performance training set"]] <- ifelse(perf > 1.5, Inf, perf)
-        }
-    }
+    # for (l in list.algo) {
+    #     print(l)
+    #     list.taxa.temp <- names(ml.outputs[[l]])
+    #     for (j in list.taxa.temp) {
+    #         perf <- ml.outputs[[l]][[j]][["Performance training set"]]
+    #         ml.outputs[[l]][[j]][["Performance training set"]] <- ifelse(perf > 1.5, Inf, perf)
+    #     }
+    # }
 }
 
 print(paste("Simulation time of different models ", info.file.ml.name))
@@ -370,7 +402,7 @@ if(!server){
 # file.name.temp <- paste0(dir.models.output, list.ann.files[which(grepl(info1, list.ann.files) & grepl(info2, list.ann.files))])
 
 if(CV){ 
-    file.name <- paste0(dir.models.output, "ANN_model_All_3ann_126taxa_CV_no_DL_.rds")
+    file.name <- paste0(dir.models.output, "ANN_model_All_16ann_126taxa_CV_no_DL_.rds")
     ann.outputs.cv <- readRDS(file = file.name)
 } else {
     file.name <- paste0(dir.models.output, "ANN_model_All_3ann_126taxa_FIT_no_DL_.rds")
@@ -379,7 +411,10 @@ if(CV){
 
 # Make vector neural networks
 list.ann <- if(CV){names(ann.outputs.cv[[1]])} else {names(ann.outputs)}
-names(list.ann) <- c("#A1491A", "#C46634", "#DF895A")
+no.ann <- length(list.ann)
+names(list.ann) <- rainbow(no.ann)
+  # c("#A1491A", "#C46634", "#DF895A")
+
 
 # Merge outputs ####
 
