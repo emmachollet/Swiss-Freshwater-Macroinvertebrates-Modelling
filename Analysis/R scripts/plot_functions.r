@@ -205,6 +205,8 @@ plot.df.perf <- function(df.perf, list.models, list.taxa, CV){
     
 }
 
+
+
 # Compare models
 model.comparison <- function(df.perf, list.models, CV){
     
@@ -258,6 +260,38 @@ model.comparison <- function(df.perf, list.models, CV){
     return(list(p1,p3))
     
 }
+
+plot.dl.perf <- function(df.perf.dl.comb, list.models){
+  
+  # make a vector of colors
+  col.vect <- names(list.models)
+  names(col.vect) <- list.models
+  col.vect <- c("Null model" = "#000000", col.vect)
+  
+  title <- paste("Models comparison in predictive performance with and without data leakage")
+  
+  plot.data <- df.perf.dl.comb
+  plot.data$null.perf <- plot.data[,"Null model"]
+  
+  plot.data <- gather(plot.data, key = model, value = performance, all_of(c("Null model",list.models)))
+  plot.data <- gather(plot.data, key = expl.pow_model, value = expl.pow, all_of(paste0("expl.pow_", list.models)))
+  
+  # Boxplots
+  p3 <- ggplot(plot.data, aes(x=model, y = performance, fill = as.factor(DL)), alpha = 0.4) 
+  p3 <- p3 + geom_boxplot() #facet_wrap(~ DL) 
+  #p3 <- p3 + scale_fill_manual(values=col.vect)
+  p3 <- p3 + labs(title = title)
+  p3 <- p3 + scale_x_discrete(limits = rev(list.models))
+  p3 <- p3 + theme_bw(base_size = 12)
+  p3 <- p3 + labs(x="Models",
+                  y="Standardized deviance",
+                  title = title,
+                  fill = "Data leakage")
+  
+  return(list(p3))
+  
+}
+
 
 
 # Plot model performance against hyperparameters
