@@ -210,10 +210,12 @@ plot.df.perf <- function(df.perf, list.models, list.taxa, CV){
 # Compare models
 model.comparison <- function(df.perf, list.models, CV){
     
-    # make a vector of colors
+    list.models.temp <- c("#000000" = "Null_model")
+    list.models <- c(list.models.temp, list.models)
+    
+    # Make a vector of colors
     col.vect <- names(list.models)
     names(col.vect) <- list.models
-    col.vect <- c("Null model" = "#000000", col.vect)
     
     if(CV){
         title <- paste("Models comparison in predictive performance")
@@ -222,9 +224,9 @@ model.comparison <- function(df.perf, list.models, CV){
     }
     
     plot.data <- df.perf
-    plot.data$null.perf <- plot.data[,"Null model"]
+    plot.data$null.perf <- plot.data[,"Null_model"]
     
-    plot.data <- gather(plot.data, key = model, value = performance, all_of(c("Null model",list.models)))
+    plot.data <- gather(plot.data, key = model, value = performance, all_of(c("Null_model",list.models)))
     plot.data <- gather(plot.data, key = expl.pow_model, value = expl.pow, all_of(paste0("expl.pow_", list.models)))
     
     # Prevalence vs stand dev
@@ -234,7 +236,8 @@ model.comparison <- function(df.perf, list.models, CV){
                                                  shape = plot.data[,"Taxonomic level"]), 
                            alpha = 0.4,
                            size = 3)
-    p1 <- p1 + geom_line(data = plot.data, aes(x = Prevalence, y = null.perf), linetype = "dashed", alpha=0.4, show.legend = FALSE)
+    #p1 <- p1 + geom_line(data = plot.data, aes(x = Prevalence, y = null.perf), linetype = "dashed", alpha=0.4, show.legend = FALSE) # to plot null model as dash line between data points
+    p1 <- p1 + stat_function(fun=function(x) -2*(x*log(x) + (1-x)*log(1-x))) # to plot null model as function line
     p1 <- p1  + labs(y = "Standardized deviance",
                      x = "Prevalence (%)",
                      shape = "Taxonomic level",
@@ -245,19 +248,33 @@ model.comparison <- function(df.perf, list.models, CV){
     p1 <- p1 + guides(colour = guide_legend(override.aes = list(size=6)))
     
     # Boxplots
-    p3 <- ggplot(plot.data, aes(x=model, y = performance, fill = model), alpha = 0.4) 
+    p2 <- ggplot(plot.data, aes(x=model, y = performance, fill = model), alpha = 0.4) 
+    p2 <- p2 + geom_boxplot()
+    p2 <- p2 + scale_fill_manual(values=col.vect)
+    p2 <- p2 + labs(title = title)
+    p2 <- p2 + scale_x_discrete(limits = rev(list.models))
+    p2 <- p2 + coord_flip()
+    p2 <- p2 + theme_bw(base_size = 20)
+    p2 <- p2 + theme(legend.position = "none")
+    p2 <- p2 + labs(x="Models",
+                    y="Standardized deviance",
+                    # fill = "Models",
+                    title = title)
+    # Boxplots
+    p3 <- ggplot(plot.data, aes(x=reorder(model, -performance, na.rm = T), y = performance, fill = model), alpha = 0.4) 
     p3 <- p3 + geom_boxplot()
     p3 <- p3 + scale_fill_manual(values=col.vect)
     p3 <- p3 + labs(title = title)
-    p3 <- p3 + scale_x_discrete(limits = rev(list.models))
+    # p3 <- p3 + scale_x_discrete(limits = rev(list.models))
     p3 <- p3 + coord_flip()
     p3 <- p3 + theme_bw(base_size = 20)
+    p3 <- p3 + theme(legend.position = "none")
     p3 <- p3 + labs(x="Models",
                     y="Standardized deviance",
-                    title = title,
-                    fill = "Models")
-    
-    return(list(p1,p3))
+                    # fill = "Models",
+                    title = title)
+
+    return(list(p1,p2,p3))
     
 }
 
@@ -266,14 +283,14 @@ plot.dl.perf <- function(df.perf.dl.comb, list.models){
   # make a vector of colors
   col.vect <- names(list.models)
   names(col.vect) <- list.models
-  col.vect <- c("Null model" = "#000000", col.vect)
+  col.vect <- c("Null_model" = "#000000", col.vect)
   
   title <- paste("Models comparison in predictive performance with and without data leakage")
   
   plot.data <- df.perf.dl.comb
-  plot.data$null.perf <- plot.data[,"Null model"]
+  plot.data$null.perf <- plot.data[,"Null_model"]
   
-  plot.data <- gather(plot.data, key = model, value = performance, all_of(c("Null model",list.models)))
+  plot.data <- gather(plot.data, key = model, value = performance, all_of(c("Null_model",list.models)))
   plot.data <- gather(plot.data, key = expl.pow_model, value = expl.pow, all_of(paste0("expl.pow_", list.models)))
   
   # Boxplots
@@ -518,7 +535,7 @@ plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
   # make a vector of colors
   col.vect <- names(list.algo)
   names(col.vect) <- list.algo
-  col.vect <- c("Null model" = "#000000", col.vect)
+  col.vect <- c("Null_model" = "#000000", col.vect)
   
   list.plots <- list()
   

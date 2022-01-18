@@ -701,13 +701,14 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
     df.perf$Taxa <- list.taxa
     df.perf$Prevalence <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Prevalence"]
     df.perf[, "Taxonomic level"] <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Taxonomic.level"]
-    df.perf[,"Null model"] <- NA
+    df.perf[,"Null_model"] <- NA
     expl.pow <- paste0("expl.pow_", list.models)
+    expl.pow <- c("Null_model", expl.pow)
     df.perf[,expl.pow] <- NA
     
     for (j in list.taxa) {
         rind.taxa <- which(df.perf$Taxa == j)
-        df.perf[rind.taxa, "Null model"] <- null.model[[j]][["Performance"]]
+        df.perf[rind.taxa, "Null_model"] <- null.model[[j]][["Performance"]]
         for(l in list.models){
             if(CV){
                 splits.model <- apply(expand.grid(list.splits,l), 1, paste, collapse="_")
@@ -720,6 +721,7 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
                 val.expl.pow <- null.model[[j]][["Performance"]] - perf / null.model[[j]][["Performance"]]
             }
             df.perf[rind.taxa, paste0("expl.pow_",l)] <- val.expl.pow
+            df.perf[rind.taxa, paste0("expl.pow_","Null_model")] <- 0
         }
     }
     

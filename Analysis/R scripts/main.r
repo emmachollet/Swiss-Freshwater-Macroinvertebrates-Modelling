@@ -198,8 +198,7 @@ if (all.taxa == F){
     list.taxa <- list.taxa.int
 }
 
-no.taxa.full <- 126 # Ugly but temporary
-  # length(list.taxa.full)
+no.taxa.full <- length(list.taxa.full)
 no.taxa.int <- length(list.taxa.int)
 no.taxa <- length(list.taxa)
 
@@ -241,7 +240,8 @@ stat.outputs <- mclapply(comm.corr.options, mc.cores = n.cores.stat.models, func
   #comm.corr <- comm.corr.options[[1]]
   info.file.stat.name <- paste0("Stat_model_",
                                 file.prefix,
-                                no.taxa.full, "taxa_", 
+                                # no.taxa.full, "taxa_", 
+                                126, "taxa_", 
                                 sampsize,"iterations_",
                                 ifelse(comm.corr,"CF0_","UF0_"),
                                 ifelse(CV, "CV_", "FIT_"),
@@ -376,19 +376,19 @@ if(CV){
                       ml.outputs.cv[[s]][[l]][[j]][["Trained model"]]
                       cat("This model has NULL MODEL instead of trained algorithm\n")
                     }
-                    # ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]] <- ifelse(perf > 1.5, Inf, perf)
+                    ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]] <- ifelse(perf.test > 1.5, Inf, perf.test)
                 }
         }
     }
 } else {
-    # for (l in list.algo) {
-    #     print(l)
-    #     list.taxa.temp <- names(ml.outputs[[l]])
-    #     for (j in list.taxa.temp) {
-    #         perf <- ml.outputs[[l]][[j]][["Performance training set"]]
-    #         ml.outputs[[l]][[j]][["Performance training set"]] <- ifelse(perf > 1.5, Inf, perf)
-    #     }
-    # }
+    for (l in list.algo) {
+        print(l)
+        list.taxa.temp <- names(ml.outputs[[l]])
+        for (j in list.taxa.temp) {
+            perf <- ml.outputs[[l]][[j]][["Performance training set"]]
+            ml.outputs[[l]][[j]][["Performance training set"]] <- ifelse(perf > 1.5, Inf, perf)
+        }
+    }
 }
 
 print(paste("Simulation time of different models ", info.file.ml.name))
@@ -408,7 +408,6 @@ if(!server){
 if(CV){ 
     file.name <- paste0(dir.models.output, "ANN_model_All_16ann_126taxa_CV_no_DL_.rds")
     ann.outputs.cv <- readRDS(file = file.name)
-  }
 } else {
     file.name <- paste0(dir.models.output, "ANN_model_All_3ann_126taxa_FIT_no_DL_.rds")
     ann.outputs <- readRDS(file = file.name) 
@@ -572,6 +571,7 @@ if(CV){
 name <- "TablesPerf"
 file.name <- paste0(name, ".pdf")
 # list.plots.dl[[1]]
+print.pdf.plots(list.plots = list.plots, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 
 # Performance against prevalence and boxplots
