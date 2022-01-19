@@ -73,7 +73,7 @@ file.prev         <- "prevalence_2020-06-25.dat"
 # Setup options ####
 
 # Set if we want to run ANN models or not (and consequently load libraries)
-run.ann <- F
+run.ann <- T
 
 if(run.ann){  
   library("reticulate")
@@ -293,7 +293,6 @@ stat.outputs.transformed <- transfrom.stat.outputs(CV, stat.outputs)
 # Make vector statistical models
 list.stat.mod <- names(stat.outputs.transformed)
 names(list.stat.mod) <- c("#59AB2D","#782B01")
-#names(list.stat.mod) <- c("#59AB2D")
 
 # Machine Learning models ####
 
@@ -318,8 +317,7 @@ if( file.exists(file.name) == T ){
 
     } else {
 
-        cat("No ML outputs exist yet, we produce it and save it in", file.name)
-
+    cat("No ML outputs exist yet, we produce it and save it in", file.name)
     if(CV == T){
         
         if(server == T){
@@ -369,14 +367,18 @@ if(CV){
                     if(perf.train > 1.5){
                       cat(j, "has training performance bigger than 1.5", perf.train, "\n")
                     }
+                    
                     if(perf.test > 1.5){
                       cat(j, "has testing performance bigger than 1.5", perf.test, "\n")
                     }
+                    
                     if(length(ml.outputs.cv[[s]][[l]][[j]][["Trained model"]]) == 1){
                       ml.outputs.cv[[s]][[l]][[j]][["Trained model"]]
                       cat("This model has NULL MODEL instead of trained algorithm\n")
                     }
-                    ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]] <- ifelse(perf.test > 1.5, Inf, perf.test)
+                    # to replace performance having a problem
+                    # ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]] <- ifelse(perf.test > 1.5, Inf, perf.test)
+                    # ml.outputs.cv[[s]][[l]][[j]][["Performance training set"]] <- ifelse(perf.train > 1.5, Inf, perf.train)
                 }
         }
     }
@@ -394,38 +396,139 @@ if(CV){
 print(paste("Simulation time of different models ", info.file.ml.name))
 print(proc.time()-ptm)
 
+if(server){
+  if(CV){
+    # Regularize RF ####
+    
+    mtry.vect <- c(1,2,3,4,8)
+    # mtry.vect <- c(1)
+    
+    names(mtry.vect) <- paste("rf_", mtry.vect, "mtry", sep = "")
+    
+    tuned.ml.outputs.cv <- lapply(centered.data.factors, function(split){
+      #split <- centered.data.factors[[1]]
+      lapply(mtry.vect, FUN = apply.tuned.ml.model, splitted.data = split, algorithm = "rf", list.taxa = list.taxa[1],
+             env.fact = env.fact, CV = CV, prev.inv = prev.inv)})
+  
+    info.file.ml.name <-  paste0("ML_model_",
+                                 file.prefix, 
+                                 length(mtry.vect), "tunedRF_",
+                                 no.taxa, "taxa_", 
+                                 ifelse(CV, "CV_", "FIT_"),
+                                 ifelse(dl, "DL_", "no_DL_"))
+    
+    file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
+    cat(file.name)
+    saveRDS(tuned.ml.outputs.cv, file = file.name, version = 2)
+  }
+}
+
+
 if(!server){
 
 # Neural Networks ####
 
-# read output from ann_model.r, hopefully ...
+# Set hyperparameters
+learning.rate <- 0.01
+batch.size <-  64
+act.fct <- c(#"tanh",
+  "relu",
+  "leakyrelu")
 
-# info1 <- paste0(file.prefix, no.ann, "ann_")
-# info2 <- paste0(ifelse(CV, "CV_", "FIT_"), ifelse(dl, "DL_", "no_DL_"))
-# list.ann.files <- list.files(path = dir.models.output)
-# file.name.temp <- paste0(dir.models.output, list.ann.files[which(grepl(info1, list.ann.files) & grepl(info2, list.ann.files))])
+grid.hyperparam <- expand.grid(layers = c(3,5), units = c(32, 64), act.fct = act.fct, no.epo = c(150,200))
+grid.hyperparam$act.fct <- as.character(grid.hyperparam$act.fct)
+no.hyperparam <- nrow(grid.hyperparam)
+list.hyper.param <- vector("list", no.hyperparam)
+for (n in 1:no.hyperparam) {
+  list.hyper.param[[n]] <- grid.hyperparam[n,]
+  names(list.hyper.param)[n] <- paste(paste0(grid.hyperparam[n,], c("L", "U", "FCT", "epo")), collapse = "")
+}
+names(list.hyper.param) <- paste("ANN_", names(list.hyper.param), sep = "")
 
-if(CV){ 
-    file.name <- paste0(dir.models.output, "ANN_model_All_16ann_126taxa_CV_no_DL_.rds")
-    ann.outputs.cv <- readRDS(file = file.name)
-} else {
-    file.name <- paste0(dir.models.output, "ANN_model_All_3ann_126taxa_FIT_no_DL_.rds")
-    ann.outputs <- readRDS(file = file.name) 
-    }
-
-# Make vector neural networks
-list.ann <- if(CV){names(ann.outputs.cv[[1]])} else {names(ann.outputs)}
+list.ann <- names(list.hyper.param)
 no.ann <- length(list.ann)
-names(list.ann) <- rainbow(no.ann)
-  # c("#A1491A", "#C46634", "#DF895A")
+names(list.ann) <- rainbow(no.ann) # assign colors
+
+info.file.ann.name <-  paste0("ANN_model_",
+                              file.prefix, 
+                              no.ann, "ann_",
+                              no.taxa, "taxa_", 
+                              ifelse(CV, "CV_", "FIT_"),
+                              ifelse(dl, "DL_", "no_DL_"))
+
+file.name <- paste0(dir.models.output, info.file.ann.name, ".rds")
+cat(file.name)
+
+if( file.exists(file.name) == T ){
+  cat("Reading", file.name, "and saving it in object 'ann.outputs'")
+  if(CV){ 
+    ann.outputs.cv <- readRDS(file = file.name)
+  } else {
+    ann.outputs <- readRDS(file = file.name) 
+  }
+} else {
+    if(run.ann){
+    
+    cat("This ANN output doesn't exist yet, we produce it and save it in", file.name)
+    if(CV){
+      ann.outputs.cv <- lapply(centered.data, function(split){
+        lapply(list.hyper.param, FUN = build_and_train_model, split = split,
+               env.fact = env.fact,
+               list.taxa = list.taxa,
+               learning.rate = learning.rate,
+               # num.epochs = num.epochs,
+               batch.size = batch.size,
+               CV = CV)
+      })
+      saveRDS(ann.outputs.cv, file = file.name)
+      
+    } else {
+      ann.outputs <- lapply(list.hyper.param, FUN = build_and_train_model, split = centered.data,
+                            env.fact = env.fact,
+                            list.taxa = list.taxa,
+                            learning.rate = learning.rate,
+                            # num.epochs = num.epochs,
+                            batch.size = batch.size,
+                            CV = CV)
+      saveRDS(ann.outputs, file = file.name)
+    }
+    } else {
+    cat("This ANN output doesn't exist yet and the run.ann condition is set to false.")
+  }
+}
 
 
+# to compare more ann outputs
+# file.name <- file.name <- paste0(dir.models.output, "ANN_model_All_16ann_59taxa_CV_no_DL_tanh50_100epo.rds")
+# ann.outputs.cv2 <- readRDS(file = file.name)
+  
 # Merge outputs ####
 
+if(CV){
+  # Merge all CV outputs in one
+  outputs.cv <- ml.outputs.cv
+  for (s in list.splits) {
+    #s = "Split2"
+    outputs.cv[[s]][[list.stat.mod[1]]] <- stat.outputs.transformed[[1]][[s]]
+    outputs.cv[[s]][[list.stat.mod[2]]] <- stat.outputs.transformed[[2]][[s]]
+    # names(ann.outputs.cv[[s]]) <- list.ann # in case ann names are not the good ones (with act. fct)
+    # names(ann.outputs.cv2[[s]]) <- gsub("1FCT", "tanhFCT", names(ann.outputs.cv2[[s]]))
+    # names(ann.outputs.cv2[[s]]) <- gsub("2FCT", "leakyreluFCT", names(ann.outputs.cv2[[s]]))
+    outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv[[s]])
+    # outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv2[[s]])
+  }
+} else {
+  # Make final outputs as list
+  outputs <- append(append(ml.outputs, stat.outputs.transformed), ann.outputs)
+  #outputs <- append(appendml.outputs, ann.outputs)
+}
+  
+# list.ann <- c(names(ann.outputs.cv[[1]]), names(ann.outputs.cv2[[1]]))
+# no.ann <- length(list.ann)
+# names(list.ann) <- rainbow(no.ann)
+  
 # Make final list of models
 list.models <- c(list.algo, list.stat.mod, list.ann)
-#list.models <- c(list.algo, list.ann)
-
 no.models <- length(list.models)
 
 # See the final colors for each model
@@ -444,16 +547,6 @@ info.file.name <- paste0(file.prefix,
 
 # Produce final outputs with mean performance across splits
 if(CV){ 
-    
-    # Merge all CV outputs in one
-    outputs.cv <- ml.outputs.cv
-    for (s in list.splits) {
-        #s = "Split2"
-        outputs.cv[[s]][[list.stat.mod[1]]] <- stat.outputs.transformed[[1]][[s]]
-        outputs.cv[[s]][[list.stat.mod[2]]] <- stat.outputs.transformed[[2]][[s]]
-        outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv[[s]])
-    }
-    
     # Make final outputs as list
     outputs <- make.final.outputs.cv(outputs.cv = outputs.cv, list.models = list.models, list.taxa = list.taxa)
 
@@ -461,16 +554,14 @@ if(CV){
     df.cv <- make.df.outputs(outputs = outputs.cv, list.models = list.models, 
                                  list.taxa = list.taxa, list.splits = list.splits,
                                  null.model = null.model, prev.inv = prev.inv, CV = CV)
-    df.perf.cv <- df.cv$`Table performance CV`
-    df.perf <- df.cv$`Table performance`
+    df.pred.perf.cv <- df.cv$`Table predictive performance CV`
+    df.pred.perf <- df.cv$`Table predictive performance`
+    df.fit.perf.cv <- df.cv$`Table fit performance CV`
+    df.fit.perf <- df.cv$`Table fit performance`
     remove(df.cv)
 } else {
-    # Make final outputs as list
-    outputs <- append(append(ml.outputs, stat.outputs.transformed), ann.outputs)
-    #outputs <- append(appendml.outputs, ann.outputs)
-    
     # Make final outputs as tables
-    df.perf <- make.df.outputs(outputs = outputs, list.models = list.models, 
+    df.fit.perf <- make.df.outputs(outputs = outputs, list.models = list.models, 
                              list.taxa = list.taxa, list.splits = list.splits,
                              null.model = null.model, prev.inv = prev.inv, CV = CV)
 }
@@ -479,25 +570,25 @@ if(CV){
 # Look into the effect of data leakage ####
 
 # save intermediate output to compare dl no dl 
-#saveRDS(df.perf, file = paste0(dir.models.output, info.file.name, "df_perf_.rds"), version = 2)
-#df.perf.no.dl <- readRDS(file = paste0(dir.models.output, "All_7models_126taxa_CV_no_DL_df_perf_.rds"))
-#df.perf.dl <- readRDS(file = paste0(dir.models.output, "All_7models_126taxa_CV_DL_df_perf_.rds"))
+#saveRDS(df.pred.perf, file = paste0(dir.models.output, info.file.name, "df_perf_.rds"), version = 2)
+#df.pred.perf.no.dl <- readRDS(file = paste0(dir.models.output, "All_7models_126taxa_CV_no_DL_df_perf_.rds"))
+#df.pred.perf.dl <- readRDS(file = paste0(dir.models.output, "All_7models_126taxa_CV_DL_df_perf_.rds"))
 
-# df.perf.no.dl <- readRDS(file = paste0(dir.models.output, "All_9models_126taxa_CV_no_DL_df_perf_.rds"))
-# df.perf.dl <- readRDS(file = paste0(dir.models.output, "All_9models_126taxa_CV_DL_df_perf_.rds"))
+# df.pred.perf.no.dl <- readRDS(file = paste0(dir.models.output, "All_9models_126taxa_CV_no_DL_df_perf_.rds"))
+# df.pred.perf.dl <- readRDS(file = paste0(dir.models.output, "All_9models_126taxa_CV_DL_df_perf_.rds"))
 # 
-# df.perf.no.dl$DL <- F
-# df.perf.dl$DL <- T
-# df.perf.dl.comb <- rbind(df.perf.no.dl,df.perf.dl)
+# df.pred.perf.no.dl$DL <- F
+# df.pred.perf.dl$DL <- T
+# df.pred.perf.dl.comb <- rbind(df.pred.perf.no.dl,df.pred.perf.dl)
 # 
 # #remove infite vlaues to take mean later
-# df.perf.dl.comb$rf[!is.finite(df.perf.dl.comb$rf)] <- NA
-# df.perf.dl.comb$gamSpline[!is.finite(df.perf.dl.comb$gamSpline)] <- NA
-# df.perf.dl.comb$glm[!is.finite(df.perf.dl.comb$glm)] <- NA
+# df.pred.perf.dl.comb$rf[!is.finite(df.pred.perf.dl.comb$rf)] <- NA
+# df.pred.perf.dl.comb$gamSpline[!is.finite(df.pred.perf.dl.comb$gamSpline)] <- NA
+# df.pred.perf.dl.comb$glm[!is.finite(df.pred.perf.dl.comb$glm)] <- NA
 # 
-# colnames(df.perf.dl.comb)
+# colnames(df.pred.perf.dl.comb)
 # 
-# df.perf.dl.comb.table <- as.data.frame(df.perf.dl.comb %>% group_by(DL) %>% 
+# df.pred.perf.dl.comb.table <- as.data.frame(df.pred.perf.dl.comb %>% group_by(DL) %>% 
 #                                       summarise(glm.mean = mean(glm, na.rm = T),
 #                                       glm.sd = sd(glm, na.rm = T),
 #                                       
@@ -528,12 +619,12 @@ if(CV){
 #                                       
 #                                        ))
 # 
-# #saveRDS(df.perf.dl.comb.table, file = paste0(dir.plots.output, "Table_means_dl.rds"), version = 2)
-# df.perf.dl.comb.table <- readRDS(file = paste0(dir.plots.output, "Table_means_dl.rds"))
-# diff.means.dl <- df.perf.dl.comb.table[1,c("glm.mean", "gamSpline.mean","svmRadial.mean", 
+# #saveRDS(df.pred.perf.dl.comb.table, file = paste0(dir.plots.output, "Table_means_dl.rds"), version = 2)
+# df.pred.perf.dl.comb.table <- readRDS(file = paste0(dir.plots.output, "Table_means_dl.rds"))
+# diff.means.dl <- df.pred.perf.dl.comb.table[1,c("glm.mean", "gamSpline.mean","svmRadial.mean", 
 #                          "rf.mean", "CF0.mean", "UF0.mean", "ANN3L32U.mean", "ANN3L64U.mean",
 #                          "ANN5L32U.mean")] - 
-#   df.perf.dl.comb.table[2,c("glm.mean", "gamSpline.mean","svmRadial.mean", 
+#   df.pred.perf.dl.comb.table[2,c("glm.mean", "gamSpline.mean","svmRadial.mean", 
 #                             "rf.mean", "CF0.mean", "UF0.mean", "ANN3L32U.mean", "ANN3L64U.mean",
 #                             "ANN5L32U.mean")]
 # 
@@ -558,27 +649,55 @@ source("plot_functions.r")
 
 # Table with performance
 if(CV){
-        list.plots.cv <- plot.df.perf(df.perf = df.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
-        list.plots <- plot.df.perf(df.perf = df.perf, list.models = list.models, list.taxa = list.taxa, CV)
+        list.plots.cv <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
+        list.plots <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
+        list.plots1 <- append(list.plots.cv, list.plots)
+        
+        name <- "TablesPredPerf"
+        file.name <- paste0(name, ".pdf")
+        print.pdf.plots(list.plots = list.plots1, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+        
+        list.plots.cv <- plot.df.perf(df.perf = df.fit.perf.cv, list.models = list.models, list.taxa = list.taxa, CV = F)
+        list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV = F)
         list.plots <- append(list.plots.cv, list.plots)
+        
         # if(dl){
-        # list.plots.dl <- plot.dl.perf(df.perf.dl.comb, list.models = list.models)
+        # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models)
         # }
     } else {
-        list.plots <- plot.df.perf(df.perf = df.perf, list.models = list.models, list.taxa = list.taxa, CV)
+        list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV)
 }
 
-name <- "TablesPerf"
+name <- "TablesFitPerf"
 file.name <- paste0(name, ".pdf")
 # list.plots.dl[[1]]
 print.pdf.plots(list.plots = list.plots, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
-
 # Performance against prevalence and boxplots
-list.plots <- model.comparison(df.perf = df.perf, list.models = list.models, CV = CV)
-name <- "ModelsCompar"
+if(CV){
+  list.plots1 <- model.comparison(df.perf = df.pred.perf, list.models = list.models, CV = CV)
+  name <- "PredModelsCompar"
+  file.name <- paste0(name, ".pdf")
+  print.pdf.plots(list.plots = list.plots1, width = 18, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+  list.plots <- model.comparison(df.perf = df.fit.perf, list.models = list.models, CV = F)
+  } else {
+  list.plots <- model.comparison(df.perf = df.fit.perf, list.models = list.models, CV = CV)
+}
+  
+name <- "FitModelsCompar"
 file.name <- paste0(name, ".pdf")
-print.pdf.plots(list.plots = list.plots, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, width = 25, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+if(CV){
+  list.plots2 <- vector("list", length(list.plots))
+  for (n in 1:length(list.plots)) {
+    list.plots2[[n]] <- grid.arrange(grobs = list(list.plots[[n]], list.plots1[[n]]), ncol = 2)
+  }
+}
+
+name <- "PredFitModelsCompar"
+file.name <- paste0(name, ".pdf")
+print.pdf.plots(list.plots = list.plots2, width = 25, height = 17, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # # Print a jpeg file
 # file.name <- paste0(name, ".jpg")

@@ -679,56 +679,72 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
         no.models <- length(list.models)
         
         # make table with perf for each split
-        df.perf.cv <- data.frame(matrix(nrow = no.taxa, ncol = no.splits*no.models))
-        colnames(df.perf.cv) <- apply(expand.grid(list.splits,list.models), 1, paste, collapse="_")
-        df.perf.cv$Taxa <- list.taxa
+        df.pred.perf.cv <- data.frame(matrix(nrow = no.taxa, ncol = no.splits*no.models))
+        colnames(df.pred.perf.cv) <- apply(expand.grid(list.splits,list.models), 1, paste, collapse="_")
+        df.pred.perf.cv$Taxa <- list.taxa
+        df.fit.perf.cv <- df.pred.perf.cv
 
         for (s in list.splits) {
             for (l in list.models) {
                 list.taxa.temp <- names(outputs.cv[[s]][[l]])
                 for (j in list.taxa.temp) {
-                    rind.taxa <- which(df.perf.cv$Taxa == j)
-                    perf <- outputs.cv[[s]][[l]][[j]][["Performance testing set"]]
-                    df.perf.cv[rind.taxa,paste(s,l, sep="_")] <- ifelse(is.numeric(perf), perf, NA)
+                    rind.taxa <- which(df.pred.perf.cv$Taxa == j)
+                    pred.perf <- outputs.cv[[s]][[l]][[j]][["Performance testing set"]]
+                    fit.perf <- outputs.cv[[s]][[l]][[j]][["Performance training set"]]
+                    df.pred.perf.cv[rind.taxa,paste(s,l, sep="_")] <- ifelse(is.numeric(pred.perf), pred.perf, NA)
+                    df.fit.perf.cv[rind.taxa,paste(s,l, sep="_")] <- ifelse(is.numeric(fit.perf), fit.perf, NA)
                 }
             }
         }
     }
     
     # make table with mean perf across splits
-    df.perf <- data.frame(matrix(nrow = no.taxa, ncol = no.models))
-    colnames(df.perf) <- list.models
-    df.perf$Taxa <- list.taxa
-    df.perf$Prevalence <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Prevalence"]
-    df.perf[, "Taxonomic level"] <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Taxonomic.level"]
-    df.perf[,"Null_model"] <- NA
+    df.pred.perf <- data.frame(matrix(nrow = no.taxa, ncol = no.models))
+    colnames(df.pred.perf) <- list.models
+    df.pred.perf$Taxa <- list.taxa
+    df.pred.perf$Prevalence <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Prevalence"]
+    df.pred.perf[, "Taxonomic level"] <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Taxonomic.level"]
+    df.pred.perf[,"Null_model"] <- NA
     expl.pow <- paste0("expl.pow_", list.models)
     expl.pow <- c("Null_model", expl.pow)
-    df.perf[,expl.pow] <- NA
+    df.pred.perf[,expl.pow] <- NA
+    df.fit.perf <- df.pred.perf
     
     for (j in list.taxa) {
-        rind.taxa <- which(df.perf$Taxa == j)
-        df.perf[rind.taxa, "Null_model"] <- null.model[[j]][["Performance"]]
+        rind.taxa <- which(df.pred.perf$Taxa == j)
+        df.pred.perf[rind.taxa, "Null_model"] <- null.model[[j]][["Performance"]]
+        df.fit.perf[rind.taxa, "Null_model"] <- null.model[[j]][["Performance"]]
         for(l in list.models){
             if(CV){
                 splits.model <- apply(expand.grid(list.splits,l), 1, paste, collapse="_")
-                mean.temp <- mean(as.matrix(df.perf.cv[rind.taxa, splits.model]), na.rm = T)
-                df.perf[rind.taxa,l] <- mean.temp
+                # For testing/prediction
+                mean.temp <- mean(as.matrix(df.pred.perf.cv[rind.taxa, splits.model]), na.rm = T)
+                df.pred.perf[rind.taxa,l] <- mean.temp
                 val.expl.pow <- null.model[[j]][["Performance"]] - mean.temp / null.model[[j]][["Performance"]]
+                df.pred.perf[rind.taxa, paste0("expl.pow_",l)] <- val.expl.pow
+                df.pred.perf[rind.taxa, paste0("expl.pow_","Null_model")] <- 0
+                # For training/fitting
+                mean.temp <- mean(as.matrix(df.fit.perf.cv[rind.taxa, splits.model]), na.rm = T)
+                df.fit.perf[rind.taxa,l] <- mean.temp
+                val.expl.pow <- null.model[[j]][["Performance"]] - mean.temp / null.model[[j]][["Performance"]]
+                df.fit.perf[rind.taxa, paste0("expl.pow_",l)] <- val.expl.pow
+                df.fit.perf[rind.taxa, paste0("expl.pow_","Null_model")] <- 0
             } else {
                 perf <- outputs[[l]][[j]][["Performance training set"]]
-                df.perf[rind.taxa,l] <- perf
+                df.fit.perf[rind.taxa,l] <- perf
                 val.expl.pow <- null.model[[j]][["Performance"]] - perf / null.model[[j]][["Performance"]]
+                df.fit.perf[rind.taxa, paste0("expl.pow_",l)] <- val.expl.pow
+                df.fit.perf[rind.taxa, paste0("expl.pow_","Null_model")] <- 0
             }
-            df.perf[rind.taxa, paste0("expl.pow_",l)] <- val.expl.pow
-            df.perf[rind.taxa, paste0("expl.pow_","Null_model")] <- 0
+
         }
     }
     
     if(CV){
-        result <- list("Table performance CV" = df.perf.cv, "Table performance" = df.perf)
+        result <- list("Table predictive performance CV" = df.pred.perf.cv, "Table predictive performance" = df.pred.perf,
+                       "Table fit performance CV" = df.fit.perf.cv, "Table fit performance" = df.fit.perf)
     } else {
-        result <- df.perf
+        result <- df.fit.perf
     }
     
     return(result)

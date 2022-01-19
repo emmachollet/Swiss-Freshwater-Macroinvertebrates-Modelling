@@ -24,26 +24,26 @@ build_and_train_model <- function (hyper.param = hyper.param,
   # Build ANN
   model <- keras_model_sequential()
   
-  if(act.fct == "tanh"){
-    model <- model %>% layer_dense(units = num.units.per.layer,
-                                   input_shape = ncol(Xtrain),
-                                   activation = "tanh")
-    
-    if (num.layers>1){
-      for (i in 1:(num.layers-1)){
-        model <- model %>% layer_dense(units = num.units.per.layer,
-                                       activation = "tanh")
-      }
-    }
-  } else {
+  if(act.fct == "leakyrelu"){
     model <- model %>% layer_dense(units = num.units.per.layer,
                                    input_shape = ncol(Xtrain)) %>% 
-                        layer_activation_leaky_relu()
+      layer_activation_leaky_relu()
     
     if (num.layers>1){
       for (i in 1:(num.layers-1)){
         model <- model %>% layer_dense(units = num.units.per.layer) %>% 
-                                         layer_activation_leaky_relu()
+          layer_activation_leaky_relu()
+      }
+    }
+  } else {
+    model <- model %>% layer_dense(units = num.units.per.layer,
+                                   input_shape = ncol(Xtrain),
+                                   activation = act.fct)
+    
+    if (num.layers>1){
+      for (i in 1:(num.layers-1)){
+        model <- model %>% layer_dense(units = num.units.per.layer,
+                                       activation = act.fct)
       }
     }
   }

@@ -8,7 +8,7 @@ print.pdf.plots <- function(list.plots, width = 12, height = width*3/4, dir.outp
   
   for (n in 1:length(list.plots)) {
     
-    print(list.plots[[n]])
+    plot(list.plots[[n]])
     
   }
   
@@ -164,31 +164,17 @@ plot.df.perf <- function(df.perf, list.models, list.taxa, CV){
     size.val <- ifelse(length(list.taxa) < 25, 5, 1)
     title <- ifelse(CV, "Table of models predictive performance \n during Cross Validation",
                     "Table of models quality of fit \n during Calibration")
-    # Old table
     
-    # temp.df <- as.matrix(df.perf)
-    # par(mar=c(1,5,15,3)+ 0.2, xaxt = "n")
-    # plot(temp.df, 
-    #      digits = 2, text.cell=list(cex=0.5),
-    #      axis.row = list(side=2, las=1),
-    #      col = viridis,
-    #      xlab = "",
-    #      ylab = "",
-    #      cex.axis = 0.5,
-    #      srt = 45,
-    #      main = "Quality of fit across ML algorithms and taxa"
-    # )
-    # axis(1, at=seq(1:ncol(temp.df)+1), labels = FALSE)
-    # text(seq(1:ncol(temp.df)+1), par("usr")[4] + 0.15, srt = 50, 
-    #      labels = colnames(temp.df), adj= 0, cex = 0.5, xpd = T)
     if(CV){ cind <- 1:which(colnames(df.perf) == "Taxa")
-    } else { cind <- which(colnames(df.perf) %in% list.models | colnames(df.perf) == "Taxa") }
+    } else { cind <- 1:which(colnames(df.perf) == "Taxa")
+      # cind <- 1:which(colnames(df.perf) %in% list.models | colnames(df.perf) == "Taxa") # ECR: was there for FIT
+      }
     temp.df <- df.perf[,cind]
     # temp.df$models <- row.names(df.perf)
     melted.df <- melt(temp.df, id = "Taxa")
     p <- ggplot(data = melted.df, aes(x = Taxa, y = variable, fill = value)) +
         geom_tile() +
-        scale_fill_gradient2(midpoint = 1, mid ="grey70", 
+        scale_fill_gradient2(midpoint = 1, low = "#007139", mid ="grey70", high = "#c2141b", 
                              limits = c(0, 2)) +
         scale_x_discrete(limits = list.taxa) +
         labs(title = title, 
@@ -197,7 +183,7 @@ plot.df.perf <- function(df.perf, list.models, list.taxa, CV){
               axis.title.x = element_text(face="bold", colour="darkgreen", size = 2),
               axis.text.x = element_text(angle=90),
               axis.title.y = element_text(face="bold", colour="darkgreen", size = 2),
-              legend.title = element_text(face="bold", colour="brown", size = 10))  +
+              legend.title = element_text(face="bold", colour="black", size = 10))  +
         geom_text(aes(x = Taxa, y = variable, label = round(value, 2)),
                   color = "black", fontface = "bold", size = size.val)
     
@@ -217,11 +203,14 @@ model.comparison <- function(df.perf, list.models, CV){
     col.vect <- names(list.models)
     names(col.vect) <- list.models
     
+    no.taxa <- nrow(df.perf)
+    
     if(CV){
         title <- paste("Models comparison in predictive performance")
     } else {
         title <- paste("Models comparison in quality of fit")
     }
+    title <- paste(title, "for", no.taxa, "taxa")
     
     plot.data <- df.perf
     plot.data$null.perf <- plot.data[,"Null_model"]
@@ -234,7 +223,7 @@ model.comparison <- function(df.perf, list.models, CV){
     p1 <- p1  + geom_point(data = plot.data, aes(x = Prevalence, y = performance, 
                                                  colour = model, 
                                                  shape = plot.data[,"Taxonomic level"]), 
-                           alpha = 0.4,
+                           # alpha = 0.4,
                            size = 3)
     #p1 <- p1 + geom_line(data = plot.data, aes(x = Prevalence, y = null.perf), linetype = "dashed", alpha=0.4, show.legend = FALSE) # to plot null model as dash line between data points
     p1 <- p1 + stat_function(fun=function(x) -2*(x*log(x) + (1-x)*log(1-x))) # to plot null model as function line
@@ -272,7 +261,8 @@ model.comparison <- function(df.perf, list.models, CV){
     p3 <- p3 + labs(x="Models",
                     y="Standardized deviance",
                     # fill = "Models",
-                    title = title)
+                    title = title,
+                    subtitle = "Ordered by decreasing mean")
 
     return(list(p1,p2,p3))
     
