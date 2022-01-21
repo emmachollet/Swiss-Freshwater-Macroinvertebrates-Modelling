@@ -130,8 +130,6 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
             
             model <- train(f, data = temp.train, metric = selec.metric, method = algorithm, trControl = train.control)
             
-            model <- train(list.taxa[j] ~ env.fact, data = temp.train, metric = selec.metric, method = algorithm, trControl = train.control)
-            
             temp.list[["Trained model"]] <- model
             
             for(n in 1:length(which.set)){
