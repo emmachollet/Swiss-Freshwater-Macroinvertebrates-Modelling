@@ -57,7 +57,7 @@ build_and_train_model <- function (hyper.param = hyper.param,
   opt <- optimizer_adam(learning_rate = learning.rate)
   
   model %>% compile(optimizer = opt,
-                    loss = "binary_crossentropy", #loss_binary_crossentropy(),
+                    loss = "binary_crossentropy", # loss_binary_crossentropy(),
                     metrics = list('accuracy')) # categorical_accuracy ?
   
   # Fit the model

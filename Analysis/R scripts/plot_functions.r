@@ -8,7 +8,8 @@ print.pdf.plots <- function(list.plots, width = 12, height = width*3/4, dir.outp
   
   for (n in 1:length(list.plots)) {
     
-    plot(list.plots[[n]])
+    plot(list.plots[[n]]) # sometimes this works better
+    # print(list.plots[[n]])
     
   }
   
@@ -191,8 +192,6 @@ plot.df.perf <- function(df.perf, list.models, list.taxa, CV){
     
 }
 
-
-
 # Compare models
 model.comparison <- function(df.perf, list.models, CV){
     
@@ -225,6 +224,7 @@ model.comparison <- function(df.perf, list.models, CV){
                                                  shape = plot.data[,"Taxonomic level"]), 
                            # alpha = 0.4,
                            size = 3)
+    p1 <- p1 + ylim(0,2) # ECR: only because perf problems
     #p1 <- p1 + geom_line(data = plot.data, aes(x = Prevalence, y = null.perf), linetype = "dashed", alpha=0.4, show.legend = FALSE) # to plot null model as dash line between data points
     p1 <- p1 + stat_function(fun=function(x) -2*(x*log(x) + (1-x)*log(1-x))) # to plot null model as function line
     p1 <- p1  + labs(y = "Standardized deviance",
@@ -241,6 +241,7 @@ model.comparison <- function(df.perf, list.models, CV){
     p2 <- p2 + geom_boxplot()
     p2 <- p2 + scale_fill_manual(values=col.vect)
     p2 <- p2 + labs(title = title)
+    p2 <- p2 + ylim(0,2) # ECR: only because perf problems
     p2 <- p2 + scale_x_discrete(limits = rev(list.models))
     p2 <- p2 + coord_flip()
     p2 <- p2 + theme_bw(base_size = 20)
@@ -254,6 +255,7 @@ model.comparison <- function(df.perf, list.models, CV){
     p3 <- p3 + geom_boxplot()
     p3 <- p3 + scale_fill_manual(values=col.vect)
     p3 <- p3 + labs(title = title)
+    p3 <- p3 + ylim(0,2) # ECR: only because perf problems
     # p3 <- p3 + scale_x_discrete(limits = rev(list.models))
     p3 <- p3 + coord_flip()
     p3 <- p3 + theme_bw(base_size = 20)
@@ -267,6 +269,63 @@ model.comparison <- function(df.perf, list.models, CV){
     return(list(p1,p2,p3))
     
 }
+
+plot.perf.fitvspred <- function(df.fit.perf, df.pred.perf, list.models){
+  
+  list.models.temp <- c("grey30" = "Null_model")
+  list.models <- c(list.models.temp, list.models)
+  
+  # Make a vector of colors
+  col.vect <- names(list.models)
+  names(col.vect) <- list.models
+  
+  # Make dataframe to plot
+  plot.data.fit <- df.fit.perf[,-which(grepl("expl.pow",colnames(df.fit.perf)))] %>%
+    gather(key = model, value = performance.fit, -c("Taxa", "Prevalence", "Taxonomic level"))
+  plot.data.pred <- df.pred.perf[,-which(grepl("expl.pow",colnames(df.pred.perf)))] %>%
+    gather(key = model, value = performance.pred, -c("Taxa", "Prevalence", "Taxonomic level"))
+  plot.data <- left_join(plot.data.fit, plot.data.pred, by = c("Taxa", "Prevalence", "Taxonomic level", "model"))
+  
+  title <- "Comparison of performance"
+  p1 <- ggplot(plot.data) +
+    geom_point(aes(x = performance.fit, y = performance.pred, 
+                   colour = model, size = Prevalence, shape = plot.data[,"Taxonomic level"]), 
+               alpha = 0.8
+    ) +
+    # geom_encircle(aes(x = performance.fit, y = performance.pred), alpha = 0.2, show.legend = FALSE) +
+    geom_abline(slope = 1, intercept = 0, color="dimgrey", linetype="dashed") +
+    xlim(0,1.5) + ylim(0,1.5) + 
+    labs(y = "Performance during prediction",
+         x = "Performance during training",
+         shape = "Taxonomic level",
+         color = "Model",
+         size = "Prevalence",
+         title = title) + 
+    scale_colour_manual(values=col.vect) + 
+    theme_bw()
+  
+  title <- "Comparison of performance"
+  p2 <- ggplot(plot.data) +
+    geom_point(aes(x = performance.fit, y = performance.pred, 
+                   colour = model, size = Prevalence, shape = plot.data[,"Taxonomic level"]), 
+               alpha = 0.8
+    ) +
+    # geom_encircle(aes(x = performance.fit, y = performance.pred), alpha = 0.2, show.legend = FALSE) +
+    geom_abline(slope = 1, intercept = 0, color="dimgrey", linetype="dashed") +
+    xlim(0.25,1.25) + ylim(0.25,1.25) + 
+    labs(y = "Performance during prediction",
+         x = "Performance during training",
+         shape = "Taxonomic level",
+         color = "Model",
+         size = "Prevalence",
+         title = title,
+         subtitle = "Close up view") + 
+    scale_colour_manual(values=col.vect) + 
+    theme_bw()
+
+  return(list(p1,p2))
+}
+
 
 plot.dl.perf <- function(df.perf.dl.comb, list.models){
   
@@ -445,7 +504,7 @@ plot.ice.per.taxa <- function(taxa, outputs, list.algo, env.fact, normalization.
     list.plots <- list()
     
     for(k in env.fact){
-        
+        cat("Producing ICE plot for env. fact.", k, "for taxa", taxa)
         # Make temporary list of ICE plots for env.fact k for each algorithm
         temp.list.plots <- vector(mode = 'list', length = no.algo)
         names(temp.list.plots) <- list.algo
@@ -454,7 +513,7 @@ plot.ice.per.taxa <- function(taxa, outputs, list.algo, env.fact, normalization.
             
             # Extract trained model
             trained.mod <- outputs[[l]][[taxa]][["Trained model"]]
-            if(trained.mod != "NULL_MODEL"){ # need this because some models are "NULL" (svmRadial didn't work for all taxa)
+            # if(trained.mod != "NULL_MODEL"){ # this was needed because some models are "NULL" (svmRadial didn't work for all taxa)
                 
                 # Extract environmental dataframe of each sample
                 env.df <- outputs[[l]][[j]][["Observation training set"]][, env.fact]
@@ -482,12 +541,13 @@ plot.ice.per.taxa <- function(taxa, outputs, list.algo, env.fact, normalization.
                 for(n in 1:no.samples){
                     for (s in 1:no.steps) {
                         
-                        # Make test vector for sample n with with each value in range s of env. fact k 
-                        env.fact.test <- env.df[n,]
-                        env.fact.test[,k] <- range.test[s]
+                      # Make test vector for sample n with with each value in range s of env. fact k 
+                      env.fact.test <- env.df[n,]
+                      env.fact.test[k] <- range.test[s]
+                      # try as matrix
                         
-                        # Use function predict with type probability for each test env. vector
-                        pred.df[n,s] <- predict(trained.mod, env.fact.test, type = 'prob')[,"present"]
+                      # Use function predict with type probability for each test env. vector
+                      pred.df[n,s] <- predict(trained.mod, env.fact.test, type = 'prob')[,"present"]
                     }
                 }
                 
@@ -504,13 +564,14 @@ plot.ice.per.taxa <- function(taxa, outputs, list.algo, env.fact, normalization.
                 
                 temp.list.plots[[l]] <- p
                 
-            }
+            # }
         }
         
         title <- paste("ICE of", taxa, "for", k)
         q <- grid.arrange(grobs = temp.list.plots, ncol = 2)
         list.plots[[k]] <- q
     }
+    return(list.plots)
 }
 
 
