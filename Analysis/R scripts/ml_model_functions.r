@@ -58,6 +58,8 @@ lowest <- function (x, metric, maximize = F){
 # Function to apply ML algorithms
 apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.metric = "StandardizedDeviance", CV = T, prev.inv, ...){
     
+    env.fact.orig <- env.fact
+    # splitted.data <- centered.data.factors[[1]]
     data.train <- splitted.data[["Training data"]]
     data.test <- splitted.data[["Testing data"]]
     
@@ -71,9 +73,15 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
     names(outputs) <- list.algo
     
     for(k in 1:no.algo){
-    
+        # k = 1
         algorithm = list.algo[k]
         
+        if(algorithm == "glm"){
+          env.fact <- c(env.fact.orig, "temperature2", "velocity2") #add squared terms for glms
+        }else{
+          env.fact <- env.fact.orig
+        }
+        # 
         # Make a list with the outputs of the algorithm for each taxon in list.taxa
         list.outputs <- vector(mode = 'list', length = length(list.taxa))
         names(list.outputs) <- list.taxa
@@ -93,7 +101,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                           c(outer(out, which.set, FUN = paste)))
         
         for (j in 1:length(list.taxa)){
-            
+            # j = 1
             temp.list <- vector(mode = 'list', length = length(output.names))
             names(temp.list) <- output.names
             
@@ -133,11 +141,21 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                 selectionFunction = lowest       # we want to minimize the metric
             )
             
+            # Try out parameters in grid
+            #grid <- expand.grid(span = seq(0.1, 1, len = 5), 
+                                #degree = c(0,1))
+            #grid <- expand.grid(mtry   = c(1:20))
+            
+            
             # model <- train(x = temp.train[,env.fact], y = temp.train[,list.taxa[j]], method = algorithm, trControl = train.control) # alternative to formula writing
-            model <- train(f, data = temp.train, metric = selec.metric, method = algorithm, trControl = train.control)
+            model <- caret::train(f, data = temp.train, metric = selec.metric, method = algorithm, trControl = train.control)#, tuneGrid = grid)
             # model2 <- train(f, data = temp.train, metric = selec.metric, method = algorithm, trControl = train.control2) # Tried with the alternative training control
-        
-            temp.list[["Trained model"]] <- model
+            
+            #check model performance
+            # plot(model$finalModel)
+            # caret::plot.safs(model$finalModel)
+            # 
+            # temp.list[["Trained model"]] <- model
             # temp.list[["Variable importance"]] <- varImp(model)
 
             
