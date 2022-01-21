@@ -311,7 +311,7 @@ if( file.exists(file.name) == T ){
                                    FUN = apply.ml.model, list.algo, list.taxa, env.fact, prev.inv = prev.inv)
         } else {
             # Compute one split after the other
-            ml.outputs.cv_0.01 <- lapply(centered.data.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV, prev.inv = prev.inv)
+            ml.outputs.cv <- lapply(centered.data.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV, prev.inv = prev.inv)
         }
         
         cat("Saving outputs of algorithms in", file.name)
@@ -418,6 +418,7 @@ if(!server){
 learning.rate <- 0.01
 batch.size <-  64
 act.fct <- c(#"tanh",
+  # "swish",
   "leakyrelu") #,
   # "relu")
 
@@ -439,7 +440,7 @@ names(list.hyper.param) <- paste("ANN_", names(list.hyper.param), sep = "")
 list.ann <- names(list.hyper.param)
 no.ann <- length(list.ann)
 names(list.ann) <- rainbow(no.ann) # assign colors
-# names(list.ann) <- "#FFB791" # if a selected ANN
+# names(list.ann) <- "#FFB791" # if only one selected ANN
 
 info.file.ann.name <-  paste0("ANN_model_",
                               file.prefix, 
@@ -468,7 +469,6 @@ if( file.exists(file.name) == T ){
                env.fact = env.fact,
                list.taxa = list.taxa,
                learning.rate = learning.rate,
-               # num.epochs = num.epochs,
                batch.size = batch.size,
                CV = CV)
       })
@@ -479,7 +479,6 @@ if( file.exists(file.name) == T ){
                             env.fact = env.fact,
                             list.taxa = list.taxa,
                             learning.rate = learning.rate,
-                            # num.epochs = num.epochs,
                             batch.size = batch.size,
                             CV = CV)
       saveRDS(ann.outputs, file = file.name)
@@ -503,22 +502,25 @@ if(CV){
     #s = "Split2"
     outputs.cv[[s]][[list.stat.mod[1]]] <- stat.outputs.transformed[[1]][[s]]
     outputs.cv[[s]][[list.stat.mod[2]]] <- stat.outputs.transformed[[2]][[s]]
+
+    # ECR: For ANN analysis 
     # names(ann.outputs.cv[[s]]) <- list.ann # in case ann names are not the good ones (with act. fct)
     # names(ann.outputs.cv2[[s]]) <- gsub("1FCT", "tanhFCT", names(ann.outputs.cv2[[s]]))
     # names(ann.outputs.cv2[[s]]) <- gsub("2FCT", "leakyreluFCT", names(ann.outputs.cv2[[s]]))
     outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv[[s]])
     # outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv2[[s]])
-  }
+    }
 } else {
   # Make final outputs as list
   outputs <- append(append(ml.outputs, stat.outputs.transformed), ann.outputs)
   #outputs <- append(appendml.outputs, ann.outputs)
 }
   
+# ECR: For ANN analysis
 # list.ann <- c(names(ann.outputs.cv[[1]]), names(ann.outputs.cv2[[1]]))
 # no.ann <- length(list.ann)
 # names(list.ann) <- rainbow(no.ann)
-  
+ 
 # Make final list of models
 list.models <- c(list.algo, list.stat.mod, list.ann)
 no.models <- length(list.models)

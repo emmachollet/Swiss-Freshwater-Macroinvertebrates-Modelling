@@ -40,7 +40,7 @@ stand.dev <- function(data, lev = c("present","absent"), model = NULL){
     likeli[which(data$obs == lev[1])] <- data[which(data$obs == lev[1]), lev[1]]
     likeli[which(data$obs == lev[2])] <- data[which(data$obs == lev[2]), lev[2]]
     
-    likeli[which(likeli < 0.01)] <- 0.01
+    likeli[which(likeli < 0.0001)] <- 0.0001
     
     st.dev <- -2 * sum(log(likeli)) / no.obs
     names(st.dev) <- "StandardizedDeviance"
@@ -152,7 +152,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                         likeli[i] <- temp.list[[paste(out[3],which.set[n])]][i, "absent"]
                     }
                 }
-                likeli[which(likeli < 0.01)] <- 0.01 # avoid problems when likelihood too small
+                likeli[which(likeli < 0.0001)] <- 0.0001 # avoid problems when likelihood too small
                 temp.list[[paste(out[4],which.set[n])]] <- likeli
                 # Performance
                 temp.list[[paste(out[5],which.set[n])]] <- -2 * sum(log(likeli)) / nrow(temp.sets[[n]])
