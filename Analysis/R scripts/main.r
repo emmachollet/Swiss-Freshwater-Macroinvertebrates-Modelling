@@ -197,13 +197,13 @@ no.taxa <- length(list.taxa)
 
 # Select machine learning algorithms to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
-list.algo <- c( #"#256801" = 'glm', # Generalized Linear Model
-                #"#0A1C51" = 'gamLoess',
-                #"#7B1359" = 'svmRadial', # Support Vector Machine
-                "#AB4589" = 'rf') # Random Forest
-
+list.algo <- c( "#256801" = 'glm', # Generalized Linear Model
+                "#0A1C51" = 'gamSpline', # Deneralized Additive Model
+                "#7B1359" = 'svmRadial', # Support Vector Machine
+                "#AB4589" = 'rf' # Random Forest
+                )
 no.algo <- length(list.algo)
-                                          
+                                       
 ## ---- APPLY MODELS ----
 
 # Null model
@@ -223,11 +223,11 @@ names(comm.corr.options) <- c("CF0", "UF0")
 
 stat.outputs <- mclapply(comm.corr.options, mc.cores = n.cores.stat.models, function(comm.corr){
   
-  #comm.corr <- comm.corr.options[[1]]
+  # comm.corr <- comm.corr.options[[1]]
   info.file.stat.name <- paste0("Stat_model_",
                                 file.prefix,
-                                # no.taxa.full, "taxa_", 
-                                126, "taxa_", 
+                                no.taxa.full, "taxa_", 
+                                #126, "taxa_", 
                                 sampsize,"iterations_",
                                 ifelse(comm.corr,"CF0_","UF0_"),
                                 ifelse(CV, "CV_", "FIT_"),
@@ -522,6 +522,7 @@ if(CV){
 # names(list.ann) <- rainbow(no.ann)
  
 # Make final list of models
+#list.models <- c(list.algo, list.stat.mod)
 list.models <- c(list.algo, list.stat.mod, list.ann)
 no.models <- length(list.models)
 
@@ -563,9 +564,9 @@ if(CV){
 # Look into the effect of data leakage ####
 
 # save intermediate output to compare dl no dl 
-#saveRDS(df.pred.perf, file = paste0(dir.models.output, info.file.name, "df_perf_.rds"), version = 2)
-#df.pred.perf.no.dl <- readRDS(file = paste0(dir.models.output, "All_7models_126taxa_CV_no_DL_df_perf_.rds"))
-#df.pred.perf.dl <- readRDS(file = paste0(dir.models.output, "All_7models_126taxa_CV_DL_df_perf_.rds"))
+# saveRDS(df.pred.perf, file = paste0(dir.models.output, info.file.name, "df_perf_.rds"), version = 2)
+#df.pred.perf.no.dl <- readRDS(file = paste0(dir.models.output, "All_6models_59taxa_CV_no_DL_df_perf_.rds"))
+#df.pred.perf.dl <- readRDS(file = paste0(dir.models.output, "All_6models_59taxa_CV_DL_df_perf_.rds"))
 
 # df.pred.perf.no.dl <- readRDS(file = paste0(dir.models.output, "All_9models_126taxa_CV_no_DL_df_perf_.rds"))
 # df.pred.perf.dl <- readRDS(file = paste0(dir.models.output, "All_9models_126taxa_CV_DL_df_perf_.rds"))
@@ -581,46 +582,48 @@ if(CV){
 # 
 # colnames(df.pred.perf.dl.comb)
 # 
-# df.pred.perf.dl.comb.table <- as.data.frame(df.pred.perf.dl.comb %>% group_by(DL) %>% 
+# df.pred.perf.dl.comb.table <- as.data.frame(df.pred.perf.dl.comb %>% group_by(DL) %>%
 #                                       summarise(glm.mean = mean(glm, na.rm = T),
 #                                       glm.sd = sd(glm, na.rm = T),
-#                                       
-#                                       gamSpline.mean = mean(gamSpline,na.rm = T),
-#                                       gamSpline.sd = sd(gamSpline,na.rm = T),
-#                                       
+# 
+#                                       #gamSpline.mean = mean(gamSpline,na.rm = T),
+#                                       #gamSpline.sd = sd(gamSpline,na.rm = T),
+# 
 #                                       svmRadial.mean = mean(svmRadial, na.rm = T),
 #                                       svmRadial.sd = sd(svmRadial, na.rm = T),
-#                                       
+# 
 #                                       rf.mean = mean(rf, na.rm = T),
 #                                       rf.sd = sd(rf, na.rm = T),
-#                                       
+# 
 #                                       CF0.mean = mean(CF0, na.rm = T),
 #                                       CF0.sd = sd(CF0, na.rm = T),
-#                                       
+# 
 #                                       UF0.mean = mean(UF0, na.rm = T),
 #                                       UF0.sd = sd(UF0, na.rm = T),
-#                                       
-#                                       
-#                                       ANN3L32U.mean = mean(ANN3L32U, na.rm = T),
-#                                       ANN3L32U.sd = sd(ANN3L32U, na.rm = T),
-#                                       
-#                                       ANN3L64U.mean = mean(ANN3L64U, na.rm = T),
-#                                       ANN3L64U.sd = sd(ANN3L64U, na.rm = T),
-#                                       
-#                                       ANN5L32U.mean = mean(ANN5L32U, na.rm = T),
-#                                       ANN5L32U.sd = sd(ANN5L32U, na.rm = T)
-#                                       
-#                                        ))
 # 
-# #saveRDS(df.pred.perf.dl.comb.table, file = paste0(dir.plots.output, "Table_means_dl.rds"), version = 2)
-# df.pred.perf.dl.comb.table <- readRDS(file = paste0(dir.plots.output, "Table_means_dl.rds"))
-# diff.means.dl <- df.pred.perf.dl.comb.table[1,c("glm.mean", "gamSpline.mean","svmRadial.mean", 
+
+                                      #ANN3L32U.mean = mean(ANN3L32U, na.rm = T),
+                                      #ANN3L32U.sd = sd(ANN3L32U, na.rm = T),
+
+                                      #ANN3L64U.mean = mean(ANN3L64U, na.rm = T),
+                                      #ANN3L64U.sd = sd(ANN3L64U, na.rm = T),
+
+                                      #ANN5L32U.mean = mean(ANN5L32U, na.rm = T),
+                                      #ANN5L32U.sd = sd(ANN5L32U, na.rm = T)
+
+                                       #))
+
+#saveRDS(df.pred.perf.dl.comb.table, file = paste0(dir.plots.output, "Table_means_dl.rds"), version = 2)
+#df.pred.perf.dl.comb.table <- readRDS(file = paste0(dir.plots.output, "Table_means_dl.rds"))
+# diff.means.dl <- df.pred.perf.dl.comb.table[1,c("glm.mean", "gamSpline.mean","svmRadial.mean",
 #                          "rf.mean", "CF0.mean", "UF0.mean", "ANN3L32U.mean", "ANN3L64U.mean",
-#                          "ANN5L32U.mean")] - 
-#   df.pred.perf.dl.comb.table[2,c("glm.mean", "gamSpline.mean","svmRadial.mean", 
+#                          "ANN5L32U.mean")] -
+#   df.pred.perf.dl.comb.table[2,c("glm.mean", "gamSpline.mean","svmRadial.mean",
 #                             "rf.mean", "CF0.mean", "UF0.mean", "ANN3L32U.mean", "ANN3L64U.mean",
 #                             "ANN5L32U.mean")]
 # 
+# diff.means.dl <- df.pred.perf.dl.comb.table[1,c("glm.mean", "CF0.mean", "UF0.mean")] -
+#   df.pred.perf.dl.comb.table[2,c("glm.mean", "CF0.mean", "UF0.mean")]
 
 ## ---- PLOTS ----
 source("utilities.r")
@@ -655,7 +658,7 @@ if(CV){
         list.plots <- append(list.plots.cv, list.plots)
         
         # if(dl){
-        # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models)
+        # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models[-2])
         # }
     } else {
         list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV)

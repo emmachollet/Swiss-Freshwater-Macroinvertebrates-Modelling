@@ -58,6 +58,8 @@ lowest <- function (x, metric, maximize = F){
 # Function to apply ML algorithms
 apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.metric = "StandardizedDeviance", CV = T, prev.inv, ...){
     
+    env.fact.orig <- env.fact
+    # splitted.data <- centered.data.factors[[1]]
     data.train <- splitted.data[["Training data"]]
     data.test <- splitted.data[["Testing data"]]
     
@@ -71,9 +73,15 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
     names(outputs) <- list.algo
     
     for(k in 1:no.algo){
-    
+        # k = 1
         algorithm = list.algo[k]
         
+        if(algorithm == "glm"){
+          env.fact <- c(env.fact.orig, "temperature2", "velocity2") #add squared terms for glms
+        }else{
+          env.fact <- env.fact.orig
+        }
+        # 
         # Make a list with the outputs of the algorithm for each taxon in list.taxa
         list.outputs <- vector(mode = 'list', length = length(list.taxa))
         names(list.outputs) <- list.taxa
@@ -91,7 +99,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
         output.names <- c("Trained model", c(outer(out, which.set, FUN = paste)))
         
         for (j in 1:length(list.taxa)){
-            
+            # j = 1
             temp.list <- vector(mode = 'list', length = length(output.names))
             names(temp.list) <- output.names
             
