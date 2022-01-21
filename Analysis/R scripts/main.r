@@ -73,7 +73,7 @@ file.prev         <- "prevalence_2020-06-25.dat"
 # Setup options ####
 
 # Set if we want to run ANN models or not (and consequently load libraries)
-run.ann <- T
+run.ann <- F
 
 if(run.ann){  
   library("reticulate")
@@ -107,7 +107,7 @@ dl <- F # Data Leakage
 if(!CV){ dl <- F } # if it's only fitting, we don't need with or without dataleakage
 
 # Set number of cores
-n.cores.splits <-  1 # a core for each split, 3 in our case
+n.cores.splits <-  3 # a core for each split, 3 in our case
 n.cores.stat.models <- 1 # a core for each stat model 2 in our case (UF0, and CF0)
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
@@ -164,15 +164,6 @@ list.taxa <- list.taxa[order(match(list.taxa, prev.inv$Occurrence.taxa))] # reor
 centered.data <- prepro.data$centered.data
 centered.data.factors <- prepro.data$centered.data.factors
 normalization.data <- prepro.data$normalization.data
-
-# check normalization
-# mean(centered.data$Split1$`Training data`$temperature)
-# mean(centered.data$Split1$`Testing data`$temperature)
-# 
-# mean(centered.data$Split2$`Training data`$temperature)
-# mean(centered.data$Split2$`Testing data`$temperature)
-# 
-
 remove(prepro.data)
 
 # Select taxa ####
@@ -201,11 +192,6 @@ if (all.taxa == F){
 no.taxa.full <- length(list.taxa.full)
 no.taxa.int <- length(list.taxa.int)
 no.taxa <- length(list.taxa)
-
-# # Summary of prevalence of chosen taxa
-# for ( i in list.taxa){
-#     cat("Summary of absence, presence and NA for", list.taxa[i], ":", summary(data.inv[, list.taxa[i]]), "\n")
-# }
 
 # Select ml algorithms ####
 
@@ -309,7 +295,6 @@ file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
 cat(file.name)
 
 if( file.exists(file.name) == T ){
-    # & askYesNo(paste("Another file named", file.name.temp, "already exists. Should we read it and subselect taxa later ? If no, we run the algorithms for selected information."), default = T) ){
 
     cat("Reading", file.name, "and saving it in object 'ml.outputs'")
     if(CV){ ml.outputs.cv <- readRDS(file = file.name)
@@ -326,7 +311,7 @@ if( file.exists(file.name) == T ){
                                    FUN = apply.ml.model, list.algo, list.taxa, env.fact, prev.inv = prev.inv)
         } else {
             # Compute one split after the other
-            ml.outputs.cv <- lapply(centered.data.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV, prev.inv = prev.inv)
+            ml.outputs.cv_0.01 <- lapply(centered.data.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV, prev.inv = prev.inv)
         }
         
         cat("Saving outputs of algorithms in", file.name)
@@ -343,8 +328,6 @@ if( file.exists(file.name) == T ){
         
         }
 }
-# }
-
 
 # Write down the number of splits and their names
 if(CV){
@@ -352,7 +335,7 @@ if(CV){
     no.splits <- length(list.splits)
 }
 
-# ECR: Problem with some ml performance ####
+# ECR: Problem with some ml performance
 if(CV){
     for (s in list.splits) {
     print(s)
@@ -388,7 +371,10 @@ if(CV){
         list.taxa.temp <- names(ml.outputs[[l]])
         for (j in list.taxa.temp) {
             perf <- ml.outputs[[l]][[j]][["Performance training set"]]
-            ml.outputs[[l]][[j]][["Performance training set"]] <- ifelse(perf > 1.5, Inf, perf)
+            if(perf > 1.5){
+              cat(j, "has training performance bigger than 1.5", perf, "\n")
+            }
+            # ml.outputs[[l]][[j]][["Performance training set"]] <- ifelse(perf > 1.5, Inf, perf)
         }
     }
 }
@@ -398,7 +384,7 @@ print(proc.time()-ptm)
 
 if(server){
   if(CV){
-    # Regularize RF ####
+    # Try to regularize RF ####
     
     mtry.vect <- c(1,2,3,4,8)
     # mtry.vect <- c(1)
@@ -432,10 +418,15 @@ if(!server){
 learning.rate <- 0.01
 batch.size <-  64
 act.fct <- c(#"tanh",
-  "relu",
-  "leakyrelu")
+  "leakyrelu") #,
+  # "relu")
 
-grid.hyperparam <- expand.grid(layers = c(3,5), units = c(32, 64), act.fct = act.fct, no.epo = c(150,200))
+# ECR: For hyperparam grid search
+# grid.hyperparam <- expand.grid(layers = c(3,5), units = c(32, 64), act.fct = act.fct, no.epo = c(150,200))
+
+# ECR: For specific hyperparam selection
+grid.hyperparam <- expand.grid(layers = c(3), units = c(32), act.fct = act.fct, no.epo = c(50))
+
 grid.hyperparam$act.fct <- as.character(grid.hyperparam$act.fct)
 no.hyperparam <- nrow(grid.hyperparam)
 list.hyper.param <- vector("list", no.hyperparam)
@@ -448,6 +439,7 @@ names(list.hyper.param) <- paste("ANN_", names(list.hyper.param), sep = "")
 list.ann <- names(list.hyper.param)
 no.ann <- length(list.ann)
 names(list.ann) <- rainbow(no.ann) # assign colors
+# names(list.ann) <- "#FFB791" # if a selected ANN
 
 info.file.ann.name <-  paste0("ANN_model_",
                               file.prefix, 
@@ -460,7 +452,7 @@ file.name <- paste0(dir.models.output, info.file.ann.name, ".rds")
 cat(file.name)
 
 if( file.exists(file.name) == T ){
-  cat("Reading", file.name, "and saving it in object 'ann.outputs'")
+  cat("The file already exists. Reading it", file.name)
   if(CV){ 
     ann.outputs.cv <- readRDS(file = file.name)
   } else {
@@ -498,10 +490,10 @@ if( file.exists(file.name) == T ){
 }
 
 
-# to compare more ann outputs
+# ECR: For ANN analysis, to compare more ann outputs
 # file.name <- file.name <- paste0(dir.models.output, "ANN_model_All_16ann_59taxa_CV_no_DL_tanh50_100epo.rds")
 # ann.outputs.cv2 <- readRDS(file = file.name)
-  
+
 # Merge outputs ####
 
 if(CV){
@@ -566,7 +558,6 @@ if(CV){
                              list.taxa = list.taxa, list.splits = list.splits,
                              null.model = null.model, prev.inv = prev.inv, CV = CV)
 }
-
 
 # Look into the effect of data leakage ####
 
@@ -698,9 +689,16 @@ if(CV){
   }
 }
 
-name <- "PredFitModelsCompar"
+name <- "PredFitModelsCompar_Boxplots"
 file.name <- paste0(name, ".pdf")
 print.pdf.plots(list.plots = list.plots2, width = 25, height = 17, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+# Performance training vs prediction
+
+list.plots <- plot.perf.fitvspred(df.fit.perf = df.fit.perf, df.pred.perf = df.pred.perf, list.models = list.models)
+name <- "PredFitModelsCompar_Scatterplot"
+file.name <- paste0(name, ".pdf")
+print.pdf.plots(list.plots = list.plots, width = 12, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # # Print a jpeg file
 # file.name <- paste0(name, ".jpg")
@@ -712,11 +710,16 @@ print.pdf.plots(list.plots = list.plots2, width = 25, height = 17, dir.output = 
 
 if(!CV){
     
+  # ECR: For ML analysis, if CV = T, take just the first split for trained models analysis (instead of running everything for CV=F, i.e. FIT, again)
+  outputs <- outputs.cv[[1]]
+  normalization.data.cv <- normalization.data
+  normalization.data <- normalization.data[[1]]
+  
     # Performance vs hyperparameters ####
     
     # Compute plots
     list.plots <- plot.perf.hyperparam(outputs = outputs, 
-                                       list.algo = list.algo, # GLM algo doesn't have hyperparameters
+                                       list.algo = list.algo[4], # GLM algo doesn't have hyperparameters
                                        list.taxa = list.taxa)
     # Print a pdf file
     name <- "PerfvsHyperparam"
@@ -747,13 +750,16 @@ if(!CV){
 
     # ICE Manual ####
     
-    list.list.plots <- lapply(list.taxa, FUN= plot.ice.per.taxa, outputs, list.algo, env.fact, normalization.data)
+    source("plot_functions.r")
     
-    for (j in list.taxa) {
+    list.list.plots <- lapply(list.taxa[1:2], FUN= plot.ice.per.taxa, outputs, list.algo = list.models[3:4], env.fact, normalization.data)
+    
+    for (j in 1:length(list.taxa[1:2])) {
         taxon <- sub("Occurrence.", "", j)
         file.name <- paste0("ICE_", taxon, ".pdf")
         print.pdf.plots(list.plots = list.list.plots[[j]], width = 20, height = 20, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
     }
+    
     # file.name <- "testICE.pdf"
     # pdf(paste0(dir.plots.output, info.file.name, file.name), paper = 'special', width = 20, # height = height, 
     #     onefile = TRUE)

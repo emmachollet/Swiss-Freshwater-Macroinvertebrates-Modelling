@@ -96,9 +96,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                  "Likelihood", #4
                  "Performance")#, #5
                  # "Confusion matrix") #6
-        output.names <- c("Trained model",
-                          # "Variable importance",
-                          c(outer(out, which.set, FUN = paste)))
+        output.names <- c("Trained model", c(outer(out, which.set, FUN = paste)))
         
         for (j in 1:length(list.taxa)){
             # j = 1
@@ -108,7 +106,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
             temp.train <- na.omit(data.train[, c("SiteId", "SampId",
                                                  "X", "Y", 
                                                  list.taxa[j], env.fact)]) # create a temporary training dataset with the taxon and env fact, to 
-            if(CV == T){temp.test <- na.omit(data.test[, c("SiteId", "SampId",
+            if(CV){temp.test <- na.omit(data.test[, c("SiteId", "SampId",
                                                    "X", "Y", 
                                                    list.taxa[j], env.fact)])
                         temp.sets <- list(temp.train, temp.test)
@@ -133,46 +131,26 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                 method = 'cv',                   # k-fold cross validation
                 number = 3,                      # number of folds
                 index = folds,                   # provide indices computed with groupKFold for the k-fold CV
-                # repeats = 1,                   # for repeated k-fold cross-validation 'repeatedcv' only: the number of complete sets of folds to compute
-                # savePredictions = 'final',     # saves predictions for optimal tuning parameter
                 classProbs = T,                  # should class probabilities be returned
-                #summaryFunction = twoClassSummary, # default metric function choosen (accuracy, ROC)
                 summaryFunction = stand.dev ,
                 selectionFunction = lowest       # we want to minimize the metric
             )
             
-            # Try out parameters in grid
-            #grid <- expand.grid(span = seq(0.1, 1, len = 5), 
-                                #degree = c(0,1))
-            #grid <- expand.grid(mtry   = c(1:20))
+            model <- train(f, data = temp.train, metric = selec.metric, method = algorithm, trControl = train.control)
             
-            
-            # model <- train(x = temp.train[,env.fact], y = temp.train[,list.taxa[j]], method = algorithm, trControl = train.control) # alternative to formula writing
-            model <- caret::train(f, data = temp.train, metric = selec.metric, method = algorithm, trControl = train.control)#, tuneGrid = grid)
-            # model2 <- train(f, data = temp.train, metric = selec.metric, method = algorithm, trControl = train.control2) # Tried with the alternative training control
-            
-            #check model performance
-            # plot(model$finalModel)
-            # caret::plot.safs(model$finalModel)
-            # 
-            # temp.list[["Trained model"]] <- model
-            # temp.list[["Variable importance"]] <- varImp(model)
-
+            temp.list[["Trained model"]] <- model
             
             for(n in 1:length(which.set)){
                 # Observation
                 temp.list[[paste(out[1],which.set[n])]] <- temp.sets[[n]]
                 n.obs <- dim(temp.sets[[n]])[1]
+                
                 # Prediction factors
                 temp.list[[paste(out[2],which.set[n])]] <- predict(model, temp.sets[[n]])
-                #   if(model[1] == "NULL_MODEL"){
-                #     ifelse(prev.taxa > 0.5, rep("present", n.obs), rep("absent", n.obs))
-                # } else { predict(model, temp.sets[[n]]) }
+
                 # Prediction probabilities
                 temp.list[[paste(out[3],which.set[n])]] <- predict(model, temp.sets[[n]], type = 'prob')
-                #   if(model[1] == "NULL_MODEL"){
-                #     data.frame("absent" = rep(1-prev.taxa, n.obs), "present" = rep(prev.taxa, n.obs))
-                # } else { predict(model, temp.sets[[n]], type = 'prob') }
+ 
                 # Likelihood
                 likeli <- 1:nrow(temp.sets[[n]])
                 for(i in 1:nrow(temp.sets[[n]])){
@@ -186,10 +164,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
                 temp.list[[paste(out[4],which.set[n])]] <- likeli
                 # Performance
                 temp.list[[paste(out[5],which.set[n])]] <- -2 * sum(log(likeli)) / nrow(temp.sets[[n]])
-                # Confusion matrix
-                # temp.list[[paste(out[6],which.set[n])]] <- if(model[1] != "NULL_MODEL"){confusionMatrix(reference = temp.sets[[n]][,list.taxa[j]], 
-                #                                                    data = temp.list[[paste(out[2],which.set[n])]], mode='everything', positive='present')}
-                # 
+                
             }
             
             list.outputs[[j]] <- temp.list
@@ -227,9 +202,7 @@ apply.tuned.ml.model <- function(tune.vector = NULL, splitted.data, algorithm, l
            "Likelihood", #4
            "Performance")#, #5
   # "Confusion matrix") #6
-  output.names <- c("Trained model",
-                    # "Variable importance",
-                    c(outer(out, which.set, FUN = paste)))
+  output.names <- c("Trained model", c(outer(out, which.set, FUN = paste)))
   
   for (j in 1:length(list.taxa)){
     
@@ -265,23 +238,18 @@ apply.tuned.ml.model <- function(tune.vector = NULL, splitted.data, algorithm, l
     model <- train(f, data = temp.train, metric = selec.metric, method = algorithm, trControl = train.control, tuneGrid = tune.grid)
 
     temp.list[["Trained model"]] <- model
-    # temp.list[["Variable importance"]] <- varImp(model)
-    
     
     for(n in 1:length(which.set)){
       # Observation
       temp.list[[paste(out[1],which.set[n])]] <- temp.sets[[n]]
       n.obs <- dim(temp.sets[[n]])[1]
+      
       # Prediction factors
       temp.list[[paste(out[2],which.set[n])]] <- predict(model, temp.sets[[n]])
-      #   if(model[1] == "NULL_MODEL"){
-      #     ifelse(prev.taxa > 0.5, rep("present", n.obs), rep("absent", n.obs))
-      # } else { predict(model, temp.sets[[n]]) }
+      
       # Prediction probabilities
       temp.list[[paste(out[3],which.set[n])]] <- predict(model, temp.sets[[n]], type = 'prob')
-      #   if(model[1] == "NULL_MODEL"){
-      #     data.frame("absent" = rep(1-prev.taxa, n.obs), "present" = rep(prev.taxa, n.obs))
-      # } else { predict(model, temp.sets[[n]], type = 'prob') }
+      
       # Likelihood
       likeli <- 1:nrow(temp.sets[[n]])
       for(i in 1:nrow(temp.sets[[n]])){
@@ -293,12 +261,10 @@ apply.tuned.ml.model <- function(tune.vector = NULL, splitted.data, algorithm, l
       }
       likeli[which(likeli < 0.01)] <- 0.01 # avoid problems when likelihood too small
       temp.list[[paste(out[4],which.set[n])]] <- likeli
+      
       # Performance
       temp.list[[paste(out[5],which.set[n])]] <- -2 * sum(log(likeli)) / nrow(temp.sets[[n]])
-      # Confusion matrix
-      # temp.list[[paste(out[6],which.set[n])]] <- if(model[1] != "NULL_MODEL"){confusionMatrix(reference = temp.sets[[n]][,list.taxa[j]], 
-      #                                                    data = temp.list[[paste(out[2],which.set[n])]], mode='everything', positive='present')}
-      # 
+      
     }
     
     list.outputs[[j]] <- temp.list
