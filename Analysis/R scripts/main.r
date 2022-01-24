@@ -197,10 +197,12 @@ no.taxa <- length(list.taxa)
 
 # Select machine learning algorithms to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
-list.algo <- c( "#256801" = 'glm', # Generalized Linear Model
-                "#0A1C51" = 'gamSpline', # Deneralized Additive Model
-                "#7B1359" = 'svmRadial', # Support Vector Machine
-                "#AB4589" = 'rf' # Random Forest
+list.algo <- c(  "#256801" = 'glm', # Generalized Linear Model
+                 "#0A1C51" = 'gamSpline', # Deneralized Additive Model
+                 "#7B1359" = 'svmRadial', # Support Vector Machine
+                # "maroon4" = 'rfRules', # to try more regularization --> mtry, maxdepth
+                # "olivedrab" = 'RRF', # to try more regularization --> mtry, coefReg, coefImp
+                "#AB4589" = 'rf' # Random Forest --> mtry
                 )
 no.algo <- length(list.algo)
                                        
@@ -386,19 +388,28 @@ if(server){
   if(CV){
     # Try to regularize RF ####
     
-    mtry.vect <- c(1,2,3,4,8)
+    # mtry.vect <- c(1,2,3,4,8)
     # mtry.vect <- c(1)
+    # names(mtry.vect) <- paste("rf_", mtry.vect, "mtry", sep = "")
     
-    names(mtry.vect) <- paste("rf_", mtry.vect, "mtry", sep = "")
+    list.tuned.grid <- list()
+    tuned.grid <- expand.grid(mtry = c(2,3), coefReg = c(0.01), coefImp = c(0, 0.3))
+    for (n in 1:nrow(tuned.grid)) {
+      list.tuned.grid[[n]] <- tuned.grid[n,]
+      names(list.tuned.grid)[[n]] <- paste(c("RRF_", paste(tuned.grid[n,], colnames(tuned.grid), sep="")), collapse = "")
+    }
+    list.tuned.algo <- names(list.tuned.grid)
+    no.tuned.algo <- length(list.tuned.algo)
+    names(list.tuned.algo) <- rainbow(no.tuned.algo)
     
     tuned.ml.outputs.cv <- lapply(centered.data.factors, function(split){
       #split <- centered.data.factors[[1]]
-      lapply(mtry.vect, FUN = apply.tuned.ml.model, splitted.data = split, algorithm = "rf", list.taxa = list.taxa[1],
+      lapply(list.tuned.grid, FUN = apply.tuned.ml.model, splitted.data = split, algorithm = "RRF", list.taxa = list.taxa,
              env.fact = env.fact, CV = CV, prev.inv = prev.inv)})
   
     info.file.ml.name <-  paste0("ML_model_",
                                  file.prefix, 
-                                 length(mtry.vect), "tunedRF_",
+                                 no.tuned.algo, "tunedRRF_",
                                  no.taxa, "taxa_", 
                                  ifelse(CV, "CV_", "FIT_"),
                                  ifelse(dl, "DL_", "no_DL_"))
@@ -507,8 +518,11 @@ if(CV){
     # names(ann.outputs.cv[[s]]) <- list.ann # in case ann names are not the good ones (with act. fct)
     # names(ann.outputs.cv2[[s]]) <- gsub("1FCT", "tanhFCT", names(ann.outputs.cv2[[s]]))
     # names(ann.outputs.cv2[[s]]) <- gsub("2FCT", "leakyreluFCT", names(ann.outputs.cv2[[s]]))
+    
     outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv[[s]])
+    
     # outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv2[[s]])
+    # outputs.cv[[s]] <- append(outputs.cv[[s]], tuned.ml.outputs.cv[[s]])
     }
 } else {
   # Make final outputs as list
@@ -516,10 +530,14 @@ if(CV){
   #outputs <- append(appendml.outputs, ann.outputs)
 }
   
-# ECR: For ANN analysis
+# ECR: For analysis
+# To analyze ANN
 # list.ann <- c(names(ann.outputs.cv[[1]]), names(ann.outputs.cv2[[1]]))
 # no.ann <- length(list.ann)
 # names(list.ann) <- rainbow(no.ann)
+# To analyze ML or RRF
+# outputs.cv <- tuned.ml.outputs.cv
+# list.models <- c(list.algo, list.tuned.algo)
  
 # Make final list of models
 #list.models <- c(list.algo, list.stat.mod)
@@ -531,13 +549,11 @@ show_col(names(list.models))
 
 info.file.name <- paste0(file.prefix, 
                          no.models, "models_",
-                         # d, # don't need to include the date
+                         # no.models, "tunedRRF_",
                          no.taxa, "taxa_", 
                          # no.env.fact, "envfact_",
                          ifelse(CV, "CV_", "FIT_"),
                          ifelse(dl, "DL_", "no_DL_"),
-                         # "trainset", percentage.train.set, 
-                         # if( ratio != 1) {split.var}, 
                          "")
 
 # Produce final outputs with mean performance across splits

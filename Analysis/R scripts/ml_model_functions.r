@@ -177,12 +177,12 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
 }
 
 # Function to apply ML algorithms
-apply.tuned.ml.model <- function(tune.vector = NULL, splitted.data, algorithm, list.taxa, env.fact, selec.metric = "StandardizedDeviance", CV = T, prev.inv, ...){
+apply.tuned.ml.model <- function(splitted.data, tune.grid = NULL, algorithm, list.taxa, env.fact, selec.metric = "StandardizedDeviance", CV = T, prev.inv, ...){
   
   data.train <- splitted.data[["Training data"]]
   data.test <- splitted.data[["Testing data"]]
   
-  tune.grid <- expand.grid(mtry = tune.vector)
+  tune.grid <- tune.grid
   no.algo <- length(list.algo)
   
   # Adapt list taxa to taxa actually present in data.train
