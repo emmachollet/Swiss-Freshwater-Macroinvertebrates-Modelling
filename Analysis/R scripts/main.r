@@ -47,7 +47,7 @@ if ( !require("gam") ) { install.packages("gam"); library("gam") } # to run gene
 if ( !require("kernlab") ) { install.packages("kernlab"); library("kernlab") } # to run support vector machine (svm) algorithm
 # if ( !require("earth") ) { install.packages("earth"); library("earth") } # to run MARS ml algorithm
 if ( !require("randomForest") ) { install.packages("randomForest"); library("randomForest") } # to run random forest (RF)
-# if ( !require("randomForestSRC") ) { install.packages("randomForestSRC"); library("randomForestSRC") } # to run RF and additional features
+if ( !require("RRF") ) { install.packages("RRF"); library("RRF") } # to run RF and additional features
 
 # Check and set working directory
 getwd() # show working directory
@@ -73,7 +73,7 @@ file.prev         <- "prevalence_2020-06-25.dat"
 # Setup options ####
 
 # Set if we want to run ANN models or not (and consequently load libraries)
-run.ann <- F
+run.ann <- T
 
 if(run.ann){  
   library("reticulate")
@@ -103,7 +103,7 @@ d <- Sys.Date()    # e.g. 2021-12-17
 
 # Set if we want to fit models to whole dataset or perform cross-validation (CV)
 CV <- T # Cross-Validation
-dl <- F # Data Leakage
+dl <- T # Data Leakage
 if(!CV){ dl <- F } # if it's only fitting, we don't need with or without dataleakage
 
 # Set number of cores
@@ -112,11 +112,11 @@ n.cores.stat.models <- 1 # a core for each stat model 2 in our case (UF0, and CF
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
 # also make sure the cross-validation (CV) flag is set correctly
-sampsize <- 2000 #10000 #I think this needs to be an even number for some reason (stan error)
+sampsize <- 4000 #10000 #I think this needs to be an even number for some reason (stan error)
 n.chain  <- 2 #2
 
 # Select taxa
-all.taxa <- T
+all.taxa <- F
 # set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
 # set to TRUE to apply models to all taxa
 
@@ -154,7 +154,7 @@ no.env.fact <- length(env.fact)
 
 # Preprocess data ####
 
-prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv, 
+prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv, prev.inv = prev.inv,
                                  env.fact.full = env.fact.full, dir.workspace = dir.workspace, 
                                  BDM = BDM, dl = dl, CV = CV)
 data <- prepro.data$data
@@ -164,6 +164,7 @@ list.taxa <- list.taxa[order(match(list.taxa, prev.inv$Occurrence.taxa))] # reor
 centered.data <- prepro.data$centered.data
 centered.data.factors <- prepro.data$centered.data.factors
 normalization.data <- prepro.data$normalization.data
+prev.inv <- prepro.data$prev.inv
 remove(prepro.data)
 
 # Select taxa ####
@@ -198,7 +199,8 @@ no.taxa <- length(list.taxa)
 # Select machine learning algorithms to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
 list.algo <- c(  "#256801" = 'glm', # Generalized Linear Model
-                 "#0A1C51" = 'gamSpline', # Deneralized Additive Model
+                 "#0A1C51" = 'gamLoess', # Deneralized Additive Model
+                 # "darkgoldenrod" = 'gam',
                  "#7B1359" = 'svmRadial', # Support Vector Machine
                 # "maroon4" = 'rfRules', # to try more regularization --> mtry, maxdepth
                 # "olivedrab" = 'RRF', # to try more regularization --> mtry, coefReg, coefImp
@@ -294,6 +296,7 @@ info.file.ml.name <-  paste0("ML_model_",
                              ifelse(dl, "DL_", "no_DL_"))
 
 file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
+# file.name <- paste0(dir.models.output, "ML_model_All_2GAM_59taxa_CV_no_DL_.rds")
 cat(file.name)
 
 if( file.exists(file.name) == T ){
@@ -448,10 +451,11 @@ for (n in 1:no.hyperparam) {
 }
 names(list.hyper.param) <- paste("ANN_", names(list.hyper.param), sep = "")
 
-list.ann <- names(list.hyper.param)
+# list.ann <- names(list.hyper.param)
+list.ann <- c("ANN")
 no.ann <- length(list.ann)
-names(list.ann) <- rainbow(no.ann) # assign colors
-# names(list.ann) <- "#FFB791" # if only one selected ANN
+# names(list.ann) <- rainbow(no.ann) # assign colors
+names(list.ann) <- "#FFB791" # if only one selected ANN
 
 info.file.ann.name <-  paste0("ANN_model_",
                               file.prefix, 
@@ -501,7 +505,7 @@ if( file.exists(file.name) == T ){
 
 
 # ECR: For ANN analysis, to compare more ann outputs
-# file.name <- file.name <- paste0(dir.models.output, "ANN_model_All_16ann_59taxa_CV_no_DL_tanh50_100epo.rds")
+# file.name <- file.name <- paste0(dir.models.output, "ANN_model_All_1ann50epo_59taxa_CV_no_DL_.rds")
 # ann.outputs.cv2 <- readRDS(file = file.name)
 
 # Merge outputs ####
@@ -515,13 +519,13 @@ if(CV){
     outputs.cv[[s]][[list.stat.mod[2]]] <- stat.outputs.transformed[[2]][[s]]
 
     # ECR: For ANN analysis 
-    # names(ann.outputs.cv[[s]]) <- list.ann # in case ann names are not the good ones (with act. fct)
+    names(ann.outputs.cv[[s]]) <- list.ann # in case ann names are not the good ones (with act. fct)
     # names(ann.outputs.cv2[[s]]) <- gsub("1FCT", "tanhFCT", names(ann.outputs.cv2[[s]]))
     # names(ann.outputs.cv2[[s]]) <- gsub("2FCT", "leakyreluFCT", names(ann.outputs.cv2[[s]]))
     
     outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv[[s]])
     
-    # outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv2[[s]])
+     # outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv2[[s]])
     # outputs.cv[[s]] <- append(outputs.cv[[s]], tuned.ml.outputs.cv[[s]])
     }
 } else {
@@ -555,6 +559,7 @@ info.file.name <- paste0(file.prefix,
                          ifelse(CV, "CV_", "FIT_"),
                          ifelse(dl, "DL_", "no_DL_"),
                          "")
+cat(info.file.name)
 
 # Produce final outputs with mean performance across splits
 if(CV){ 
@@ -659,38 +664,38 @@ source("plot_functions.r")
 
 # Models comparison ####
 
-# Table with performance
-if(CV){
-        list.plots.cv <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
-        list.plots <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
-        list.plots1 <- append(list.plots.cv, list.plots)
-        
-        name <- "TablesPredPerf"
-        file.name <- paste0(name, ".pdf")
-        print.pdf.plots(list.plots = list.plots1, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-        
-        list.plots.cv <- plot.df.perf(df.perf = df.fit.perf.cv, list.models = list.models, list.taxa = list.taxa, CV = F)
-        list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV = F)
-        list.plots <- append(list.plots.cv, list.plots)
-        
-        # if(dl){
-        # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models[-2])
-        # }
-    } else {
-        list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV)
-}
-
-name <- "TablesFitPerf"
-file.name <- paste0(name, ".pdf")
-# list.plots.dl[[1]]
-print.pdf.plots(list.plots = list.plots, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+# # Table with performance
+# if(CV){
+#         list.plots.cv <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
+#         list.plots <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
+#         list.plots1 <- append(list.plots.cv, list.plots)
+#         
+#         name <- "TablesPredPerf"
+#         file.name <- paste0(name, ".pdf")
+#         print.pdf.plots(list.plots = list.plots1, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+#         
+#         list.plots.cv <- plot.df.perf(df.perf = df.fit.perf.cv, list.models = list.models, list.taxa = list.taxa, CV = F)
+#         list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV = F)
+#         list.plots <- append(list.plots.cv, list.plots)
+#         
+#         # if(dl){
+#         # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models[-2])
+#         # }
+#     } else {
+#         list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV)
+# }
+# 
+# name <- "TablesFitPerf"
+# file.name <- paste0(name, ".pdf")
+# # list.plots.dl[[1]]
+# print.pdf.plots(list.plots = list.plots, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # Performance against prevalence and boxplots
 if(CV){
   list.plots1 <- model.comparison(df.perf = df.pred.perf, list.models = list.models, CV = CV)
   name <- "PredModelsCompar"
   file.name <- paste0(name, ".pdf")
-  print.pdf.plots(list.plots = list.plots1, width = 18, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+  # print.pdf.plots(list.plots = list.plots1, width = 18, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
   list.plots <- model.comparison(df.perf = df.fit.perf, list.models = list.models, CV = F)
   } else {
   list.plots <- model.comparison(df.perf = df.fit.perf, list.models = list.models, CV = CV)
@@ -698,7 +703,7 @@ if(CV){
   
 name <- "FitModelsCompar"
 file.name <- paste0(name, ".pdf")
-print.pdf.plots(list.plots = list.plots, width = 25, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+# print.pdf.plots(list.plots = list.plots, width = 25, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 if(CV){
   list.plots2 <- vector("list", length(list.plots))

@@ -50,7 +50,7 @@ rank.env          <- read.csv(paste(dir.env.data,file.rank.env,sep=""),header=TR
 env.explan        <- read.csv(paste(dir.env.data,file.env.explan,sep=""),header=TRUE, sep=";", stringsAsFactors=FALSE)
 
 # Read inv and env data, set if we want to compute for the All or the BDM dataset
-BDM <- T
+BDM <- F
 
 if( BDM == TRUE){
     
@@ -265,6 +265,11 @@ plot.data <- na.omit(data.env[,env.fact])
 plot.data <- as.matrix(plot.data)
 plot.data <- cor(plot.data)
 
+colnames(plot.data)
+names.env.fact <- c("Temperature", "Flow velocity", "Riparian agriculture 10m", "Livestock density", "Insecticide application rate", "Urban area", "Forest-river intersection", "Forest-river intersection 150m", "Width variability")
+colnames(plot.data) <- names.env.fact
+rownames(plot.data) <- names.env.fact
+
 corrplot(plot.data, 
          method = "number", 
          type="upper", 
@@ -277,7 +282,7 @@ corrplot.mixed(plot.data,
                order="hclust", 
                lower = 'number', upper = "circle", 
                lower.col = "black", 
-               number.cex = .7)
+               number.cex = .9)
 
 dev.off()    
 print("Producing PDF time:")
