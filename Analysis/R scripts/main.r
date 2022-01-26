@@ -35,6 +35,8 @@ if ( !require("viridis")) {install.packages("viridis", repos="http://cloud.r-pro
 if ( !require("sf") ) { install.packages("sf"); library("sf") } # to read layers for map
 if ( !require("scales") ) { install.packages("scales"); library("scales") } # to look at colors
 if ( !require("reshape2") ) { install.packages("reshape2"); library("reshape2") } # to reshape dataframes
+#if ( !require("gt") ) { install.packages("gt"); library("gt") } # to make tables
+
 
 # Stat model
 if ( !require("rstan") ) { install.packages("rstan"); library("rstan") } # to read layers for map
@@ -198,13 +200,10 @@ no.taxa <- length(list.taxa)
 
 # Select machine learning algorithms to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
-list.algo <- c(  "#256801" = 'glm', # Generalized Linear Model
-                 "#0A1C51" = 'gamLoess', # Deneralized Additive Model
-                 # "darkgoldenrod" = 'gam',
-                 "#7B1359" = 'svmRadial', # Support Vector Machine
-                # "maroon4" = 'rfRules', # to try more regularization --> mtry, maxdepth
-                # "olivedrab" = 'RRF', # to try more regularization --> mtry, coefReg, coefImp
-                "#AB4589" = 'rf' # Random Forest --> mtry
+list.algo <- c( "#256801" = 'glm', # Generalized Linear Model
+                "#0A1C51" = 'gamLoess',
+                "#7B1359" = 'svmRadial', # Support Vector Machine
+                "#AB4589" = 'rf' # Random Forest
                 )
 no.algo <- length(list.algo)
                                        
@@ -343,12 +342,19 @@ if(CV){
 # ECR: Problem with some ml performance
 if(CV){
     for (s in list.splits) {
-    print(s)
+      
+      #s = list.splits[[1]]
+      print(s)
+      
         for (l in list.algo) {
+            
+            #l = list.algo[[2]]
             print(l)
             list.taxa.temp <- names(ml.outputs.cv[[s]][[l]])
             cat(length(list.taxa.temp), "taxa for this algorithm\n")
             for (j in list.taxa.temp) {
+                    
+                    #j = list.taxa.temp[[1]]
                     perf.test <- ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]]
                     perf.train <- ml.outputs.cv[[s]][[l]][[j]][["Performance training set"]]
                     
@@ -584,47 +590,47 @@ if(CV){
 
 # Look into the effect of data leakage ####
 
-# save intermediate output to compare dl no dl 
+# save intermediate output to compare dl no dl
 # saveRDS(df.pred.perf, file = paste0(dir.models.output, info.file.name, "df_perf_.rds"), version = 2)
-#df.pred.perf.no.dl <- readRDS(file = paste0(dir.models.output, "All_6models_59taxa_CV_no_DL_df_perf_.rds"))
-#df.pred.perf.dl <- readRDS(file = paste0(dir.models.output, "All_6models_59taxa_CV_DL_df_perf_.rds"))
+#df.pred.perf.no.dl <- readRDS(file = paste0(dir.models.output, "All_7models_59taxa_CV_no_DL_df_perf_.rds"))
+#df.pred.perf.dl <- readRDS(file = paste0(dir.models.output, "All_7models_59taxa_CV_DL_df_perf_.rds"))
 
 # df.pred.perf.no.dl <- readRDS(file = paste0(dir.models.output, "All_9models_126taxa_CV_no_DL_df_perf_.rds"))
 # df.pred.perf.dl <- readRDS(file = paste0(dir.models.output, "All_9models_126taxa_CV_DL_df_perf_.rds"))
-# 
+#
 # df.pred.perf.no.dl$DL <- F
 # df.pred.perf.dl$DL <- T
 # df.pred.perf.dl.comb <- rbind(df.pred.perf.no.dl,df.pred.perf.dl)
-# 
+#
 # #remove infite vlaues to take mean later
 # df.pred.perf.dl.comb$rf[!is.finite(df.pred.perf.dl.comb$rf)] <- NA
 # df.pred.perf.dl.comb$gamSpline[!is.finite(df.pred.perf.dl.comb$gamSpline)] <- NA
 # df.pred.perf.dl.comb$glm[!is.finite(df.pred.perf.dl.comb$glm)] <- NA
-# 
+#
 # colnames(df.pred.perf.dl.comb)
-# 
-# df.pred.perf.dl.comb.table <- as.data.frame(df.pred.perf.dl.comb %>% group_by(DL) %>%
-#                                       summarise(glm.mean = mean(glm, na.rm = T),
-#                                       glm.sd = sd(glm, na.rm = T),
-# 
-#                                       #gamSpline.mean = mean(gamSpline,na.rm = T),
-#                                       #gamSpline.sd = sd(gamSpline,na.rm = T),
-# 
-#                                       svmRadial.mean = mean(svmRadial, na.rm = T),
-#                                       svmRadial.sd = sd(svmRadial, na.rm = T),
-# 
-#                                       rf.mean = mean(rf, na.rm = T),
-#                                       rf.sd = sd(rf, na.rm = T),
-# 
-#                                       CF0.mean = mean(CF0, na.rm = T),
-#                                       CF0.sd = sd(CF0, na.rm = T),
-# 
-#                                       UF0.mean = mean(UF0, na.rm = T),
-#                                       UF0.sd = sd(UF0, na.rm = T),
-# 
+#
+df.pred.perf.dl.comb.table <- as.data.frame(df.pred.perf.dl.comb %>% group_by(DL) %>%
+                                      summarise(glm.mean = mean(glm, na.rm = T),
+                                      glm.sd = sd(glm, na.rm = T),
 
-                                      #ANN3L32U.mean = mean(ANN3L32U, na.rm = T),
-                                      #ANN3L32U.sd = sd(ANN3L32U, na.rm = T),
+                                      gamLoess.mean = mean(gamLoess,na.rm = T),
+                                      gamLoess.sd = sd(gamLoess,na.rm = T),
+
+                                      svmRadial.mean = mean(svmRadial, na.rm = T),
+                                      svmRadial.sd = sd(svmRadial, na.rm = T),
+
+                                      rf.mean = mean(rf, na.rm = T),
+                                      rf.sd = sd(rf, na.rm = T),
+
+                                      CF0.mean = mean(CF0, na.rm = T),
+                                      CF0.sd = sd(CF0, na.rm = T),
+
+                                      UF0.mean = mean(UF0, na.rm = T),
+                                      UF0.sd = sd(UF0, na.rm = T),
+
+
+                                      ANN_3L32UleakyreluFCT50epo.mean = mean(ANN_3L32UleakyreluFCT50epo, na.rm = T),
+                                      ANN_3L32UleakyreluFCT50epo.sd = sd(ANN_3L32UleakyreluFCT50epo, na.rm = T)
 
                                       #ANN3L64U.mean = mean(ANN3L64U, na.rm = T),
                                       #ANN3L64U.sd = sd(ANN3L64U, na.rm = T),
@@ -632,7 +638,7 @@ if(CV){
                                       #ANN5L32U.mean = mean(ANN5L32U, na.rm = T),
                                       #ANN5L32U.sd = sd(ANN5L32U, na.rm = T)
 
-                                       #))
+                                       ))
 
 #saveRDS(df.pred.perf.dl.comb.table, file = paste0(dir.plots.output, "Table_means_dl.rds"), version = 2)
 #df.pred.perf.dl.comb.table <- readRDS(file = paste0(dir.plots.output, "Table_means_dl.rds"))
@@ -664,31 +670,55 @@ source("plot_functions.r")
 
 # Models comparison ####
 
-# # Table with performance
-# if(CV){
-#         list.plots.cv <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
-#         list.plots <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
-#         list.plots1 <- append(list.plots.cv, list.plots)
-#         
-#         name <- "TablesPredPerf"
-#         file.name <- paste0(name, ".pdf")
-#         print.pdf.plots(list.plots = list.plots1, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-#         
-#         list.plots.cv <- plot.df.perf(df.perf = df.fit.perf.cv, list.models = list.models, list.taxa = list.taxa, CV = F)
-#         list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV = F)
-#         list.plots <- append(list.plots.cv, list.plots)
-#         
-#         # if(dl){
-#         # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models[-2])
-#         # }
-#     } else {
-#         list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV)
-# }
-# 
-# name <- "TablesFitPerf"
-# file.name <- paste0(name, ".pdf")
-# # list.plots.dl[[1]]
-# print.pdf.plots(list.plots = list.plots, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+# Make tables
+tmp.table <- df.pred.perf[c("Taxa", "glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN_3L32UleakyreluFCT50epo")]
+colnames(tmp.table) <- c("Taxa", "glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN")
+#tmp.table <- tmp.table %>% mutate((across(is.numeric, round, digits=3)))
+tmp.table %>% gt() %>%
+  tab_header(
+    title = md("**Predictive performance of different models**") # make bold title
+  ) %>%
+  fmt_number(
+    columns = c("glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN"), # round numbers
+    decimals = 3
+  ) %>% # remove uneccessary black lines
+  tab_options(
+    table.border.top.color = "white",
+    heading.border.bottom.color = "black",
+    row_group.border.top.color = "black",
+    row_group.border.bottom.color = "white",
+    #stub.border.color = "transparent",
+    table.border.bottom.color = "white",
+    column_labels.border.top.color = "black",
+    column_labels.border.bottom.color = "black",
+    table_body.border.bottom.color = "black",
+    table_body.hlines.color = "white")
+
+# Table with performance
+if(CV){
+        list.plots.cv <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
+        list.plots <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
+        list.plots1 <- append(list.plots.cv, list.plots)
+        
+        name <- "TablesPredPerf"
+        file.name <- paste0(name, ".pdf")
+        print.pdf.plots(list.plots = list.plots1, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+        
+        list.plots.cv <- plot.df.perf(df.perf = df.fit.perf.cv, list.models = list.models, list.taxa = list.taxa, CV = F)
+        list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV = F)
+        list.plots <- append(list.plots.cv, list.plots)
+        
+        # if(dl){
+        # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models)
+        # }
+    } else {
+        list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV)
+}
+
+name <- "TablesFitPerf"
+file.name <- paste0(name, ".pdf")
+# list.plots.dl[[1]]
+print.pdf.plots(list.plots = list.plots, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # Performance against prevalence and boxplots
 if(CV){
