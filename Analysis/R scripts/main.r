@@ -605,48 +605,109 @@ if(CV){
 #
 # colnames(df.pred.perf.dl.comb)
 #
-df.pred.perf.dl.comb.table <- as.data.frame(df.pred.perf.dl.comb %>% group_by(DL) %>%
-                                      summarise(glm.mean = mean(glm, na.rm = T),
-                                      glm.sd = sd(glm, na.rm = T),
-
-                                      gamLoess.mean = mean(gamLoess,na.rm = T),
-                                      gamLoess.sd = sd(gamLoess,na.rm = T),
-
-                                      svmRadial.mean = mean(svmRadial, na.rm = T),
-                                      svmRadial.sd = sd(svmRadial, na.rm = T),
-
-                                      rf.mean = mean(rf, na.rm = T),
-                                      rf.sd = sd(rf, na.rm = T),
-
-                                      CF0.mean = mean(CF0, na.rm = T),
-                                      CF0.sd = sd(CF0, na.rm = T),
-
-                                      UF0.mean = mean(UF0, na.rm = T),
-                                      UF0.sd = sd(UF0, na.rm = T),
-
-
-                                      ANN_3L32UleakyreluFCT50epo.mean = mean(ANN_3L32UleakyreluFCT50epo, na.rm = T),
-                                      ANN_3L32UleakyreluFCT50epo.sd = sd(ANN_3L32UleakyreluFCT50epo, na.rm = T)
-
-                                      #ANN3L64U.mean = mean(ANN3L64U, na.rm = T),
-                                      #ANN3L64U.sd = sd(ANN3L64U, na.rm = T),
-
-                                      #ANN5L32U.mean = mean(ANN5L32U, na.rm = T),
-                                      #ANN5L32U.sd = sd(ANN5L32U, na.rm = T)
-
-                                       ))
+# df.pred.perf.dl.comb.table <- as.data.frame(df.pred.perf.dl.comb %>% group_by(DL) %>%
+#                                       summarise(glm.mean = mean(glm, na.rm = T),
+#                                       glm.sd = sd(glm, na.rm = T),
+# 
+#                                       gamLoess.mean = mean(gamLoess,na.rm = T),
+#                                       gamLoess.sd = sd(gamLoess,na.rm = T),
+# 
+#                                       svmRadial.mean = mean(svmRadial, na.rm = T),
+#                                       svmRadial.sd = sd(svmRadial, na.rm = T),
+# 
+#                                       rf.mean = mean(rf, na.rm = T),
+#                                       rf.sd = sd(rf, na.rm = T),
+# 
+#                                       CF0.mean = mean(CF0, na.rm = T),
+#                                       CF0.sd = sd(CF0, na.rm = T),
+# 
+#                                       UF0.mean = mean(UF0, na.rm = T),
+#                                       UF0.sd = sd(UF0, na.rm = T),
+# 
+# 
+#                                       ANN_3L32UleakyreluFCT50epo.mean = mean(ANN_3L32UleakyreluFCT50epo, na.rm = T),
+#                                       ANN_3L32UleakyreluFCT50epo.sd = sd(ANN_3L32UleakyreluFCT50epo, na.rm = T)
+# 
+#                                       #ANN3L64U.mean = mean(ANN3L64U, na.rm = T),
+#                                       #ANN3L64U.sd = sd(ANN3L64U, na.rm = T),
+# 
+#                                       #ANN5L32U.mean = mean(ANN5L32U, na.rm = T),
+#                                       #ANN5L32U.sd = sd(ANN5L32U, na.rm = T)
+# 
+#                                        ))
 
 #saveRDS(df.pred.perf.dl.comb.table, file = paste0(dir.plots.output, "Table_means_dl.rds"), version = 2)
 #df.pred.perf.dl.comb.table <- readRDS(file = paste0(dir.plots.output, "Table_means_dl.rds"))
-# diff.means.dl <- df.pred.perf.dl.comb.table[1,c("glm.mean", "gamSpline.mean","svmRadial.mean",
-#                          "rf.mean", "CF0.mean", "UF0.mean", "ANN3L32U.mean", "ANN3L64U.mean",
-#                          "ANN5L32U.mean")] -
-#   df.pred.perf.dl.comb.table[2,c("glm.mean", "gamSpline.mean","svmRadial.mean",
-#                             "rf.mean", "CF0.mean", "UF0.mean", "ANN3L32U.mean", "ANN3L64U.mean",
-#                             "ANN5L32U.mean")]
+# diff.means.dl <- df.pred.perf.dl.comb.table[1,c("glm.mean", "gamLoess.mean","svmRadial.mean",
+#                          "rf.mean", "CF0.mean", "UF0.mean", "ANN_3L32UleakyreluFCT50epo.mean")] -
+#   df.pred.perf.dl.comb.table[2,c("glm.mean", "gamLoess.mean","svmRadial.mean",
+#                             "rf.mean", "CF0.mean", "UF0.mean", "ANN_3L32UleakyreluFCT50epo.mean")]
 # 
 # diff.means.dl <- df.pred.perf.dl.comb.table[1,c("glm.mean", "CF0.mean", "UF0.mean")] -
 #   df.pred.perf.dl.comb.table[2,c("glm.mean", "CF0.mean", "UF0.mean")]
+# 
+# 
+# 
+# dloui <- subset(df.pred.perf.dl.comb, DL == T)
+# dloui <- dloui[,1:7]
+# dlno <- subset(df.pred.perf.dl.comb, DL == F)
+# dlno <- dlno[,1:7]
+# comb <- cbind(dlno,dloui)
+# comb2 <- dloui[,1:7] - dlno[,1:7]
+# comb2 <- cbind(comb2,dlno[,8])
+# colnames(comb2)[8] <- "Taxa"
+# 
+# comb3 <- comb2
+# mean_difference <- colMeans(comb2[1:7])
+# sd_difference <- colSds(as.matrix(comb2[1:7]))
+# names(sd_difference) <- c("glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN")
+# 
+# table2 <- comb3 %>% gt()
+# 
+# tmp.table <- comb2[c("Taxa", "glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN_3L32UleakyreluFCT50epo")]
+# colnames(tmp.table) <- c("Taxa", "glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN")
+# #tmp.table <- tmp.table %>% mutate((across(is.numeric, round, digits=3)))
+# table1 <- tmp.table %>% gt() %>%
+#   tab_header(
+#     title = md("**Difference in predictive performance between dl and no dl**") # make bold title
+#   ) %>%
+#   fmt_number(
+#     columns = c("glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN"), # round numbers
+#     decimals = 3
+#   ) %>% # remove uneccessary black lines
+#   tab_options(
+#     table.border.top.color = "white",
+#     heading.border.bottom.color = "black",
+#     row_group.border.top.color = "black",
+#     row_group.border.bottom.color = "white",
+#     #stub.border.color = "transparent",
+#     table.border.bottom.color = "white",
+#     column_labels.border.top.color = "black",
+#     column_labels.border.bottom.color = "black",
+#     table_body.border.bottom.color = "black",
+#     table_body.hlines.color = "white")
+# 
+# table2 <- comb3 %>% gt() %>%
+#   tab_header(
+#     title = md("**Difference in predictive performance between dl and no dl**") # make bold title
+#   ) %>%
+#   fmt_number(
+#     columns = c("glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN_3L32UleakyreluFCT50epo"), # round numbers
+#     decimals = 3
+#   ) %>% # remove uneccessary black lines
+#   tab_options(
+#     table.border.top.color = "white",
+#     heading.border.bottom.color = "black",
+#     row_group.border.top.color = "black",
+#     row_group.border.bottom.color = "white",
+#     #stub.border.color = "transparent",
+#     table.border.bottom.color = "white",
+#     column_labels.border.top.color = "black",
+#     column_labels.border.bottom.color = "black",
+#     table_body.border.bottom.color = "black",
+#     table_body.hlines.color = "white")
+# 
+
 
 ## ---- PLOTS ----
 source("utilities.r")
