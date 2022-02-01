@@ -767,14 +767,79 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
     return(result)
 }
 
-    
-    
-    
-    
-    
-    
-    
-    
+make.table <- function(df.pred.perf, df.fit.perf, list.models){
+  list.models <- append(list.models, "Null_model")
+  
+  # calculate mean standardized deviance for the training set (i.e. quality of fit)
+  table.fit.mean <- apply(df.fit.perf[list.models],2, FUN = mean)
+  table.fit.mean <-t(table.fit.mean)
+  table.fit.mean <- as.data.frame(table.fit.mean)
+  rownames(table.fit.mean) <- "mean of std. deviance of training set"
+  
+  # calculate corresponding standart deviation
+  table.fit.sd <- apply(df.fit.perf[list.models],2, FUN = sd)
+  table.fit.sd <-t(table.fit.sd)
+  table.fit.sd <- as.data.frame(table.fit.sd)
+  rownames(table.fit.sd) <- "sd of std. deviance of training set"
+  
+  # calculate mean standardized deviance for the testing set (i.e. quality of fit)
+  table.pred.mean <- apply(df.pred.perf[list.models],2, FUN = mean)
+  table.pred.mean <-t(table.pred.mean)
+  table.pred.mean <- as.data.frame(table.pred.mean)
+  rownames(table.pred.mean) <- "mean of std. deviance of testing set"
+  
+  # calculate corresponding standart deviation
+  table.pred.sd <- apply(df.pred.perf[list.models],2, FUN = sd)
+  table.pred.sd <-t(table.pred.sd)
+  table.pred.sd <- as.data.frame(table.pred.sd)
+  rownames(table.pred.sd) <- "sd of std. deviance of testing set"
+  
+  # calculate mean standardized deviance for the testing set (i.e. predictive perfomance)
+  names.expl.pow <- paste("expl.pow_", list.models, sep="")
+  
+  table.mean.exp <- apply(df.pred.perf[names.expl.pow],2, FUN = mean)
+  table.mean.exp <-t(table.mean.exp)
+  table.mean.exp <- as.data.frame(table.mean.exp)
+  colnames(table.mean.exp) <- list.models
+  rownames(table.mean.exp) <- "mean expl. power"
+  
+  # calculate corresponding standart deviation
+  table.sd.exp <- apply(df.pred.perf[names.expl.pow],2, FUN = sd)
+  table.sd.exp <-t(table.sd.exp)
+  table.sd.exp <- as.data.frame(table.sd.exp)
+  colnames(table.sd.exp) <- list.models
+  rownames(table.sd.exp) <- "sd expl. power"
+  
+  # add performance ratio
+  perf.ratio <- (table.pred.mean/table.pred.sd) + table.pred.mean
+  rownames(perf.ratio) <- "performance ratio"
+  
+  # row bind results
+  table <- rbind(table.fit.mean, table.fit.sd, table.pred.mean, table.pred.sd, table.mean.exp, table.sd.exp, perf.ratio)
+  
+  
+  
+  
+  tab1 <- table %>% gt(rownames_to_stub = T) %>% tab_header(
+    title = md("**Mean predictive performance across models**") # make bold title
+  ) %>%
+    fmt_number(
+      columns = c("glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN", "Null_model"), # round numbers
+      decimals = 3
+    ) %>% # remove uneccessary black lines
+    tab_options(
+      table.border.top.color = "white",
+      heading.border.bottom.color = "black",
+      row_group.border.top.color = "black",
+      row_group.border.bottom.color = "white",
+      #stub.border.color = "transparent",
+      table.border.bottom.color = "white",
+      column_labels.border.top.color = "black",
+      column_labels.border.bottom.color = "black",
+      table_body.border.bottom.color = "black",
+      table_body.hlines.color = "white")
+  return(tab1)
+}
     
     
 
