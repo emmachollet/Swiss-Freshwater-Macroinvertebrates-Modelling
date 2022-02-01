@@ -209,7 +209,7 @@ model.comparison <- function(df.perf, list.models, CV){
     } else {
         title <- paste("Models comparison in quality of fit")
     }
-    title <- paste(title, "for", no.taxa, "taxa")
+    subtitle <- paste("For", no.taxa, "taxa")
     
     plot.data <- df.perf
     plot.data$null.perf <- plot.data[,"Null_model"]
@@ -224,14 +224,15 @@ model.comparison <- function(df.perf, list.models, CV){
                                                  shape = plot.data[,"Taxonomic level"]), 
                            # alpha = 0.4,
                            size = 3)
-    p1 <- p1 + ylim(0.2,1.5) # ECR: only because perf problems
+    p1 <- p1 + ylim(0.8,1.5) # ECR: only because perf problems
     #p1 <- p1 + geom_line(data = plot.data, aes(x = Prevalence, y = null.perf), linetype = "dashed", alpha=0.4, show.legend = FALSE) # to plot null model as dash line between data points
     p1 <- p1 + stat_function(fun=function(x) -2*(x*log(x) + (1-x)*log(1-x))) # to plot null model as function line
     p1 <- p1  + labs(y = "Standardized deviance",
                      x = "Prevalence (%)",
                      shape = "Taxonomic level",
                      color = "Model",
-                     title = title)
+                     title = title,
+                     subtitle = subtitle)
     p1 <- p1 + scale_colour_manual(values=col.vect)
     p1 <- p1 + theme_bw(base_size = 20)
     p1 <- p1 + guides(colour = guide_legend(override.aes = list(size=6)))
@@ -249,13 +250,14 @@ model.comparison <- function(df.perf, list.models, CV){
     p2 <- p2 + labs(x="Models",
                     y="Standardized deviance",
                     # fill = "Models",
-                    title = title)
+                    title = title,
+                    subtitle = subtitle)
     # Boxplots
     p3 <- ggplot(plot.data, aes(x=reorder(model, -performance, na.rm = T), y = performance, fill = model), alpha = 0.4) 
     p3 <- p3 + geom_boxplot()
     p3 <- p3 + scale_fill_manual(values=col.vect)
     p3 <- p3 + labs(title = title)
-    p3 <- p3 + ylim(0,2) # ECR: only because perf problems
+    p3 <- p3 + ylim(0.2,1.5) # ECR: only because perf problems
     # p3 <- p3 + scale_x_discrete(limits = rev(list.models))
     p3 <- p3 + coord_flip()
     p3 <- p3 + theme_bw(base_size = 20)
@@ -264,7 +266,9 @@ model.comparison <- function(df.perf, list.models, CV){
                     y="Standardized deviance",
                     # fill = "Models",
                     title = title,
-                    subtitle = "Ordered by decreasing mean")
+                    subtitle = subtitle)
+                      # paste0(subtitle,
+                      #                "\nOrdered by decreasing mean"))
 
     return(list(p1,p2,p3))
     
