@@ -224,7 +224,7 @@ model.comparison <- function(df.perf, list.models, CV){
                                                  shape = plot.data[,"Taxonomic level"]), 
                            # alpha = 0.4,
                            size = 3)
-    p1 <- p1 + ylim(0,2) # ECR: only because perf problems
+    p1 <- p1 + ylim(0.2,1.5) # ECR: only because perf problems
     #p1 <- p1 + geom_line(data = plot.data, aes(x = Prevalence, y = null.perf), linetype = "dashed", alpha=0.4, show.legend = FALSE) # to plot null model as dash line between data points
     p1 <- p1 + stat_function(fun=function(x) -2*(x*log(x) + (1-x)*log(1-x))) # to plot null model as function line
     p1 <- p1  + labs(y = "Standardized deviance",

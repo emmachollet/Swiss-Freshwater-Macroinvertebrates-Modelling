@@ -152,7 +152,7 @@ center.data <- function(data, split, CV, dl, mean.dl, sd.dl, env.fact.full){
   # convert to numeric to count observations across sites
   inv.data <- as.data.frame(apply(training.data[, inv.names],2,as.numeric))
   
-  # WAS ADDED TO PRE-PROCESSING COULD BE REMOVED ####
+  # WAS ADDED TO PRE-PROCESSING COULD BE REMOVED
   # drop taxa without observations or only presence at the selected sites
   ind <- apply(inv.data,2,sum, na.rm = T) <= 0
   inv.data <- inv.data[, !ind]
@@ -228,21 +228,32 @@ center.data <- function(data, split, CV, dl, mean.dl, sd.dl, env.fact.full){
 }
 
 
-preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, BDM, dl, CV){
-    
-    # Drop taxa with too many NAs
-    too.many.na <- c()
-    for(i in 1:dim(data.inv)[2]){
-        if(sum(is.na(data.inv[,i])) > 200){ too.many.na <- c(too.many.na, i)}
-    }
-    cat("\nThe following", length(too.many.na), "taxa are excluded because too many missing information:\n", colnames(data.inv)[too.many.na], "\n")
-    data.inv <- data.inv[, -too.many.na]
+preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.workspace, BDM, dl, CV){
     
     # Merge data sets
-    cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
+    cind.taxa <- which(grepl("Occurrence.", colnames(data.inv)))
+    list.taxa <- colnames(data.inv)[cind.taxa]
     data <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact.full)] %>%
         left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
     dim(data)
+    
+    # Print information
+    cat("\nSummary information of original datasets before preprocessing:\n",
+        length(unique(data$SampId)), "samples,\n",
+        length(unique(data$SiteId)), "sites,\n",
+        length(list.taxa), "taxa (including missing values) with taxonomic level:\n")
+    
+    print(summary(as.factor(prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Taxonomic.level"])))
+    
+    # Drop taxa with too many NAs
+    cind.taxa <- which(grepl("Occurrence.", colnames(data)))
+    too.many.na <- c()
+    for(i in cind.taxa){
+      if(sum(is.na(data[,i])) > 200){ too.many.na <- c(too.many.na, i)}
+    }
+    cat("\nThe following", length(too.many.na), "taxa are excluded because too many missing information:\n", gsub("Occurrence.", "", colnames(data)[too.many.na]), "\n")
+    data<- data[, -too.many.na]
+    
     
     # Drop rows with incomplete taxa or influence factors
     rind <- !apply(is.na(data), 1, FUN=any)
@@ -260,7 +271,7 @@ preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, BD
     for (j in cind.taxa) {
         if(sum(data[,j]) < five.perc | sum(data[,j]) > no.samples - five.perc){ cind.rem <- c(cind.rem, j) }
     }
-    cat("\nThe following", length(cind.rem), "taxa are excluded because they are only present (or absent) in less than 5% of samples:\n", colnames(data)[cind.rem], "\n")
+    cat("\nThe following", length(cind.rem), "taxa are excluded because they are only present (or absent) in less than 5% of samples:\n", gsub("Occurrence.", "", colnames(data)[cind.rem]), "\n")
     data <- data[,-cind.rem]
     dim(data)
     
@@ -306,7 +317,6 @@ preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, BD
         
         # Center the splits
         centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full = env.fact.full)
-        # centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV)
         
         # Splits don't have same taxa columns, should be harmonized
         col1 <- colnames(centered.splits.tmp$Split1$`Training data`)
@@ -315,8 +325,7 @@ preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, BD
         
         # Make union of column names
         col.names <- unique(c(col1, col2, col3))
-        list.taxa <- col.names[which(grepl("Occurrence.",col.names))]
-        
+        list.taxa <- col.names[which(grepl("Occurrence.", col.names))]
         
         # Make intersection of column names (remove taxa not common to each split)
         rem.taxa <- unique(c(col1[-which(col1 %in% col2)],
@@ -325,18 +334,8 @@ preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, BD
                             col2[-which(col2 %in% col3)],
                             col3[-which(col3 %in% col1)],
                             col3[-which(col3 %in% col2)]))
-
         cat("\nFollowing taxa are not in all splits, consider removing them:",length(rem.taxa), rem.taxa, "\n")
-        # for (n in 1:length(centered.splits.tmp)) {
-        #     for (m in 1:2) {
-        #         centered.splits.tmp[[n]][[m]] <- centered.splits.tmp[[n]][[m]][, -which(colnames(
-        #             centered.splits.tmp[[n]][[m]]) %in% rem.taxa)]
-        #     }
-        # }
-        # cind.taxa <- which(grepl("Occurrence.",colnames(centered.data$Split1$`Training data`)))
-        # list.taxa <- colnames(centered.data$Split1$`Training data`)[cind.taxa]
 
-        
         # Extract necessary information
         centered.data <- lapply(centered.splits.tmp,"[", 1:2) # only the splits without the mean, sd info
         normalization.data <- lapply(centered.splits.tmp,"[", 3:4) # the mean and sd of the splits
@@ -378,6 +377,7 @@ preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, BD
     }
     
     # Test centering
+    
     if(CV == T){
         if(mean(centered.data$Split1$`Training data`$temperature) <= 0.001){
             cat("\nThe data is normalized.\n")
@@ -397,9 +397,26 @@ preprocess.data <- function(data.env, data.inv, env.fact.full, dir.workspace, BD
         
     }
     
+    # Update prevalence dataframe with new list of taxa and number of samples
+    prev.inv <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa),]
+    for (j in list.taxa) {
+      prev <- sum(data[,j]) / dim(data)[1]
+      prev.inv[which(prev.inv$Occurrence.taxa == j), "Prevalence"] <- prev
+    }
+    
+    prev.inv[which(grepl("Occurrence.group", prev.inv$Occurrence.taxa)), "Taxonomic.level"] <- "group"
+    
+    # Print information
+    cat("\nSummary information of final datasets after preprocessing:\n",
+        length(unique(data$SampId)), "samples,\n",
+        length(unique(data$SiteId)), "sites,\n",
+        length(list.taxa), "taxa (without missing values) with prevalence between 5% and 95% with taxonomic level:\n")
+        
+    print(summary(as.factor(prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Taxonomic.level"])))
+    
     preprocessed.data <- list("data" = data, "splits" = splits, "list.taxa" = list.taxa, "rem.taxa" = if(CV){ rem.taxa },
                               "centered.data" = centered.data, "centered.data.factors" = centered.data.factors, 
-                              "normalization.data" = normalization.data)
+                              "normalization.data" = normalization.data, "prev.inv" = prev.inv)
     return(preprocessed.data)
 }
 
@@ -420,7 +437,7 @@ apply.null.model <- function(data, list.taxa, prev.inv){
     no.abs  <- sum(data[, j] == 0, na.rm = TRUE)
     no.obs  <- no.pres + no.abs
     prev    <- prev.inv[prev.inv$Occurrence.taxa == j,"Prevalence"]
-    likeli <- rep(c(prev, 1-prev),c(no.pres,no.abs))
+    likeli <- rep(c(prev, 1-prev),c(no.pres, no.abs))
     temp.list[["Likelihood"]] <- likeli
     
     st.dev <- -2 * sum(log(likeli)) / no.obs
@@ -472,7 +489,7 @@ transfrom.stat.outputs <- function(CV, stat.outputs){
         
         # for(n in 1:length(stat.outputs)){
         #     #n = 1
-        #     # ECR: Maybe later fix that environment variables used here (like list.taxa) are also declared in the function  ####
+        #     # ECR: Maybe later fix that environment variables used here (like list.taxa) are also declared in the function
         #     # JW you are right, I'm not quite sure yet what to do about this yet
         #     temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
         #     
