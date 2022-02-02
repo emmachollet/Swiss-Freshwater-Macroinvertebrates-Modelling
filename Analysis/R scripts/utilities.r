@@ -769,6 +769,8 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
 
 make.table <- function(df.pred.perf, df.fit.perf, list.models){
   list.models <- append(list.models, "Null_model")
+  names(list.models) <- c()
+  
   
   # calculate mean standardized deviance for the training set (i.e. quality of fit)
   table.fit.mean <- apply(df.fit.perf[list.models],2, FUN = mean)
@@ -818,13 +820,11 @@ make.table <- function(df.pred.perf, df.fit.perf, list.models){
   table <- rbind(table.fit.mean, table.fit.sd, table.pred.mean, table.pred.sd, table.mean.exp, table.sd.exp, perf.ratio)
   
   
-  
-  
   tab1 <- table %>% gt(rownames_to_stub = T) %>% tab_header(
     title = md("**Mean predictive performance across models**") # make bold title
   ) %>%
     fmt_number(
-      columns = c("glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN", "Null_model"), # round numbers
+      columns = list.models[[1]], # round numbers
       decimals = 3
     ) %>% # remove uneccessary black lines
     tab_options(
@@ -841,7 +841,37 @@ make.table <- function(df.pred.perf, df.fit.perf, list.models){
   return(tab1)
 }
     
-    
+make.table.species <- function(df.pred.perf, df.fit.perf, list.models){
+  
+  list.models <- append(list.models, "Null_model")
+  names(list.models) <- c()
+  
+  # Make tables
+  tmp.table <- df.pred.perf[c("Taxa", list.models)]
+  colnames(tmp.table) <- c("Taxa", list.models)
+  #tmp.table <- tmp.table %>% mutate((across(is.numeric, round, digits=3)))
+  tab2 <- tmp.table %>% gt() %>%
+    tab_header(
+      title = md("**Predictive performance of different models**") # make bold title
+    ) %>%
+    fmt_number(
+      columns = list.models, # round numbers
+      decimals = 3
+    ) %>% # remove uneccessary black lines
+    tab_options(
+      table.border.top.color = "white",
+      heading.border.bottom.color = "black",
+      row_group.border.top.color = "black",
+      row_group.border.bottom.color = "white",
+      #stub.border.color = "transparent",
+      table.border.bottom.color = "white",
+      column_labels.border.top.color = "black",
+      column_labels.border.bottom.color = "black",
+      table_body.border.bottom.color = "black",
+      table_body.hlines.color = "white")
+  return(tab2)
+}
+
 
 
 

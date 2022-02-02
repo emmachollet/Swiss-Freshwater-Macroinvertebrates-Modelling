@@ -731,32 +731,12 @@ source("plot_functions.r")
 
 # Models comparison ####
 
-# Make tables
-# tmp.table <- df.pred.perf[c("Taxa", "glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN_3L32UleakyreluFCT50epo")]
-# colnames(tmp.table) <- c("Taxa", "glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN")
-# #tmp.table <- tmp.table %>% mutate((across(is.numeric, round, digits=3)))
-# tmp.table %>% gt() %>%
-#   tab_header(
-#     title = md("**Predictive performance of different models**") # make bold title
-#   ) %>%
-#   fmt_number(
-#     columns = c("glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN"), # round numbers
-#     decimals = 3
-#   ) %>% # remove uneccessary black lines
-#   tab_options(
-#     table.border.top.color = "white",
-#     heading.border.bottom.color = "black",
-#     row_group.border.top.color = "black",
-#     row_group.border.bottom.color = "white",
-#     #stub.border.color = "transparent",
-#     table.border.bottom.color = "white",
-#     column_labels.border.top.color = "black",
-#     column_labels.border.bottom.color = "black",
-#     table_body.border.bottom.color = "black",
-#     table_body.hlines.color = "white")
+tab.model.comp <- make.table(df.pred.perf = df.pred.perf, df.fit.perf = df.fit.perf, list.models = list.models)
+gtsave(data = tab.model.comp, filename = "table_model_comparison.html", path =  dir.plots.output)
 
-tab1 <- make.table(df.pred.perf = df.pred.perf, df.fit.perf = df.fit.perf, list.models = list.models)
-gtsave(data = tab1, filename = "table_model_comparison.html", path =  dir.plots.output)
+tab.model.comp.species <- make.table.species(df.pred.perf = df.pred.perf, df.fit.perf = df.fit.perf, list.models = list.models)
+gtsave(data = tab.model.comp.species, filename = "table_model_comparison_species.html", path =  dir.plots.output)
+
 # Table with performance
 if(CV){
         list.plots.cv <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
