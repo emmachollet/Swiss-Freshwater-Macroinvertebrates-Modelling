@@ -769,6 +769,7 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
 
 make.table <- function(df.pred.perf, df.fit.perf, list.models){
   list.models <- append(list.models, "Null_model")
+  names(list.models) <- c()
   
   # calculate mean standardized deviance for the training set (i.e. quality of fit)
   table.fit.mean <- apply(df.fit.perf[list.models],2, FUN = mean)
@@ -817,14 +818,11 @@ make.table <- function(df.pred.perf, df.fit.perf, list.models){
   # row bind results
   table <- rbind(table.fit.mean, table.fit.sd, table.pred.mean, table.pred.sd, table.mean.exp, table.sd.exp, perf.ratio)
   
-  
-  
-  
   tab1 <- table %>% gt(rownames_to_stub = T) %>% tab_header(
     title = md("**Mean predictive performance across models**") # make bold title
   ) %>%
     fmt_number(
-      columns = c("glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN", "Null_model"), # round numbers
+      columns = list.models, # c("glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN", "Null_model"), # round numbers
       decimals = 3
     ) %>% # remove uneccessary black lines
     tab_options(
