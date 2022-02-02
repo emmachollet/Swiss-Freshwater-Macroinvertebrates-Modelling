@@ -105,7 +105,7 @@ d <- Sys.Date()    # e.g. 2021-12-17
 
 # Set if we want to fit models to whole dataset or perform cross-validation (CV)
 CV <- T # Cross-Validation
-dl <- T # Data Leakage
+dl <- F # Data Leakage
 if(!CV){ dl <- F } # if it's only fitting, we don't need with or without dataleakage
 
 # Set number of cores
@@ -160,7 +160,11 @@ prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv, prev.in
                                  env.fact.full = env.fact.full, dir.workspace = dir.workspace, 
                                  BDM = BDM, dl = dl, CV = CV)
 data <- prepro.data$data
-if(CV){ splits <- prepro.data$splits ; rem.taxa <- prepro.data$rem.taxa }
+if(CV){ splits <- prepro.data$splits
+  rem.taxa <- prepro.data$rem.taxa 
+  list.splits <- names(splits)
+  no.splits <- length(list.splits)
+}
 list.taxa <- prepro.data$list.taxa # list taxa after data pre-processing
 list.taxa <- list.taxa[order(match(list.taxa, prev.inv$Occurrence.taxa))] # reorder taxa by prevalence
 centered.data <- prepro.data$centered.data
@@ -200,10 +204,10 @@ no.taxa <- length(list.taxa)
 
 # Select machine learning algorithms to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
-list.algo <- c( "#256801" = 'glm', # Generalized Linear Model
-                "#0A1C51" = 'gamLoess',
+list.algo <- c( "#0A1C51" = 'glm', # Generalized Linear Model
+                "dodgerblue3" = 'gamLoess',
                 "#7B1359" = 'svmRadial', # Support Vector Machine
-                "#AB4589" = 'rf' # Random Forest
+                "hotpink3" = 'rf' # Random Forest
                 )
 no.algo <- length(list.algo)
                                        
@@ -281,7 +285,7 @@ stat.outputs.transformed <- transfrom.stat.outputs(CV, stat.outputs)
 
 # Make vector statistical models
 list.stat.mod <- names(stat.outputs.transformed)
-names(list.stat.mod) <- c("#59AB2D","#782B01")
+names(list.stat.mod) <- c("#59AB2D","#256801")
 
 # Machine Learning models ####
 
@@ -295,7 +299,7 @@ info.file.ml.name <-  paste0("ML_model_",
                              ifelse(dl, "DL_", "no_DL_"))
 
 file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
-# file.name <- paste0(dir.models.output, "ML_model_All_2GAM_59taxa_CV_no_DL_.rds")
+# file.name <- paste0(dir.models.output, "ML_model_All_8tunedRRF_59taxa_CV_no_DL_.rds")
 cat(file.name)
 
 if( file.exists(file.name) == T ){
@@ -331,12 +335,6 @@ if( file.exists(file.name) == T ){
         saveRDS(ml.outputs, file = file.name, version = 2)
         
         }
-}
-
-# Write down the number of splits and their names
-if(CV){
-    list.splits <- names(ml.outputs.cv)
-    no.splits <- length(list.splits)
 }
 
 # ECR: Problem with some ml performance
@@ -455,7 +453,7 @@ for (n in 1:no.hyperparam) {
   list.hyper.param[[n]] <- grid.hyperparam[n,]
   names(list.hyper.param)[n] <- paste(paste0(grid.hyperparam[n,], c("L", "U", "FCT", "epo")), collapse = "")
 }
-names(list.hyper.param) <- paste("ANN_", names(list.hyper.param), sep = "")
+names(list.hyper.param) <- paste("ANN_trial3_", names(list.hyper.param), sep = "")
 
 # list.ann <- names(list.hyper.param)
 list.ann <- c("ANN")
@@ -513,12 +511,14 @@ if( file.exists(file.name) == T ){
 # ECR: For ANN analysis, to compare more ann outputs
 # file.name <- file.name <- paste0(dir.models.output, "ANN_model_All_1ann50epo_59taxa_CV_no_DL_.rds")
 # ann.outputs.cv2 <- readRDS(file = file.name)
+# ann.outputs.cv <- ann.outputs.cv
 
 # Merge outputs ####
 
 if(CV){
   # Merge all CV outputs in one
   outputs.cv <- ml.outputs.cv
+  # outputs.cv <- ann.outputs.cv1
   for (s in list.splits) {
     #s = "Split2"
     outputs.cv[[s]][[list.stat.mod[1]]] <- stat.outputs.transformed[[1]][[s]]
@@ -532,6 +532,8 @@ if(CV){
     outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv[[s]])
     
      # outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv2[[s]])
+    # outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv3[[s]])
+    
     # outputs.cv[[s]] <- append(outputs.cv[[s]], tuned.ml.outputs.cv[[s]])
     }
 } else {
@@ -551,14 +553,18 @@ if(CV){
  
 # Make final list of models
 #list.models <- c(list.algo, list.stat.mod)
+# list.models <- names(outputs.cv$Split1)
+
 list.models <- c(list.algo, list.stat.mod, list.ann)
 no.models <- length(list.models)
+
+# names(list.models) <- rainbow(no.models)
 
 # See the final colors for each model
 show_col(names(list.models))
 
 info.file.name <- paste0(file.prefix, 
-                         no.models, "models_",
+                         no.models, "models_ANNtrials_",
                          # no.models, "tunedRRF_",
                          no.taxa, "taxa_", 
                          # no.env.fact, "envfact_",
@@ -758,10 +764,56 @@ if(CV){
         list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV)
 }
 
-name <- "TablesFitPerf"
-file.name <- paste0(name, ".pdf")
-# list.plots.dl[[1]]
-print.pdf.plots(list.plots = list.plots, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+table.perf.taxa <- tmp.table %>% gt() %>%
+                      tab_header(
+                        title = md("**Models comparison in predictive performance**") # make bold title
+                      ) %>%
+                      fmt_number(
+                        columns = c(# "Prevalence", 
+                                    "glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN"), # round numbers
+                        decimals = 2
+                      ) %>% # remove unnecessary black lines
+                      tab_options(
+                        table.border.top.color = "white",
+                        heading.border.bottom.color = "black",
+                        row_group.border.top.color = "black",
+                        row_group.border.bottom.color = "white",
+                        #stub.border.color = "transparent",
+                        table.border.bottom.color = "white",
+                        column_labels.border.top.color = "black",
+                        column_labels.border.bottom.color = "black",
+                        table_body.border.bottom.color = "black",
+                        table_body.hlines.color = "white")
+
+# install.packages("webshot")
+# library("webshot")
+# gtsave(table.perf.taxa, "test.table.pdf", path = dir.plots.output)
+
+# # Table with performance
+# if(CV){
+#         list.plots.cv <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
+#         list.plots <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
+#         list.plots1 <- append(list.plots.cv, list.plots)
+#         
+#         name <- "TablesPredPerf"
+#         file.name <- paste0(name, ".pdf")
+#         print.pdf.plots(list.plots = list.plots1, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+#         
+#         list.plots.cv <- plot.df.perf(df.perf = df.fit.perf.cv, list.models = list.models, list.taxa = list.taxa, CV = F)
+#         list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV = F)
+#         list.plots <- append(list.plots.cv, list.plots)
+#         
+#         # if(dl){
+#         # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models)
+#         # }
+#     } else {
+#         list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV)
+# }
+# 
+# name <- "TablesFitPerf"
+# file.name <- paste0(name, ".pdf")
+# # list.plots.dl[[1]]
+# print.pdf.plots(list.plots = list.plots, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # Performance against prevalence and boxplots
 if(CV){
