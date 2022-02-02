@@ -775,25 +775,25 @@ make.table <- function(df.pred.perf, df.fit.perf, list.models){
   table.fit.mean <- apply(df.fit.perf[list.models],2, FUN = mean)
   table.fit.mean <-t(table.fit.mean)
   table.fit.mean <- as.data.frame(table.fit.mean)
-  rownames(table.fit.mean) <- "mean of std. deviance of training set"
+  rownames(table.fit.mean) <- "Mean std. dev. during training"
   
   # calculate corresponding standart deviation
   table.fit.sd <- apply(df.fit.perf[list.models],2, FUN = sd)
   table.fit.sd <-t(table.fit.sd)
   table.fit.sd <- as.data.frame(table.fit.sd)
-  rownames(table.fit.sd) <- "sd of std. deviance of training set"
+  rownames(table.fit.sd) <- "SD std. dev. during training"
   
   # calculate mean standardized deviance for the testing set (i.e. quality of fit)
   table.pred.mean <- apply(df.pred.perf[list.models],2, FUN = mean)
   table.pred.mean <-t(table.pred.mean)
   table.pred.mean <- as.data.frame(table.pred.mean)
-  rownames(table.pred.mean) <- "mean of std. deviance of testing set"
+  rownames(table.pred.mean) <- "Mean std. dev. during testing"
   
   # calculate corresponding standart deviation
   table.pred.sd <- apply(df.pred.perf[list.models],2, FUN = sd)
   table.pred.sd <-t(table.pred.sd)
   table.pred.sd <- as.data.frame(table.pred.sd)
-  rownames(table.pred.sd) <- "sd of std. deviance of testing set"
+  rownames(table.pred.sd) <- "SD std. dev. during testing"
   
   # calculate mean standardized deviance for the testing set (i.e. predictive perfomance)
   names.expl.pow <- paste("expl.pow_", list.models, sep="")
@@ -812,7 +812,7 @@ make.table <- function(df.pred.perf, df.fit.perf, list.models){
   rownames(table.sd.exp) <- "sd expl. power"
   
   # add performance ratio
-  perf.ratio <- (table.pred.mean/table.pred.sd) + table.pred.mean
+  perf.ratio <- (table.pred.mean/table.pred.sd) * table.pred.mean
   rownames(perf.ratio) <- "performance ratio"
   
   # row bind results
