@@ -274,7 +274,7 @@ model.comparison <- function(df.perf, list.models, CV){
     
 }
 
-plot.perf.fitvspred <- function(df.fit.perf, df.pred.perf, list.models){
+plot.perf.fitvspred <- function(df.fit.perf, df.pred.perf, list.models, select.taxa = list.taxa){
   
   list.models.temp <- c("grey30" = "Null_model")
   list.models <- c(list.models.temp, list.models)
@@ -289,11 +289,12 @@ plot.perf.fitvspred <- function(df.fit.perf, df.pred.perf, list.models){
   plot.data.pred <- df.pred.perf[,-which(grepl("expl.pow",colnames(df.pred.perf)))] %>%
     gather(key = model, value = performance.pred, -c("Taxa", "Prevalence", "Taxonomic level"))
   plot.data <- left_join(plot.data.fit, plot.data.pred, by = c("Taxa", "Prevalence", "Taxonomic level", "model"))
+  plot.data$Balance <- abs(plot.data$Prevalence - 0.5) * 200
   
   title <- "Comparison of performance"
   p1 <- ggplot(plot.data) +
     geom_point(aes(x = performance.fit, y = performance.pred, 
-                   colour = model, size = Prevalence, shape = plot.data[,"Taxonomic level"]), 
+                   colour = model, size = Balance, shape = plot.data[,"Taxonomic level"]), 
                alpha = 0.8
     ) +
     # geom_encircle(aes(x = performance.fit, y = performance.pred), alpha = 0.2, show.legend = FALSE) +
@@ -303,15 +304,16 @@ plot.perf.fitvspred <- function(df.fit.perf, df.pred.perf, list.models){
          x = "Performance during training",
          shape = "Taxonomic level",
          color = "Model",
-         size = "Prevalence",
+         size = "Taxon balance (%)",
          title = title) + 
     scale_colour_manual(values=col.vect) + 
     theme_bw()
   
+  # Close up view
   title <- "Comparison of performance"
   p2 <- ggplot(plot.data) +
     geom_point(aes(x = performance.fit, y = performance.pred, 
-                   colour = model, size = Prevalence, shape = plot.data[,"Taxonomic level"]), 
+                   colour = model, size = Balance, shape = plot.data[,"Taxonomic level"]), 
                alpha = 0.8
     ) +
     # geom_encircle(aes(x = performance.fit, y = performance.pred), alpha = 0.2, show.legend = FALSE) +
@@ -321,13 +323,35 @@ plot.perf.fitvspred <- function(df.fit.perf, df.pred.perf, list.models){
          x = "Performance during training",
          shape = "Taxonomic level",
          color = "Model",
-         size = "Prevalence",
+         size = "Taxon balance (%)",
          title = title,
          subtitle = "Close up view") + 
     scale_colour_manual(values=col.vect) + 
     theme_bw()
+  
+  # Taxa selection
+  plot.data2 <- plot.data[which(plot.data$Taxa %in% select.taxa),]
+  plot.data2$Taxa <- as.factor(plot.data2$Taxa)
+  title <- "Comparison of performance"
+  p3 <- ggplot(plot.data2) +
+    geom_point(aes(x = performance.fit, y = performance.pred, 
+                   colour = model, size = Balance, shape = Taxa), 
+               alpha = 0.8
+    ) +
+    # geom_encircle(aes(x = performance.fit, y = performance.pred), alpha = 0.2, show.legend = FALSE) +
+    geom_abline(slope = 1, intercept = 0, color="dimgrey", linetype="dashed") +
+    # xlim(0.25,1.25) + ylim(0.25,1.25) + 
+    labs(y = "Performance during prediction",
+         x = "Performance during training",
+         shape = "Taxon",
+         color = "Model",
+         size = "Taxon balance (%)",
+         title = title,
+         subtitle = "Taxa with biggest perf. diff. across models") + 
+    scale_colour_manual(values=col.vect) + 
+    theme_bw()
 
-  return(list(p1,p2))
+  return(list(p1,p2,p3))
 }
 
 

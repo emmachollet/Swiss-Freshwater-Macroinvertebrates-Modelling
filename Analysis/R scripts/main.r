@@ -2,7 +2,7 @@
 ## 
 ## --- "Bridging gap in macroinvertebrates community assembly" -- PhD Project ---
 ## 
-##                          --- December 23, 2021 -- Happy Christmas 
+##                          --- February 04, 2022 ---
 ##
 ## --- Emma Chollet, Jonas Wydler, Andreas Scheidegger and Nele Schuwirth ---
 ##
@@ -453,7 +453,7 @@ for (n in 1:no.hyperparam) {
   list.hyper.param[[n]] <- grid.hyperparam[n,]
   names(list.hyper.param)[n] <- paste(paste0(grid.hyperparam[n,], c("L", "U", "FCT", "epo")), collapse = "")
 }
-names(list.hyper.param) <- paste("ANN_trial3_", names(list.hyper.param), sep = "")
+names(list.hyper.param) <- paste("ANN_", names(list.hyper.param), sep = "")
 
 # list.ann <- names(list.hyper.param)
 list.ann <- c("ANN")
@@ -515,12 +515,24 @@ if( file.exists(file.name) == T ){
 
 # Merge outputs ####
 
+# Change names of algorithms
+cat(list.algo)
+list.algo <- c( "#0A1C51" = "GLM", # Generalized Linear Model
+                "dodgerblue3" = "GAM", # Generalized Additive Model
+                "#7B1359" = "SVM", # Support Vector Machine
+                "hotpink3" = "RF" # Random Forest
+)
+if(length(list.algo) != no.algo){ cat("The new list of ML algo dosen't match with the original one.") }
+no.algo <- length(list.algo)
+
 if(CV){
   # Merge all CV outputs in one
   outputs.cv <- ml.outputs.cv
   # outputs.cv <- ann.outputs.cv1
   for (s in list.splits) {
     #s = "Split2"
+    names(outputs.cv[[s]]) <- list.algo
+    
     outputs.cv[[s]][[list.stat.mod[1]]] <- stat.outputs.transformed[[1]][[s]]
     outputs.cv[[s]][[list.stat.mod[2]]] <- stat.outputs.transformed[[2]][[s]]
 
@@ -586,6 +598,7 @@ if(CV){
     df.pred.perf <- df.cv$`Table predictive performance`
     df.fit.perf.cv <- df.cv$`Table fit performance CV`
     df.fit.perf <- df.cv$`Table fit performance`
+    df.merged.perf <- df.cv$`Table merged`
     remove(df.cv)
 } else {
     # Make final outputs as tables
@@ -727,69 +740,32 @@ source("plot_functions.r")
 # graphics.off()
 
 # # Stat model traceplots ####
-# 
 # res <- stat.outputs[[1]][[1]][[1]]
 # res.extracted   <- rstan::extract(res,permuted=TRUE,inc_warmup=FALSE)
 # 
 # print(traceplot(res,pars=c(names(res)[134:162],"lp__")))
-# 
 # print(traceplot(res))
 
 # Models comparison ####
 
-tab.model.comp <- make.table(df.pred.perf = df.pred.perf, df.fit.perf = df.fit.perf, list.models = list.models)
-gtsave(data = tab.model.comp, filename = "table_model_comparison.html", path =  dir.plots.output)
-
-tab.model.comp.species <- make.table.species(df.pred.perf = df.pred.perf, df.fit.perf = df.fit.perf, list.models = list.models)
-gtsave(data = tab.model.comp.species, filename = "table_model_comparison_species.html", path =  dir.plots.output)
-
 # Table with performance
-if(CV){
-        list.plots.cv <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
-        list.plots <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
-        list.plots1 <- append(list.plots.cv, list.plots)
-        
-        name <- "TablesPredPerf"
-        file.name <- paste0(name, ".pdf")
-        print.pdf.plots(list.plots = list.plots1, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-        
-        list.plots.cv <- plot.df.perf(df.perf = df.fit.perf.cv, list.models = list.models, list.taxa = list.taxa, CV = F)
-        list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV = F)
-        list.plots <- append(list.plots.cv, list.plots)
-        
-        # if(dl){
-        # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models)
-        # }
-    } else {
-        list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV)
-}
+# HTML file with numbers
+file.name <- paste0(info.file.name, "ModelsCompar_")
 
-table.perf.taxa <- tmp.table %>% gt() %>%
-                      tab_header(
-                        title = md("**Models comparison in predictive performance**") # make bold title
-                      ) %>%
-                      fmt_number(
-                        columns = c(# "Prevalence", 
-                                    "glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN"), # round numbers
-                        decimals = 2
-                      ) %>% # remove unnecessary black lines
-                      tab_options(
-                        table.border.top.color = "white",
-                        heading.border.bottom.color = "black",
-                        row_group.border.top.color = "black",
-                        row_group.border.bottom.color = "white",
-                        #stub.border.color = "transparent",
-                        table.border.bottom.color = "white",
-                        column_labels.border.top.color = "black",
-                        column_labels.border.bottom.color = "black",
-                        table_body.border.bottom.color = "black",
-                        table_body.hlines.color = "white")
+tab.model.comp <- make.table(df.pred.perf = df.pred.perf, df.fit.perf = df.fit.perf, list.models = list.models)
+gtsave(data = tab.model.comp, filename = paste0(file.name, "Table_forAll.html"), path =  dir.plots.output)
 
-# install.packages("webshot")
-# library("webshot")
-# gtsave(table.perf.taxa, "test.table.pdf", path = dir.plots.output)
+tab.model.comp.species <- make.table.species(df.merged.perf = df.merged.perf, list.models = list.models)
+gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTaxonforAll.html"), path =  dir.plots.output)
 
-# # Table with performance
+tab.model.comp.species <- make.table.species.rearranged(df.merged.perf = df.merged.perf, list.models = list.models)
+gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTaxonperModel.html"), path =  dir.plots.output)
+
+tab.model.comp.species <- make.table.species.rearranged.order(df.merged.perf = df.merged.perf, list.models = list.models)
+gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTaxonperModel_OrderedbyDiff.html"), path =  dir.plots.output)
+
+
+# PDF file with colors
 # if(CV){
 #         list.plots.cv <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
 #         list.plots <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
@@ -843,7 +819,9 @@ print.pdf.plots(list.plots = list.plots2, width = 25, height = 17, dir.output = 
 
 # Performance training vs prediction
 
-list.plots <- plot.perf.fitvspred(df.fit.perf = df.fit.perf, df.pred.perf = df.pred.perf, list.models = list.models)
+select.taxa <- df.merged.perf$Taxa[which(df.merged.perf$Big.perf.diff > 0.8)]
+
+list.plots <- plot.perf.fitvspred(df.fit.perf = df.fit.perf, df.pred.perf = df.pred.perf, list.models = list.models, select.taxa = select.taxa)
 name <- "PredFitModelsCompar_Scatterplot"
 file.name <- paste0(name, ".pdf")
 print.pdf.plots(list.plots = list.plots, width = 12, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)

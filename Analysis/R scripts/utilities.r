@@ -724,7 +724,7 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
     df.pred.perf[,"Null_model"] <- NA
     expl.pow <- paste0("expl.pow_", list.models)
     expl.pow <- c("Null_model", expl.pow)
-    df.pred.perf[,expl.pow] <- NA
+    df.pred.perf[, expl.pow] <- NA
     df.fit.perf <- df.pred.perf
     
     for (j in list.taxa) {
@@ -737,19 +737,19 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
                 # For testing/prediction
                 mean.temp <- mean(as.matrix(df.pred.perf.cv[rind.taxa, splits.model]), na.rm = T)
                 df.pred.perf[rind.taxa,l] <- mean.temp
-                val.expl.pow <- null.model[[j]][["Performance"]] - mean.temp / null.model[[j]][["Performance"]]
+                val.expl.pow <- (null.model[[j]][["Performance"]] - mean.temp) / null.model[[j]][["Performance"]]
                 df.pred.perf[rind.taxa, paste0("expl.pow_",l)] <- val.expl.pow
                 df.pred.perf[rind.taxa, paste0("expl.pow_","Null_model")] <- 0
                 # For training/fitting
                 mean.temp <- mean(as.matrix(df.fit.perf.cv[rind.taxa, splits.model]), na.rm = T)
                 df.fit.perf[rind.taxa,l] <- mean.temp
-                val.expl.pow <- null.model[[j]][["Performance"]] - mean.temp / null.model[[j]][["Performance"]]
+                val.expl.pow <- (null.model[[j]][["Performance"]] - mean.temp) / null.model[[j]][["Performance"]]
                 df.fit.perf[rind.taxa, paste0("expl.pow_",l)] <- val.expl.pow
                 df.fit.perf[rind.taxa, paste0("expl.pow_","Null_model")] <- 0
             } else {
                 perf <- outputs[[l]][[j]][["Performance training set"]]
                 df.fit.perf[rind.taxa,l] <- perf
-                val.expl.pow <- null.model[[j]][["Performance"]] - perf / null.model[[j]][["Performance"]]
+                val.expl.pow <- (null.model[[j]][["Performance"]] - perf) / null.model[[j]][["Performance"]]
                 df.fit.perf[rind.taxa, paste0("expl.pow_",l)] <- val.expl.pow
                 df.fit.perf[rind.taxa, paste0("expl.pow_","Null_model")] <- 0
             }
@@ -757,9 +757,38 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
         }
     }
     
+    # Make one df with performance during training AND testing AND expl.pow
+    if(CV){
+      # Merge dataframes for comparisonjjjjjjjjjjjjjjjjj trop forte
+      common.vect <- c("Taxa", "Prevalence", "Null_model")
+      merged.df <- left_join(df.fit.perf[,unique(c(common.vect, list.models, all_of(expl.pow)))], df.pred.perf[,unique(c(common.vect, list.models, all_of(expl.pow)))], 
+                             by = c(common.vect), suffix = c(".fit", ".pred"))
+      merged.df$Big.model.diff <- NA
+      merged.df$Big.perf.diff <- NA
+      
+      
+      # Make dataframe to plot
+      compar.df.fit <- df.fit.perf[,-which(grepl("expl.pow",colnames(df.fit.perf)))] %>%
+        gather(key = model, value = performance.fit, -c("Taxa", "Prevalence", "Taxonomic level"))
+      compar.df.pred <- df.pred.perf[,-which(grepl("expl.pow",colnames(df.pred.perf)))] %>%
+        gather(key = model, value = performance.pred, -c("Taxa", "Prevalence", "Taxonomic level"))
+      compar.df <- left_join(compar.df.fit, compar.df.pred, by = c("Taxa", "Prevalence", "Taxonomic level", "model"))
+
+      for(j in list.taxa){
+        compar.df.temp <- compar.df[which(compar.df$Taxa == j & compar.df$model != "Null_model"), ]
+        rownames(compar.df.temp) <- compar.df.temp$model
+        compar.df.temp <- compar.df.temp[,c("performance.fit", "performance.pred")]
+        compar.df.temp <- as.matrix(dist(compar.df.temp))
+        best.dist <- rownames(which(compar.df.temp == max(compar.df.temp), arr.ind = T))
+        merged.df[which(merged.df$Taxa == j), "Big.model.diff"] <- paste(best.dist, collapse = "-")
+        merged.df[which(merged.df$Taxa == j), "Big.perf.diff"] <- max(compar.df.temp)
+      }
+    }
+    
+    
     if(CV){
         result <- list("Table predictive performance CV" = df.pred.perf.cv, "Table predictive performance" = df.pred.perf,
-                       "Table fit performance CV" = df.fit.perf.cv, "Table fit performance" = df.fit.perf)
+                       "Table fit performance CV" = df.fit.perf.cv, "Table fit performance" = df.fit.perf, "Table merged" = merged.df)
     } else {
         result <- df.fit.perf
     }
@@ -770,8 +799,7 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
 make.table <- function(df.pred.perf, df.fit.perf, list.models){
   list.models <- append(list.models, "Null_model")
   names(list.models) <- c()
-  
-  
+
   # calculate mean standardized deviance for the training set (i.e. quality of fit)
   table.fit.mean <- apply(df.fit.perf[list.models],2, FUN = mean)
   table.fit.mean <-t(table.fit.mean)
@@ -803,14 +831,14 @@ make.table <- function(df.pred.perf, df.fit.perf, list.models){
   table.mean.exp <-t(table.mean.exp)
   table.mean.exp <- as.data.frame(table.mean.exp)
   colnames(table.mean.exp) <- list.models
-  rownames(table.mean.exp) <- "mean expl. power"
+  rownames(table.mean.exp) <- "Mean expl. power"
   
   # calculate corresponding standart deviation
   table.sd.exp <- apply(df.pred.perf[names.expl.pow],2, FUN = sd)
   table.sd.exp <-t(table.sd.exp)
   table.sd.exp <- as.data.frame(table.sd.exp)
   colnames(table.sd.exp) <- list.models
-  rownames(table.sd.exp) <- "sd expl. power"
+  rownames(table.sd.exp) <- "SD expl. power"
   
   # add performance ratio
   perf.ratio <- (table.pred.mean/table.pred.sd) * table.pred.mean
@@ -819,13 +847,12 @@ make.table <- function(df.pred.perf, df.fit.perf, list.models){
   # row bind results
   table <- rbind(table.fit.mean, table.fit.sd, table.pred.mean, table.pred.sd, table.mean.exp, table.sd.exp, perf.ratio)
   
-  
   tab1 <- table %>% gt(rownames_to_stub = T) %>% tab_header(
     title = md("**Mean predictive performance across models**") # make bold title
   ) %>%
     fmt_number(
-      columns = list.models[[1]], # round numbers
-      decimals = 3
+      columns = list.models, # round numbers
+      decimals = 2
     ) %>% # remove uneccessary black lines
     tab_options(
       table.border.top.color = "white",
@@ -841,22 +868,41 @@ make.table <- function(df.pred.perf, df.fit.perf, list.models){
   return(tab1)
 }
     
-make.table.species <- function(df.pred.perf, df.fit.perf, list.models){
+make.table.species <- function(df.merged.perf, list.models){
   
-  list.models <- append(list.models, "Null_model")
   names(list.models) <- c()
   
+  common.vect <- c("Taxa", "Prevalence", "Null_model")
+  expl.pow.vect <- paste("expl.pow_", list.models, ".pred", sep="")
+  
   # Make tables
-  tmp.table <- df.pred.perf[c("Taxa", list.models)]
-  colnames(tmp.table) <- c("Taxa", list.models)
+  tmp.table <- df.merged.perf
+  tmp.table$Taxa <- sub("Occurrence.", "", tmp.table$Taxa)
+  # colnames(tmp.table) <- c("Taxa", "Prevalence", list.models)
   #tmp.table <- tmp.table %>% mutate((across(is.numeric, round, digits=3)))
   tab2 <- tmp.table %>% gt() %>%
     tab_header(
-      title = md("**Predictive performance of different models**") # make bold title
+      title = md("**Different performance accross models**") # make bold title
+    ) %>%
+    tab_spanner(
+      label = "Training",
+      columns = paste0(list.models, ".fit")
+    ) %>%
+    tab_spanner(
+      label = "Testing",
+      columns = paste0(list.models, ".pred")
+    ) %>%
+    tab_spanner(
+      label = "Explanatory power for prediction",
+      columns = expl.pow.vect
+    ) %>%
+    tab_spanner(
+      label = "Biggest perf. difference",
+      columns = c(Big.model.diff, Big.perf.diff)
     ) %>%
     fmt_number(
-      columns = list.models, # round numbers
-      decimals = 3
+      columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Big.model.diff"))]), # round numbers
+      decimals = 2
     ) %>% # remove uneccessary black lines
     tab_options(
       table.border.top.color = "white",
@@ -869,12 +915,134 @@ make.table.species <- function(df.pred.perf, df.fit.perf, list.models){
       column_labels.border.bottom.color = "black",
       table_body.border.bottom.color = "black",
       table_body.hlines.color = "white")
+  
   return(tab2)
 }
 
+make.table.species.rearranged <- function(df.merged.perf, list.models){
+  
+  names(list.models) <- c()
+  no.models <- length(list.models)
+  
+  # Make tables
+  tmp.table <- df.merged.perf[,-which(grepl("expl.pow",colnames(df.merged.perf)) & grepl(".fit",colnames(df.merged.perf)))]
+  
+  tmp.table$Taxa <- sub("Occurrence.", "", tmp.table$Taxa)
+  # colnames(tmp.table) <- c("Taxa", "Prevalence", list.models)
+  #tmp.table <- tmp.table %>% mutate((across(is.numeric, round, digits=3)))
+  
+  tab3 <- tmp.table %>% gt() %>%
+    tab_header(
+      title = md("**Different performance accross models**") # make bold title
+    ) %>%
+    cols_label(
+      Null_model = "Null model",
+      Big.model.diff = "Models",
+      Big.perf.diff = "Value"
+    ) %>%
+    tab_spanner(
+      label = "Biggest perf. difference",
+      columns = c(Big.model.diff, Big.perf.diff)
+    )
+  for (l in 0:(no.models-1)) {
+    col.group <- colnames(tmp.table)[which(grepl(list.models[no.models-l], colnames(tmp.table)))]
+    col.names <- c("Fit", "Prediction", "Expl. pow.")
+    names(col.names) <- col.group
+    
+    tab3 <- tab3 %>%
+      cols_move(
+        columns = all_of(col.group),
+        after = "Null_model"
+        ) %>%
+      tab_spanner(
+        label = list.models[no.models-l],
+        columns = all_of(col.group)
+      ) %>%
+      cols_label( .list = col.names
+      )
+  }
+  
+  tab3 <- tab3 %>%
+    fmt_number(
+      columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Big.model.diff"))]), # round numbers
+      decimals = 2
+    ) %>% # remove uneccessary black lines
+    tab_options(
+      table.border.top.color = "white",
+      heading.border.bottom.color = "black",
+      row_group.border.top.color = "black",
+      row_group.border.bottom.color = "white",
+      #stub.border.color = "transparent",
+      table.border.bottom.color = "white",
+      column_labels.border.top.color = "black",
+      column_labels.border.bottom.color = "black",
+      table_body.border.bottom.color = "black",
+      table_body.hlines.color = "white")
+  
+  return(tab3)
+}
 
-
-
+make.table.species.rearranged.order <- function(df.merged.perf, list.models){
+  
+  names(list.models) <- c()
+  no.models <- length(list.models)
+  
+  # Make tables
+  tmp.table <- df.merged.perf[,-which(grepl("expl.pow",colnames(df.merged.perf)) & grepl(".fit",colnames(df.merged.perf)))]
+  
+  tmp.table$Taxa <- sub("Occurrence.", "", tmp.table$Taxa)
+  tmp.table  <- arrange(tmp.table, desc(Big.perf.diff))
+  
+  tab3 <- tmp.table %>% gt() %>%
+    tab_header(
+      title = md("**Different performance accross models**") # make bold title
+    ) %>%
+    cols_label(
+      Null_model = "Null model",
+      Big.model.diff = "Models",
+      Big.perf.diff = "Value"
+    ) %>%
+    tab_spanner(
+      label = "Biggest perf. difference",
+      columns = c(Big.model.diff, Big.perf.diff)
+    )
+  for (l in 0:(no.models-1)) {
+    col.group <- colnames(tmp.table)[which(grepl(list.models[no.models-l], colnames(tmp.table)))]
+    col.names <- c("Fit", "Prediction", "Expl. pow.")
+    names(col.names) <- col.group
+    
+    tab3 <- tab3 %>%
+      cols_move(
+        columns = all_of(col.group),
+        after = "Null_model"
+      ) %>%
+      tab_spanner(
+        label = list.models[no.models-l],
+        columns = all_of(col.group)
+      ) %>%
+      cols_label( .list = col.names
+      )
+  }
+  
+  tab3 <- tab3 %>%
+    fmt_number(
+      columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Big.model.diff"))]), # round numbers
+      decimals = 2
+    ) %>% # remove uneccessary black lines
+    tab_options(
+      table.border.top.color = "white",
+      heading.border.bottom.color = "black",
+      row_group.border.top.color = "black",
+      row_group.border.bottom.color = "white",
+      #stub.border.color = "transparent",
+      table.border.bottom.color = "white",
+      column_labels.border.top.color = "black",
+      column_labels.border.bottom.color = "black",
+      table_body.border.bottom.color = "black",
+      table_body.hlines.color = "white")
+  
+  return(tab3)
+}
 
 
 
