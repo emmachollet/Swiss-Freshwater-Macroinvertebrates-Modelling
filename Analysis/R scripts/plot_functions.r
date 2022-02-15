@@ -229,28 +229,25 @@ model.comparison <- function(df.merged.perf, list.models, CV){
       plot.data2 <- plot.data2[,c("Taxa", "Prevalence", "Taxonomic level", "model", "performance.pred")]
       
       plot.data <- left_join(plot.data1, plot.data2, by = c("Taxa", "Prevalence", "Taxonomic level", "model"))
-      list.plot.data <- list(plot.data1, plot.data2)
 
     }
     
     list.plots.temp <- vector(mode = "list", length = 2)
     
     for(n in 1:length(title)){
-      plot.data.temp <- list.plot.data[[n]]
       list.plots.temp[[n]] <- vector(mode = "list", length = 3)
       perf <- paste0("performance", ifelse(n == 1, ".fit", ".pred" ))
-      print(perf)
+      
       # Prevalence vs stand dev
       p1 <- ggplot()
-      p1 <- p1  + geom_point(data = plot.data.temp, aes_string(x = "Prevalence", y = perf, 
+      p1 <- p1  + geom_point(data = plot.data, aes_string(x = "Prevalence", y = perf, 
                                                    colour = "model"# , 
                                                    # shape = "Taxonomic level"
                                                    ), 
                              # alpha = 0.4,
                              size = 3)
-      # print(head(plot.data.temp[,perf]))
       p1 <- p1 + xlim(0.045, 0.955)
-      #p1 <- p1 + geom_line(data = plot.data.temp, aes(x = Prevalence, y = null.perf), linetype = "dashed", alpha=0.4, show.legend = FALSE) # to plot null model as dash line between data points
+      #p1 <- p1 + geom_line(data = plot.data, aes(x = Prevalence, y = null.perf), linetype = "dashed", alpha=0.4, show.legend = FALSE) # to plot null model as dash line between data points
       p1 <- p1 + stat_function(fun=function(x) -2*(x*log(x) + (1-x)*log(1-x))) # to plot null model as function line
       p1 <- p1  + labs(y = "Standardized deviance",
                        x = "Prevalence (%)",
@@ -263,10 +260,9 @@ model.comparison <- function(df.merged.perf, list.models, CV){
       p1 <- p1 + guides(colour = guide_legend(override.aes = list(size=6)))
       
       list.plots.temp[[n]][[1]] <- p1
-      # list.plots.temp[[1]]
-      
+
       # Boxplots
-      p2 <- ggplot(plot.data.temp, aes_string(x="model", y = perf, fill = "model"), alpha = 0.4) 
+      p2 <- ggplot(plot.data, aes_string(x="model", y = perf, fill = "model"), alpha = 0.4) 
       p2 <- p2 + geom_boxplot()
       p2 <- p2 + scale_fill_manual(values=col.vect)
       p2 <- p2 + labs(title = title)
@@ -282,16 +278,9 @@ model.comparison <- function(df.merged.perf, list.models, CV){
                       subtitle = subtitle)
       
       list.plots.temp[[n]][[2]] <- p2
-      # list.plots.temp[[2]]
-      
+
       # Boxplots
-      # order <- reorder(plot.data.temp$model, -plot.data.temp[,perf])
-      # plot.data.temp$group <- factor(plot.data.temp$group, order)
-      # plot.data.temp <- plot.data.temp[,ncol(plot.data.temp):1] %>%
-      #   group_by(model) %>%
-      #   arrange_all()
-      #p3 <- ggplot(plot.data.temp, aes_string(x="model", y = perf, fill = "model"), alpha = 0.4) 
-      p3 <- ggplot(plot.data.temp, aes(y = reorder(model,!!ensym(perf)), x = !!ensym(perf), fill = model), alpha = 0.4)
+      p3 <- ggplot(plot.data, aes(y = reorder(model,-!!ensym(perf)), x = !!ensym(perf), fill = model), alpha = 0.4)
       p3 <- p3 + geom_boxplot()
       p3 <- p3 + scale_fill_manual(values=col.vect)
       p3 <- p3 + labs(title = title)
@@ -309,7 +298,6 @@ model.comparison <- function(df.merged.perf, list.models, CV){
                         #                "\nOrdered by decreasing mean"))
       
       list.plots.temp[[n]][[3]] <- p3
-      # if(n == 1){ p4 <- p3 }
     }
     
     if(CV){

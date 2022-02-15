@@ -54,8 +54,8 @@ all.taxa <- T
 server <- F # Run the script on the server (and then use 3 cores for running in parallel)
 run.ann <- T # Run ANN models or not (needs administrative rights)
 analysis.dl <- F
-analysis.ml <- F
-analysis.ann <- T
+analysis.ml <- T
+analysis.ann <- F
 analysis.training <- F
 
 # Load libraries ####
@@ -208,10 +208,12 @@ no.taxa <- length(list.taxa)
 
 # Select machine learning algorithms to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
-list.algo <- c( "#0A1C51" = 'glm', # Generalized Linear Model
-                "dodgerblue3" = 'gamLoess',
-                "#7B1359" = 'svmRadial', # Support Vector Machine
-                "hotpink3" = 'rf' # Random Forest
+list.algo <- c( 
+  # "#0A1C51" = 'glm', # Generalized Linear Model
+  # "dodgerblue3" = 'gamLoess',
+  # "#7B1359" = 'svmRadial', # Support Vector Machine
+  "darkmagenta" = 'RRF', # Regularized Random Forest
+  "hotpink3" = 'rf' # Random Forest
                 )
 no.algo <- length(list.algo)
                                        
@@ -298,6 +300,7 @@ ptm <- proc.time() # to calculate time of simulation
 info.file.ml.name <-  paste0("ML_model_",
                              file.prefix, 
                              no.algo, "algo_",
+                             ifelse(analysis.ml, "RFanalysis", ""),
                              no.taxa, "taxa_", 
                              ifelse(CV, "CV_", "FIT_"),
                              ifelse(dl, "DL_", "no_DL_"))
@@ -400,7 +403,7 @@ if(analysis.ml){
     # names(mtry.vect) <- paste("rf_", mtry.vect, "mtry", sep = "")
     
     list.tuned.grid <- list()
-    tuned.grid <- expand.grid(mtry = c(2,3), coefReg = c(0.01), coefImp = c(0, 0.3))
+    tuned.grid <- expand.grid(mtry = c(2), coefReg = c(0.01, 0.99), coefImp = c(0.3))
     for (n in 1:nrow(tuned.grid)) {
       list.tuned.grid[[n]] <- tuned.grid[n,]
       names(list.tuned.grid)[[n]] <- paste(c("RRF_", paste(tuned.grid[n,], colnames(tuned.grid), sep="")), collapse = "")
@@ -594,6 +597,7 @@ if(CV){
 # list.models <- c(list.algo, list.ann)
 
 list.models <- c(list.algo, list.stat.mod, list.ann)
+print(list.models)
 no.models <- length(list.models)
 
 # names(list.models) <- rainbow(no.models)
@@ -845,7 +849,7 @@ gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTax
 list.plots <- model.comparison(df.merged.perf = df.merged.perf, list.models = list.models, CV = CV)
 name <- "PredFitModelsCompar_Boxplots"
 file.name <- paste0(name, ".pdf")
-print.pdf.plots(list.plots = list.plots, width = 25, height = 17, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, width = 25, height = 14, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # Performance training vs prediction
 
