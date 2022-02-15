@@ -14,6 +14,50 @@
 
 ## ---- PACKAGES, DATA & FCTS ----
 
+# Check and set working directory
+getwd() # show working directory
+# setwd("Q:/Abteilungsprojekte/siam/Emma Chollet/Data processing/Swiss Freshwater Macroinvertebrates Modelling/Analysis/R scripts") # set the working directory to this folder
+
+# Free workspace
+rm(list=ls())
+graphics.off()
+
+# Setup options ####
+
+# Set if we want to compute for the All or the BDM dataset
+BDM <- F
+file.prefix <- ifelse(BDM, "BDM_", "All_")
+
+# Set date for file names
+d <- Sys.Date()    # e.g. 2021-12-17
+
+# Fit models to entire dataset or perform cross-validation (CV)
+CV <- T # Cross-Validation
+dl <- F # Data Leakage
+if(!CV){ dl <- F } # if it's only fitting, we don't need with or without dataleakage
+
+# Set number of cores for Stat and ML models
+n.cores.splits <-  3 # a core for each split, 3 in our case
+n.cores.stat.models <- 1 # a core for each stat model 2 in our case (UF0, and CF0)
+# Settings Stat models 
+# Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
+# also make sure the cross-validation (CV) flag is set correctly
+sampsize <- 4000 #10000 # This needs to be an even number for some reason (stan error)
+n.chain  <- 2 #2
+
+# Select taxa
+# TRUE: taxa with 5% < prev < 95%
+# FALSE: taxa with intermediate prev (default 25% < prev < 75%, but can be changed)
+all.taxa <- T
+
+# Set analysis 
+server <- F # Run the script on the server (and then use 3 cores for running in parallel)
+run.ann <- T # Run ANN models or not (needs administrative rights)
+analysis.dl <- F
+analysis.ml <- F
+analysis.ann <- T
+analysis.training <- F
+
 # Load libraries ####
 
 if ( !require("parallel") ) { install.packages("parallel"); library("parallel") } # need to run things in parallel
@@ -25,23 +69,24 @@ if ( !require("splitTools") ) { install.packages("splitTools"); library("splitTo
 
 # Plots
 if ( !require("ggplot2") ) { install.packages("ggplot2"); library("ggplot2") } # to do nice plots
-if ( !require("ggpubr") ) { install.packages("ggpubr"); library("ggpubr") } # to arrange multiple plots on a page
 if ( !require("gridExtra") ) { install.packages("gridExtra"); library("gridExtra") } # to arrange multiple plots on a page
 if ( !require("cowplot") ) { install.packages("cowplot"); library("cowplot") } # to arrange multiple plots on a page
 if ( !require("pdp") ) { install.packages("pdp"); library("pdp") } # to plot partial dependance plots
 if ( !require("gt") ) { install.packages("gt"); library("gt") } # to plot nice tables
 if ( !require("plot.matrix") ) { install.packages("plot.matrix"); library("plot.matrix") } # to plot nice tables
 if ( !require("viridis")) {install.packages("viridis", repos="http://cloud.r-project.org"); library("viridis")} # to do even nicer plots
-if ( !require("sf") ) { install.packages("sf"); library("sf") } # to read layers for map
 if ( !require("scales") ) { install.packages("scales"); library("scales") } # to look at colors
 if ( !require("reshape2") ) { install.packages("reshape2"); library("reshape2") } # to reshape dataframes
 if ( !require("gt") ) { install.packages("gt"); library("gt") } # to make tables
-
+if(!server){ # packages having problems on the server
+  if ( !require("sf") ) { install.packages("sf"); library("sf") } # to read layers for map
+  if ( !require("ggpubr") ) { install.packages("ggpubr"); library("ggpubr") } # to arrange multiple plots on a page
+}
 
 # Stat model
 if ( !require("rstan") ) { install.packages("rstan"); library("rstan") } # to read layers for map
 
-# ML algorithms
+# ML models
 if ( !require("caret") ) { install.packages("caret"); library("caret") } # comprehensive framework to build machine learning models
 if ( !require("mgcv") ) { install.packages("mgcv"); library("mgcv") } # to run generalized additive model (GAM) algorithm
 if ( !require("gam") ) { install.packages("gam"); library("gam") } # to run generalized additive model (GAM) algorithm
@@ -51,13 +96,28 @@ if ( !require("kernlab") ) { install.packages("kernlab"); library("kernlab") } #
 if ( !require("randomForest") ) { install.packages("randomForest"); library("randomForest") } # to run random forest (RF)
 if ( !require("RRF") ) { install.packages("RRF"); library("RRF") } # to run RF and additional features
 
-# Check and set working directory
-getwd() # show working directory
-# setwd("Q:/Abteilungsprojekte/siam/Emma Chollet/Data processing/Swiss Freshwater Macroinvertebrates Modelling/Analysis/R scripts") # set the working directory to this folder
+# ANN model
+if(run.ann){  # packages having problems with administrative rights
+  library("reticulate")
+  # install_miniconda() # run this the very first time reticulate is installed
+  # 
+  # install.packages("tensorflow")
+  library("tensorflow")
+  # install_tensorflow() # run this line only when opening R
+  # 
+  # install.packages("keras")
+  library("keras")
+  # install_keras() # run this line only when opening R
+  # use_condaenv()
+}
 
-# Free workspace
-rm(list=ls())
-graphics.off()
+# Load functions ####
+
+source("ml_model_functions.r")
+source("stat_model_functions.r")
+source("plot_functions.r")
+source("utilities.r")
+if(run.ann){ source("ann_model_functions.r")}
 
 # Load data ####
 
@@ -72,66 +132,10 @@ file.env.data     <- "environmental_data_2020-06-25.dat"
 file.inv.data     <- "occ_data_2020-06-25.dat"
 file.prev         <- "prevalence_2020-06-25.dat"
 
-# Setup options ####
-
-# Set if we want to run ANN models or not (and consequently load libraries)
-run.ann <- T
-
-if(run.ann){  
-  library("reticulate")
-  # install_miniconda()
-  # 
-  # install.packages("tensorflow")
-  library("tensorflow")
-  # install_tensorflow() # uncomment and run this line only when opening R
-  # 
-  # install.packages("keras")
-  library("keras")
-  # install_keras() # uncomment and run this line only when opening R
-  # use_condaenv()
-}
-
-# Set if we want to compute for the All or the BDM dataset
-BDM <- F
-
-file.prefix <- ifelse(BDM, "BDM_", "All_")
-
+# Load datasets
 data.env          <- read.delim(paste0(dir.env.data, file.prefix, file.env.data),header=T,sep="\t", stringsAsFactors=T)
 data.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.inv.data),header=T,sep="\t", stringsAsFactors=F)
 prev.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.prev),header=T,sep="\t", stringsAsFactors=F)
-
-# Set date for file names
-d <- Sys.Date()    # e.g. 2021-12-17
-
-# Set if we want to fit models to whole dataset or perform cross-validation (CV)
-CV <- T # Cross-Validation
-dl <- F # Data Leakage
-if(!CV){ dl <- F } # if it's only fitting, we don't need with or without dataleakage
-
-# Set number of cores
-n.cores.splits <-  3 # a core for each split, 3 in our case
-n.cores.stat.models <- 1 # a core for each stat model 2 in our case (UF0, and CF0)
-# Settings Stat models 
-# Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
-# also make sure the cross-validation (CV) flag is set correctly
-sampsize <- 4000 #10000 #I think this needs to be an even number for some reason (stan error)
-n.chain  <- 2 #2
-
-# Select taxa
-all.taxa <- T
-# set to FALSE if it's for exploration (very few taxa or only with intermediate prevalence)
-# set to TRUE to apply models to all taxa
-
-# Run the script on the server
-server <- F
-
-# Load functions ####
-
-source("ml_model_functions.r")
-source("stat_model_functions.r")
-source("plot_functions.r")
-source("utilities.r")
-if(run.ann){ source("ann_model_functions.r")}
 
 ## ---- DATA WRANGLING  ----
 
@@ -213,7 +217,7 @@ no.algo <- length(list.algo)
                                        
 ## ---- APPLY MODELS ----
 
-# Null model
+# Null model ####
 
 null.model.full <- apply.null.model(data = data, list.taxa = list.taxa.full, prev.inv = prev.inv)
 null.model <- null.model.full[list.taxa]
@@ -229,50 +233,50 @@ comm.corr.options <- c(T,F)
 names(comm.corr.options) <- c("CF0", "UF0")
 
 stat.outputs <- mclapply(comm.corr.options, mc.cores = n.cores.stat.models, function(comm.corr){
-  
+
   # comm.corr <- comm.corr.options[[1]]
   info.file.stat.name <- paste0("Stat_model_",
                                 file.prefix,
-                                no.taxa.full, "taxa_", 
-                                #126, "taxa_", 
+                                no.taxa.full, "taxa_",
+                                #126, "taxa_",
                                 sampsize,"iterations_",
                                 ifelse(comm.corr,"CF0_","UF0_"),
                                 ifelse(CV, "CV_", "FIT_"),
                                 ifelse(dl, "DL_", "no_DL_"))
-                                
+
   file.name <- paste0(dir.models.output, info.file.stat.name, ".rds")
   cat(file.name)
-  
+
   # If the file with the output already exist, just read it
   if (file.exists(file.name) == T){
-      
+
       if(exists("stat.output") == F){
-          cat("File with statistical model output already exists, we read it from", file.name, "and save it in object 'stat.output'")
+          cat("\nFile with statistical model output already exists, we read it from", file.name, "and save it in object 'stat.output'\n")
           stat.output <- readRDS(file = file.name)
-          
+
           }
       else{
-          cat("List with statistical model output already exists as object 'stat.output' in this environment.")
+          cat("\nList with statistical model output already exists as object 'stat.output' in this environment.")
       }
   } else {
-      
-      cat("No statistical model output exist yet, we produce it and save it in", file.name)
-      
+
+      cat("\nNo statistical model output exist yet, we produce it and save it in", file.name)
+
       if(CV == T){
-  
+
         stat.output <- mclapply(centered.data, mc.cores = n.cores.splits, FUN = stat_mod_cv, CV, comm.corr, sampsize, n.chain)
-        
-        cat("Saving output of statistical models in", file.name)
+
+        cat("\nSaving output of statistical models in", file.name)
         saveRDS(stat.output, file = file.name, version = 2) #version two here is to ensure compatibility across R versions
-        
+
       } else {
         # apply temporary on training data of Split1, later take whole dataset centered etc
-  
+
         stat.output <- stat_mod_cv(data.splits = centered.data, CV, comm.corr, sampsize, n.chain = n.chain)
-        cat("Saving output of statistical models in", file.name)
+        cat("\nSaving output of statistical models in", file.name)
         saveRDS(stat.output, file = file.name, version = 2)
         }
-      
+
   }
   return(stat.output)
 })
@@ -304,7 +308,7 @@ cat(file.name)
 
 if( file.exists(file.name) == T ){
 
-    cat("Reading", file.name, "and saving it in object 'ml.outputs'")
+    cat("The file already exists. Reading it", file.name, "and uploading it in the environment.")
     if(CV){ ml.outputs.cv <- readRDS(file = file.name)
     } else { ml.outputs <- readRDS(file = file.name) }
 
@@ -337,22 +341,18 @@ if( file.exists(file.name) == T ){
         }
 }
 
-# ECR: Problem with some ml performance
+# Check if we have problem with some ml performance, which would suggest that the model didn't converge
 if(CV){
+  cat("Check if performance > 1.5 in\n")
     for (s in list.splits) {
-      
-      #s = list.splits[[1]]
-      print(s)
-      
         for (l in list.algo) {
-            
-            #l = list.algo[[2]]
-            print(l)
+            cat( s, "for model", l, "\n")
             list.taxa.temp <- names(ml.outputs.cv[[s]][[l]])
-            cat(length(list.taxa.temp), "taxa for this algorithm\n")
+            if(length(list.taxa.temp) != no.taxa){
+              cat(length(list.taxa.temp), "taxa for this algorithm\n")
+            }
             for (j in list.taxa.temp) {
                     
-                    #j = list.taxa.temp[[1]]
                     perf.test <- ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]]
                     perf.train <- ml.outputs.cv[[s]][[l]][[j]][["Performance training set"]]
                     
@@ -364,10 +364,10 @@ if(CV){
                       cat(j, "has testing performance bigger than 1.5", perf.test, "\n")
                     }
                     
-                    if(length(ml.outputs.cv[[s]][[l]][[j]][["Trained model"]]) == 1){
-                      ml.outputs.cv[[s]][[l]][[j]][["Trained model"]]
-                      cat("This model has NULL MODEL instead of trained algorithm\n")
-                    }
+                    # if(length(ml.outputs.cv[[s]][[l]][[j]][["Trained model"]]) == 1){
+                    #   ml.outputs.cv[[s]][[l]][[j]][["Trained model"]]
+                    #   cat("This model has NULL MODEL instead of trained algorithm\n")
+                    # }
                     # to replace performance having a problem
                     # ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]] <- ifelse(perf.test > 1.5, Inf, perf.test)
                     # ml.outputs.cv[[s]][[l]][[j]][["Performance training set"]] <- ifelse(perf.train > 1.5, Inf, perf.train)
@@ -391,7 +391,7 @@ if(CV){
 print(paste("Simulation time of different models ", info.file.ml.name))
 print(proc.time()-ptm)
 
-if(server){
+if(analysis.ml){
   if(CV){
     # Try to regularize RF ####
     
@@ -430,11 +430,13 @@ if(server){
 
 if(!server){
 
+  
 # Neural Networks ####
 
 # Set hyperparameters
 learning.rate <- 0.01
 batch.size <-  64
+no.epo <- 50
 act.fct <- c(#"tanh",
   # "swish",
   "leakyrelu") #,
@@ -444,26 +446,50 @@ act.fct <- c(#"tanh",
 # grid.hyperparam <- expand.grid(layers = c(3,5), units = c(32, 64), act.fct = act.fct, no.epo = c(150,200))
 
 # ECR: For specific hyperparam selection
-grid.hyperparam <- expand.grid(layers = c(3), units = c(32), act.fct = act.fct, no.epo = c(50))
+grid.hyperparam <- expand.grid(layers = c(3), units = c(32), act.fct = act.fct, no.epo = no.epo)
 
 grid.hyperparam$act.fct <- as.character(grid.hyperparam$act.fct)
 no.hyperparam <- nrow(grid.hyperparam)
 list.hyper.param <- vector("list", no.hyperparam)
-for (n in 1:no.hyperparam) {
-  list.hyper.param[[n]] <- grid.hyperparam[n,]
-  names(list.hyper.param)[n] <- paste(paste0(grid.hyperparam[n,], c("L", "U", "FCT", "epo")), collapse = "")
-}
-names(list.hyper.param) <- paste("ANN_", names(list.hyper.param), sep = "")
 
-# list.ann <- names(list.hyper.param)
-list.ann <- c("ANN")
-no.ann <- length(list.ann)
-# names(list.ann) <- rainbow(no.ann) # assign colors
-names(list.ann) <- "#FFB791" # if only one selected ANN
+if(no.hyperparam == 1){ # only one ANN selected
+
+  if(analysis.ann){
+    # Number of runs to check randomness in results
+    no.ann.runs = 10
+    for (n in 1:no.ann.runs) {
+      list.hyper.param[[n]] <- grid.hyperparam[1,]
+      names(list.hyper.param)[n] <- paste0("ANN_rand", n)
+    }
+    list.ann <- names(list.hyper.param)
+    no.ann <- length(list.ann)
+    names(list.ann) <- hcl.colors(no.ann, palette = "Oranges")
+      # rainbow(no.ann)
+  } else {
+    list.hyper.param[[1]] <- grid.hyperparam[1,]
+    names(list.hyper.param) <- c("ANN")
+    list.ann <- names(list.hyper.param)
+    no.ann <- length(list.ann)
+    names(list.ann) <- "#FFB791" # if only one selected ANN
+  }
+  
+} else { # try different hyperparameters
+  
+  for (n in 1:no.hyperparam) {
+    list.hyper.param[[n]] <- grid.hyperparam[n,]
+    names(list.hyper.param)[n] <- paste(paste0(grid.hyperparam[n,], c("L", "U", "FCT", "epo")), collapse = "")
+  }
+  
+  names(list.hyper.param) <- paste("ANN_", names(list.hyper.param), sep = "")
+  list.ann <- names(list.hyper.param)
+  no.ann <- length(list.ann)
+  names(list.ann) <- rainbow(no.ann) # assign colors
+}
 
 info.file.ann.name <-  paste0("ANN_model_",
                               file.prefix, 
                               no.ann, "ann_",
+                              ifelse(analysis.ann, "RandAnalysis_", ""),
                               no.taxa, "taxa_", 
                               ifelse(CV, "CV_", "FIT_"),
                               ifelse(dl, "DL_", "no_DL_"))
@@ -537,15 +563,14 @@ if(CV){
     outputs.cv[[s]][[list.stat.mod[2]]] <- stat.outputs.transformed[[2]][[s]]
 
     # ECR: For ANN analysis 
-    names(ann.outputs.cv[[s]]) <- list.ann # in case ann names are not the good ones (with act. fct)
     # names(ann.outputs.cv2[[s]]) <- gsub("1FCT", "tanhFCT", names(ann.outputs.cv2[[s]]))
     # names(ann.outputs.cv2[[s]]) <- gsub("2FCT", "leakyreluFCT", names(ann.outputs.cv2[[s]]))
+    names(ann.outputs.cv[[s]]) <- list.ann
     
     outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv[[s]])
     
-     # outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv2[[s]])
+    # outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv2[[s]])
     # outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv3[[s]])
-    
     # outputs.cv[[s]] <- append(outputs.cv[[s]], tuned.ml.outputs.cv[[s]])
     }
 } else {
@@ -566,6 +591,7 @@ if(CV){
 # Make final list of models
 #list.models <- c(list.algo, list.stat.mod)
 # list.models <- names(outputs.cv$Split1)
+# list.models <- c(list.algo, list.ann)
 
 list.models <- c(list.algo, list.stat.mod, list.ann)
 no.models <- length(list.models)
@@ -578,12 +604,15 @@ show_col(names(list.models))
 info.file.name <- paste0(file.prefix, 
                          no.models, "models_",
                          # no.models, "tunedRRF_",
+                         ifelse(analysis.ann, "AnalysisANN_", ""),
                          no.taxa, "taxa_", 
                          # no.env.fact, "envfact_",
                          ifelse(CV, "CV_", "FIT_"),
                          ifelse(dl, "DL_", "no_DL_"),
                          "")
 cat(info.file.name)
+
+source("utilities.r")
 
 # Produce final outputs with mean performance across splits
 if(CV){ 
@@ -752,8 +781,8 @@ source("plot_functions.r")
 # HTML file with numbers
 file.name <- paste0(info.file.name, "ModelsCompar_")
 
-tab.model.comp <- make.table(df.pred.perf = df.pred.perf, df.fit.perf = df.fit.perf, list.models = list.models)
-gtsave(data = tab.model.comp, filename = paste0(file.name, "Table_forAll.html"), path =  dir.plots.output)
+# tab.model.comp <- make.table(df.pred.perf = df.pred.perf, df.fit.perf = df.fit.perf, list.models = list.models)
+# gtsave(data = tab.model.comp, filename = paste0(file.name, "Table_forAll.html"), path =  dir.plots.output)
 
 tab.model.comp.species <- make.table.species(df.merged.perf = df.merged.perf, list.models = list.models)
 gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTaxonforAll.html"), path =  dir.plots.output)
@@ -791,35 +820,40 @@ gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTax
 # # list.plots.dl[[1]]
 # print.pdf.plots(list.plots = list.plots, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
-# Performance against prevalence and boxplots
-if(CV){
-  list.plots1 <- model.comparison(df.perf = df.pred.perf, list.models = list.models, CV = CV)
-  name <- "PredModelsCompar"
-  file.name <- paste0(name, ".pdf")
-  # print.pdf.plots(list.plots = list.plots1, width = 18, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-  list.plots <- model.comparison(df.perf = df.fit.perf, list.models = list.models, CV = F)
-  } else {
-  list.plots <- model.comparison(df.perf = df.fit.perf, list.models = list.models, CV = CV)
-}
-  
-name <- "FitModelsCompar"
-file.name <- paste0(name, ".pdf")
-# print.pdf.plots(list.plots = list.plots, width = 25, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+# # Performance against prevalence and boxplots
+# if(CV){
+#   list.plots1 <- model.comparison(df.perf = df.pred.perf, list.models = list.models, CV = CV)
+#   name <- "PredModelsCompar"
+#   file.name <- paste0(name, ".pdf")
+#   # print.pdf.plots(list.plots = list.plots1, width = 18, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+#   list.plots <- model.comparison(df.perf = df.fit.perf, list.models = list.models, CV = F)
+#   } else {
+#   list.plots <- model.comparison(df.perf = df.fit.perf, list.models = list.models, CV = CV)
+# }
+#   
+# name <- "FitModelsCompar"
+# file.name <- paste0(name, ".pdf")
+# # print.pdf.plots(list.plots = list.plots, width = 25, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+# 
+# if(CV){
+#   list.plots2 <- vector("list", length(list.plots))
+#   for (n in 1:length(list.plots)) {
+#     list.plots2[[n]] <- grid.arrange(grobs = list(list.plots[[n]], list.plots1[[n]]), ncol = 2)
+#   }
+# }
 
-if(CV){
-  list.plots2 <- vector("list", length(list.plots))
-  for (n in 1:length(list.plots)) {
-    list.plots2[[n]] <- grid.arrange(grobs = list(list.plots[[n]], list.plots1[[n]]), ncol = 2)
-  }
-}
-
+list.plots <- model.comparison(df.merged.perf = df.merged.perf, list.models = list.models, CV = CV)
 name <- "PredFitModelsCompar_Boxplots"
 file.name <- paste0(name, ".pdf")
-print.pdf.plots(list.plots = list.plots2, width = 25, height = 17, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, width = 25, height = 17, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # Performance training vs prediction
 
-select.taxa <- df.merged.perf$Taxa[which(df.merged.perf$Big.perf.diff > 0.8)]
+if(BDM){ 
+  select.taxa <- df.merged.perf$Taxa[which(df.merged.perf$Big.pred.expl.pow.diff > 0.68)]
+} else {
+  select.taxa <- df.merged.perf$Taxa[which( df.merged.perf$Big.pred.expl.pow.diff > 0.68)]
+}
 
 list.plots <- plot.perf.fitvspred(df.fit.perf = df.fit.perf, df.pred.perf = df.pred.perf, list.models = list.models, select.taxa = select.taxa)
 name <- "PredFitModelsCompar_Scatterplot"

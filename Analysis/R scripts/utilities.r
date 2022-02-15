@@ -248,10 +248,11 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
     # Drop taxa with too many NAs
     cind.taxa <- which(grepl("Occurrence.", colnames(data)))
     too.many.na <- c()
+    threshold <- ifelse(BDM, 100, 200)
     for(i in cind.taxa){
-      if(sum(is.na(data[,i])) > 200){ too.many.na <- c(too.many.na, i)}
+      if(sum(is.na(data[,i])) > threshold){ too.many.na <- c(too.many.na, i)}
     }
-    cat("\nThe following", length(too.many.na), "taxa are excluded because too many missing information:\n", gsub("Occurrence.", "", colnames(data)[too.many.na]), "\n")
+    cat("\nThe following", length(too.many.na), "taxa are excluded because they have more than ", threshold, "NAs :\n", gsub("Occurrence.", "", colnames(data)[too.many.na]), "\n")
     data<- data[, -too.many.na]
     
     
@@ -399,7 +400,7 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
     
     # Update prevalence dataframe with new list of taxa and number of samples
     prev.inv <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa),]
-    for (j in list.taxa) {
+    for (j in list.taxa) { 
       prev <- sum(data[,j]) / dim(data)[1]
       prev.inv[which(prev.inv$Occurrence.taxa == j), "Prevalence"] <- prev
     }
@@ -722,8 +723,8 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
     df.pred.perf$Prevalence <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Prevalence"]
     df.pred.perf[, "Taxonomic level"] <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Taxonomic.level"]
     df.pred.perf[,"Null_model"] <- NA
+    # Add columns for explanatory power
     expl.pow <- paste0("expl.pow_", list.models)
-    expl.pow <- c("Null_model", expl.pow)
     df.pred.perf[, expl.pow] <- NA
     df.fit.perf <- df.pred.perf
     
@@ -739,19 +740,19 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
                 df.pred.perf[rind.taxa,l] <- mean.temp
                 val.expl.pow <- (null.model[[j]][["Performance"]] - mean.temp) / null.model[[j]][["Performance"]]
                 df.pred.perf[rind.taxa, paste0("expl.pow_",l)] <- val.expl.pow
-                df.pred.perf[rind.taxa, paste0("expl.pow_","Null_model")] <- 0
+                # df.pred.perf[rind.taxa, paste0("expl.pow_","Null_model")] <- 0
                 # For training/fitting
                 mean.temp <- mean(as.matrix(df.fit.perf.cv[rind.taxa, splits.model]), na.rm = T)
                 df.fit.perf[rind.taxa,l] <- mean.temp
                 val.expl.pow <- (null.model[[j]][["Performance"]] - mean.temp) / null.model[[j]][["Performance"]]
                 df.fit.perf[rind.taxa, paste0("expl.pow_",l)] <- val.expl.pow
-                df.fit.perf[rind.taxa, paste0("expl.pow_","Null_model")] <- 0
+                # df.fit.perf[rind.taxa, paste0("expl.pow_","Null_model")] <- 0
             } else {
                 perf <- outputs[[l]][[j]][["Performance training set"]]
                 df.fit.perf[rind.taxa,l] <- perf
                 val.expl.pow <- (null.model[[j]][["Performance"]] - perf) / null.model[[j]][["Performance"]]
                 df.fit.perf[rind.taxa, paste0("expl.pow_",l)] <- val.expl.pow
-                df.fit.perf[rind.taxa, paste0("expl.pow_","Null_model")] <- 0
+                # df.fit.perf[rind.taxa, paste0("expl.pow_","Null_model")] <- 0
             }
 
         }
@@ -759,30 +760,58 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
     
     # Make one df with performance during training AND testing AND expl.pow
     if(CV){
-      # Merge dataframes for comparisonjjjjjjjjjjjjjjjjj trop forte
-      common.vect <- c("Taxa", "Prevalence", "Null_model")
+      # Merge dataframes for comparison
+      common.vect <- c("Taxa", "Prevalence", "Taxonomic level", "Null_model")
       merged.df <- left_join(df.fit.perf[,unique(c(common.vect, list.models, all_of(expl.pow)))], df.pred.perf[,unique(c(common.vect, list.models, all_of(expl.pow)))], 
                              by = c(common.vect), suffix = c(".fit", ".pred"))
-      merged.df$Big.model.diff <- NA
-      merged.df$Big.perf.diff <- NA
       
+      # ECR: To be fixed, depending on the metric we use to compare models ***
+      # merged.df[, paste0("overfit.perc_", list.models)] <- NA
+      # merged.df$Big.model.diff <- NA
+      # merged.df$Big.pred.expl.pow.diff <- NA
       
+      # To compute differences between predictions
       # Make dataframe to plot
-      compar.df.fit <- df.fit.perf[,-which(grepl("expl.pow",colnames(df.fit.perf)))] %>%
-        gather(key = model, value = performance.fit, -c("Taxa", "Prevalence", "Taxonomic level"))
-      compar.df.pred <- df.pred.perf[,-which(grepl("expl.pow",colnames(df.pred.perf)))] %>%
-        gather(key = model, value = performance.pred, -c("Taxa", "Prevalence", "Taxonomic level"))
-      compar.df <- left_join(compar.df.fit, compar.df.pred, by = c("Taxa", "Prevalence", "Taxonomic level", "model"))
-
-      for(j in list.taxa){
-        compar.df.temp <- compar.df[which(compar.df$Taxa == j & compar.df$model != "Null_model"), ]
-        rownames(compar.df.temp) <- compar.df.temp$model
-        compar.df.temp <- compar.df.temp[,c("performance.fit", "performance.pred")]
-        compar.df.temp <- as.matrix(dist(compar.df.temp))
-        best.dist <- rownames(which(compar.df.temp == max(compar.df.temp), arr.ind = T))
-        merged.df[which(merged.df$Taxa == j), "Big.model.diff"] <- paste(best.dist, collapse = "-")
-        merged.df[which(merged.df$Taxa == j), "Big.perf.diff"] <- max(compar.df.temp)
-      }
+      # compar.df.fit <- df.fit.perf[,-which(grepl("expl.pow",colnames(df.fit.perf)))] %>%
+      #   gather(key = model, value = performance.fit, -c("Taxa", "Prevalence", "Taxonomic level"))
+      # compar.df.pred <- df.pred.perf[,-which(grepl("expl.pow",colnames(df.pred.perf)))] %>%
+      #   gather(key = model, value = performance.pred, -c("Taxa", "Prevalence", "Taxonomic level"))
+      # compar.df <- left_join(compar.df.fit, compar.df.pred, by = c("Taxa", "Prevalence", "Taxonomic level", "model"))
+      #
+      # for(j in list.taxa){
+      #   compar.df.temp <- compar.df[which(compar.df$Taxa == j & compar.df$model != "Null_model"), ]
+      #   rownames(compar.df.temp) <- compar.df.temp$model
+      #   compar.df.temp <- compar.df.temp[,c("performance.fit", "performance.pred")]
+      #   compar.df.temp <- as.matrix(dist(compar.df.temp))
+      #   best.dist <- rownames(which(compar.df.temp == max(compar.df.temp), arr.ind = T))
+      #   merged.df[which(merged.df$Taxa == j), "Big.model.diff"] <- paste(best.dist, collapse = "-")
+      #   merged.df[which(merged.df$Taxa == j), "Big.pred.expl.pow.diff"] <- max(compar.df.temp)
+      # }
+      
+      # ***
+    #   # Add a column with difference in explanatory power
+    #   compar.df.fit <- df.fit.perf[,-which(colnames(df.fit.perf) %in% list.models)] %>%
+    #     gather(key = model, value = expl.pow.fit, -c("Taxa", "Prevalence", "Taxonomic level"))
+    #   compar.df.pred <- df.pred.perf[,-which(colnames(df.pred.perf) %in% list.models)] %>%
+    #     gather(key = model, value = expl.pow.pred, -c("Taxa", "Prevalence", "Taxonomic level"))
+    #   compar.df <- left_join(compar.df.fit, compar.df.pred, by = c("Taxa", "Prevalence", "Taxonomic level", "model"))
+    #   compar.df$model <- gsub("expl.pow_", "", compar.df$model)
+    # 
+    #   for(j in list.taxa){
+    #     compar.df.temp <- compar.df[which(compar.df$Taxa == j & compar.df$model != "Null_model"), ]
+    #     rownames(compar.df.temp) <- compar.df.temp$model
+    #     compar.df.temp <- compar.df.temp[,c("expl.pow.fit", "expl.pow.pred")]
+    #     compar.df.temp <- as.matrix(dist(compar.df.temp))
+    #     best.dist <- rownames(which(compar.df.temp == max(compar.df.temp), arr.ind = T))
+    #     merged.df[which(merged.df$Taxa == j), "Big.model.diff"] <- paste(best.dist, collapse = "-")
+    #     merged.df[which(merged.df$Taxa == j), "Big.pred.expl.pow.diff"] <- max(compar.df.temp)
+    #     for (l in list.models) {
+    #       pred <- merged.df[which(merged.df$Taxa == j), paste0(l, ".pred")]
+    #       fit <- merged.df[which(merged.df$Taxa == j), paste0(l, ".fit")]
+    #       merged.df[which(merged.df$Taxa == j), paste0("overfit.perc_", l)] <- (pred - fit) / pred * 100
+    #     }
+    #   }
+    #   
     }
     
     
@@ -898,7 +927,7 @@ make.table.species <- function(df.merged.perf, list.models){
     ) %>%
     tab_spanner(
       label = "Biggest perf. difference",
-      columns = c(Big.model.diff, Big.perf.diff)
+      columns = c(Big.model.diff, Big.pred.expl.pow.diff)
     ) %>%
     fmt_number(
       columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Big.model.diff"))]), # round numbers
@@ -938,15 +967,15 @@ make.table.species.rearranged <- function(df.merged.perf, list.models){
     cols_label(
       Null_model = "Null model",
       Big.model.diff = "Models",
-      Big.perf.diff = "Value"
+      Big.pred.expl.pow.diff = "Value"
     ) %>%
     tab_spanner(
-      label = "Biggest perf. difference",
-      columns = c(Big.model.diff, Big.perf.diff)
+      label = "Biggest expl. pow. difference in pred. ",
+      columns = c(Big.model.diff, Big.pred.expl.pow.diff)
     )
   for (l in 0:(no.models-1)) {
     col.group <- colnames(tmp.table)[which(grepl(list.models[no.models-l], colnames(tmp.table)))]
-    col.names <- c("Fit", "Prediction", "Expl. pow.")
+    col.names <- c("Fit", "Prediction", "Expl. pow.", "Overfitting perc.")
     names(col.names) <- col.group
     
     tab3 <- tab3 %>%
@@ -991,7 +1020,7 @@ make.table.species.rearranged.order <- function(df.merged.perf, list.models){
   tmp.table <- df.merged.perf[,-which(grepl("expl.pow",colnames(df.merged.perf)) & grepl(".fit",colnames(df.merged.perf)))]
   
   tmp.table$Taxa <- sub("Occurrence.", "", tmp.table$Taxa)
-  tmp.table  <- arrange(tmp.table, desc(Big.perf.diff))
+  tmp.table  <- arrange(tmp.table, desc(Big.pred.expl.pow.diff))
   
   tab3 <- tmp.table %>% gt() %>%
     tab_header(
@@ -1000,15 +1029,15 @@ make.table.species.rearranged.order <- function(df.merged.perf, list.models){
     cols_label(
       Null_model = "Null model",
       Big.model.diff = "Models",
-      Big.perf.diff = "Value"
+      Big.pred.expl.pow.diff = "Value"
     ) %>%
     tab_spanner(
-      label = "Biggest perf. difference",
-      columns = c(Big.model.diff, Big.perf.diff)
+      label = "Biggest expl. pow. difference in pred.",
+      columns = c(Big.model.diff, Big.pred.expl.pow.diff)
     )
   for (l in 0:(no.models-1)) {
     col.group <- colnames(tmp.table)[which(grepl(list.models[no.models-l], colnames(tmp.table)))]
-    col.names <- c("Fit", "Prediction", "Expl. pow.")
+    col.names <- c("Fit", "Prediction", "Expl. pow.", "Overfitting perc.")
     names(col.names) <- col.group
     
     tab3 <- tab3 %>%
