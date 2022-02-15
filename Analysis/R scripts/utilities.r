@@ -379,24 +379,24 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
     
     # Test centering
     
-    if(CV == T){
-        if(mean(centered.data$Split1$`Training data`$temperature) <= 0.001){
-            cat("\nThe data is normalized.\n")
-        }else{
-            cat("\nThe data isn't normalized.\n")
-            break()
-        }
-    }else if (exists("centered.data") == T){
-        if(mean(centered.data$`Entire dataset`$temperature) <= 0.001){
-            cat("\nThe data is normalized.\n")
-        }else{
-            cat("\nThe data isn't normalized.\n")
-            break()
-        }
-    }else{
-        cat("\nThe data isn't normalized.\n")
-        
-    }
+    # if(CV == T){
+    #     if(mean(centered.data$Split1$`Training data`$temperature) <= 0.001){
+    #         cat("\nThe data is normalized.\n")
+    #     }else{
+    #         cat("\nThe data isn't normalized.\n")
+    #         break()
+    #     }
+    # }else if (exists("centered.data") == T){
+    #     if(mean(centered.data$`Entire dataset`$temperature) <= 0.001){
+    #         cat("\nThe data is normalized.\n")
+    #     }else{
+    #         cat("\nThe data isn't normalized.\n")
+    #         break()
+    #     }
+    # }else{
+    #     cat("\nThe data isn't normalized.\n")
+    #     
+    # }
     
     # Update prevalence dataframe with new list of taxa and number of samples
     prev.inv <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa),]
