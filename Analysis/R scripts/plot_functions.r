@@ -291,14 +291,13 @@ model.comparison <- function(df.merged.perf, list.models, CV){
       #   group_by(model) %>%
       #   arrange_all()
       #p3 <- ggplot(plot.data.temp, aes_string(x="model", y = perf, fill = "model"), alpha = 0.4) 
-      p3 <- ggplot(plot.data.temp, aes(x=reorder(model, -plot.data.temp[,perf]), y = plot.data.temp[, perf], fill = model), alpha = 0.4) 
-      
+      p3 <- ggplot(plot.data.temp, aes(y = reorder(model,!!ensym(perf)), x = !!ensym(perf), fill = model), alpha = 0.4)
       p3 <- p3 + geom_boxplot()
       p3 <- p3 + scale_fill_manual(values=col.vect)
       p3 <- p3 + labs(title = title)
       # p3 <- p3 + ylim(0.2,1.5) # ECR: only because perf problems
       # p3 <- p3 + scale_x_discrete(limits = rev(list.models))
-      p3 <- p3 + coord_flip()
+      #p3 <- p3 + coord_flip()
       p3 <- p3 + theme_bw(base_size = 20)
       p3 <- p3 + theme(legend.position = "none")
       p3 <- p3 + labs(x="Models",
