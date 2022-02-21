@@ -1,4 +1,34 @@
-## ---- Split the data in 3 training and testing data sets for CV ----
+
+
+# Split data in training and testing datasets for extrapolation
+split.data.ml <- function(data, training.ratio, variable = "random", bottom = T){
+  
+  # add an argument in the fct, eg splitcol, which would be here SiteId
+  # first split by this argument, then select rows (aka samples) according to their SiteId
+  
+  if( variable == "random"){
+    sample.size <- floor(ratio*nrow(data)) # size of training set is 80% of the whole dataset
+    set.seed(2021) # used for reproducing the same output of simulations
+    rind.train  <- sort(sample(nrow(data), size = sample.size))
+    data.train  <- data[rind.train,]
+    data.test   <- data[-rind.train,]
+  } else {
+    
+    v <- data[,variable]
+    q <- rank(v, na.last = F)/length(v) # put the NA in the testing set
+    rind.train <- if(bottom == T){ which(q < training.ratio)
+    } else { which(q > 1-training.ratio) 
+    }
+    data.train  <- data[rind.train,]
+    data.test   <- data[-rind.train,]
+  }
+  
+  splitted.data <- list("Split1" = list("Training data" = data.train, "Testing data" = data.test))
+  
+  return(splitted.data)
+}
+
+# Split the data in 3 training and testing data sets for CV
 split.data <- function(data){
   
       set.seed(2021)  
@@ -140,7 +170,7 @@ center.data.old <- function(split, CV){
     
 }
 
-center.data <- function(data, split, CV, dl, mean.dl, sd.dl, env.fact.full){
+center.data <- function(data, split, CV, extrapol, dl, mean.dl, sd.dl, env.fact.full){
   
   training.data <- split[[1]]
   
@@ -194,7 +224,7 @@ center.data <- function(data, split, CV, dl, mean.dl, sd.dl, env.fact.full){
     }
   }
 
-  if(CV == F){
+  if(CV == F & extrapol == F){
     return(list( "Entire dataset" = training.data))
   }else{
     
@@ -228,7 +258,7 @@ center.data <- function(data, split, CV, dl, mean.dl, sd.dl, env.fact.full){
 }
 
 
-preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.workspace, BDM, dl, CV){
+preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.workspace, BDM, dl, CV, extrapol, extrapol.info = c()){
     
     # Merge data sets
     cind.taxa <- which(grepl("Occurrence.", colnames(data.inv)))
@@ -272,7 +302,7 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
     for (j in cind.taxa) {
         if(sum(data[,j]) < five.perc | sum(data[,j]) > no.samples - five.perc){ cind.rem <- c(cind.rem, j) }
     }
-    cat("\nThe following", length(cind.rem), "taxa are excluded because they are only present (or absent) in less than 5% of samples:\n", gsub("Occurrence.", "", colnames(data)[cind.rem]), "\n")
+    cat("\nThe following", length(cind.rem), "taxa are excluded because they have less than 5% or more than 95% of prevalence:\n", gsub("Occurrence.", "", colnames(data)[cind.rem]), "\n")
     data <- data[,-cind.rem]
     dim(data)
     
@@ -299,13 +329,35 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
             splits <- split.data(data)
             saveRDS(splits, file = file.name)
         }
+    } else if (extrapol) {
+      
+      training.ratio <- as.numeric(extrapol.info["training.ratio"])
+      variable <- extrapol.info["variable"]
+      
+      # Split for extrapolation
+      file.name <- paste0(dir.workspace, prefix, "SplitForExtrapolation_", training.ratio, variable, ".rds")
+      
+      # If the file with the three different splits already exist, just read it
+      if (file.exists(file.name) == T ){
+        
+        if(exists("splits") == F){ splits <- readRDS(file = file.name)
+        cat("\nFile with data splitted for extrapolation already exists, we read it from", file.name, "and save it in object 'splits'.\n")}
+        else{
+          cat("\nList with data splits already exists as object 'splits' in this environment.\n")
+        }
+      } else {
+        
+        cat("\nNo data splits exist yet, we produce it and save it in", file.name, ".\n")
+        splits <- split.data.ml(data, training.ratio = training.ratio, variable = variable)
+        saveRDS(splits, file = file.name)
+      }
     } else {
-        splits <- list(data)
+      splits <- list(data)
     }
     
     # Normalize data
     
-    # Calculate mean and sd for env data for normalisation with data leakage
+    # Calculate mean and sd for env data for normalization with data leakage
     mean.dl <- apply(select(data, all_of(env.fact.full)), 2, function(k){
         mean(k, na.rm = TRUE)
     })
@@ -314,28 +366,30 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
     })
     
     # Normalize the data (each folds for CV and whole data set else)
-    if(CV == T){
+    if(CV == T | extrapol == T){
         
         # Center the splits
-        centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full = env.fact.full)
+        centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, extrapol = extrapol, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full = env.fact.full)
         
-        # Splits don't have same taxa columns, should be harmonized
-        col1 <- colnames(centered.splits.tmp$Split1$`Training data`)
-        col2 <- colnames(centered.splits.tmp$Split2$`Training data`)
-        col3 <- colnames(centered.splits.tmp$Split3$`Training data`)
-        
-        # Make union of column names
-        col.names <- unique(c(col1, col2, col3))
-        list.taxa <- col.names[which(grepl("Occurrence.", col.names))]
-        
-        # Make intersection of column names (remove taxa not common to each split)
-        rem.taxa <- unique(c(col1[-which(col1 %in% col2)],
-                            col1[-which(col1 %in% col3)],
-                            col2[-which(col2 %in% col1)],
-                            col2[-which(col2 %in% col3)],
-                            col3[-which(col3 %in% col1)],
-                            col3[-which(col3 %in% col2)]))
-        cat("\nFollowing taxa are not in all splits, consider removing them:",length(rem.taxa), rem.taxa, "\n")
+        # To control if the splits have the same taxa
+        # # Splits don't have same taxa columns, should be harmonized
+         col1 <- colnames(centered.splits.tmp$Split1$`Training data`)
+        # col2 <- colnames(centered.splits.tmp$Split2$`Training data`)
+        # col3 <- colnames(centered.splits.tmp$Split3$`Training data`)
+        # 
+        # # Make union of column names
+        # col.names <- unique(c(col1, col2, col3))
+        # list.taxa <- col.names[which(grepl("Occurrence.", col.names))]
+         list.taxa <- col1[which(grepl("Occurrence.", col1))]
+        # 
+        # # Make intersection of column names (remove taxa not common to each split)
+        # rem.taxa <- unique(c(col1[-which(col1 %in% col2)],
+        #                     col1[-which(col1 %in% col3)],
+        #                     col2[-which(col2 %in% col1)],
+        #                     col2[-which(col2 %in% col3)],
+        #                     col3[-which(col3 %in% col1)],
+        #                     col3[-which(col3 %in% col2)]))
+        # cat("\nFollowing taxa are not in all splits, consider removing them:",length(rem.taxa), rem.taxa, "\n")
 
         # Extract necessary information
         centered.data <- lapply(centered.splits.tmp,"[", 1:2) # only the splits without the mean, sd info
@@ -415,7 +469,7 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
         
     print(summary(as.factor(prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Taxonomic.level"])))
     
-    preprocessed.data <- list("data" = data, "splits" = splits, "list.taxa" = list.taxa, "rem.taxa" = if(CV){ rem.taxa },
+    preprocessed.data <- list("data" = data, "splits" = splits, "list.taxa" = list.taxa, # "rem.taxa" = if(CV){ rem.taxa },
                               "centered.data" = centered.data, "centered.data.factors" = centered.data.factors, 
                               "normalization.data" = normalization.data, "prev.inv" = prev.inv)
     return(preprocessed.data)
@@ -688,9 +742,9 @@ make.final.outputs.cv <- function(outputs.cv, list.models, list.taxa){
 }
 
 make.df.outputs <- function(outputs, list.models, list.taxa, 
-                            list.splits = c("Split1", "Split2", "Split3"), null.model, prev.inv, CV){
+                            list.splits = c("Split1", "Split2", "Split3"), null.model, prev.inv, CV, extrapol){
     
-    if(CV){
+    if(CV | extrapol){
         outputs.cv <- outputs
         no.splits <- length(list.splits)
         no.taxa <- length(list.taxa)
@@ -703,9 +757,12 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
         df.fit.perf.cv <- df.pred.perf.cv
 
         for (s in list.splits) {
+          # s <- list.splits[1]
             for (l in list.models) {
+              # l <- list.models[1]
                 list.taxa.temp <- names(outputs.cv[[s]][[l]])
                 for (j in list.taxa.temp) {
+                  # j <- list.taxa[1]
                     rind.taxa <- which(df.pred.perf.cv$Taxa == j)
                     pred.perf <- outputs.cv[[s]][[l]][[j]][["Performance testing set"]]
                     fit.perf <- outputs.cv[[s]][[l]][[j]][["Performance training set"]]
@@ -733,7 +790,7 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
         df.pred.perf[rind.taxa, "Null_model"] <- null.model[[j]][["Performance"]]
         df.fit.perf[rind.taxa, "Null_model"] <- null.model[[j]][["Performance"]]
         for(l in list.models){
-            if(CV){
+            if(CV | extrapol){
                 splits.model <- apply(expand.grid(list.splits,l), 1, paste, collapse="_")
                 # For testing/prediction
                 mean.temp <- mean(as.matrix(df.pred.perf.cv[rind.taxa, splits.model]), na.rm = T)
@@ -759,63 +816,50 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
     }
     
     # Make one df with performance during training AND testing AND expl.pow
-    if(CV){
+    if(CV | extrapol){
       # Merge dataframes for comparison
       common.vect <- c("Taxa", "Prevalence", "Taxonomic level", "Null_model")
       merged.df <- left_join(df.fit.perf[,unique(c(common.vect, list.models, all_of(expl.pow)))], df.pred.perf[,unique(c(common.vect, list.models, all_of(expl.pow)))], 
                              by = c(common.vect), suffix = c(".fit", ".pred"))
       
-      # ECR: To be fixed, depending on the metric we use to compare models ***
-      # merged.df[, paste0("overfit.perc_", list.models)] <- NA
-      # merged.df$Big.model.diff <- NA
-      # merged.df$Big.pred.expl.pow.diff <- NA
+      merged.df[, paste0(list.models, ".likelihood.ratio")] <- NA
+      merged.df$Big.model.diff <- NA
+      merged.df$Big.pred.expl.pow.diff <- NA
+      merged.df$CF0.model.diff <- NA
+      merged.df$CF0.pred.expl.pow.diff <- NA
       
-      # To compute differences between predictions
-      # Make dataframe to plot
-      # compar.df.fit <- df.fit.perf[,-which(grepl("expl.pow",colnames(df.fit.perf)))] %>%
-      #   gather(key = model, value = performance.fit, -c("Taxa", "Prevalence", "Taxonomic level"))
-      # compar.df.pred <- df.pred.perf[,-which(grepl("expl.pow",colnames(df.pred.perf)))] %>%
-      #   gather(key = model, value = performance.pred, -c("Taxa", "Prevalence", "Taxonomic level"))
-      # compar.df <- left_join(compar.df.fit, compar.df.pred, by = c("Taxa", "Prevalence", "Taxonomic level", "model"))
-      #
-      # for(j in list.taxa){
-      #   compar.df.temp <- compar.df[which(compar.df$Taxa == j & compar.df$model != "Null_model"), ]
-      #   rownames(compar.df.temp) <- compar.df.temp$model
-      #   compar.df.temp <- compar.df.temp[,c("performance.fit", "performance.pred")]
-      #   compar.df.temp <- as.matrix(dist(compar.df.temp))
-      #   best.dist <- rownames(which(compar.df.temp == max(compar.df.temp), arr.ind = T))
-      #   merged.df[which(merged.df$Taxa == j), "Big.model.diff"] <- paste(best.dist, collapse = "-")
-      #   merged.df[which(merged.df$Taxa == j), "Big.pred.expl.pow.diff"] <- max(compar.df.temp)
-      # }
       
-      # ***
-    #   # Add a column with difference in explanatory power
-    #   compar.df.fit <- df.fit.perf[,-which(colnames(df.fit.perf) %in% list.models)] %>%
-    #     gather(key = model, value = expl.pow.fit, -c("Taxa", "Prevalence", "Taxonomic level"))
-    #   compar.df.pred <- df.pred.perf[,-which(colnames(df.pred.perf) %in% list.models)] %>%
-    #     gather(key = model, value = expl.pow.pred, -c("Taxa", "Prevalence", "Taxonomic level"))
-    #   compar.df <- left_join(compar.df.fit, compar.df.pred, by = c("Taxa", "Prevalence", "Taxonomic level", "model"))
-    #   compar.df$model <- gsub("expl.pow_", "", compar.df$model)
-    # 
-    #   for(j in list.taxa){
-    #     compar.df.temp <- compar.df[which(compar.df$Taxa == j & compar.df$model != "Null_model"), ]
-    #     rownames(compar.df.temp) <- compar.df.temp$model
-    #     compar.df.temp <- compar.df.temp[,c("expl.pow.fit", "expl.pow.pred")]
-    #     compar.df.temp <- as.matrix(dist(compar.df.temp))
-    #     best.dist <- rownames(which(compar.df.temp == max(compar.df.temp), arr.ind = T))
-    #     merged.df[which(merged.df$Taxa == j), "Big.model.diff"] <- paste(best.dist, collapse = "-")
-    #     merged.df[which(merged.df$Taxa == j), "Big.pred.expl.pow.diff"] <- max(compar.df.temp)
-    #     for (l in list.models) {
-    #       pred <- merged.df[which(merged.df$Taxa == j), paste0(l, ".pred")]
-    #       fit <- merged.df[which(merged.df$Taxa == j), paste0(l, ".fit")]
-    #       merged.df[which(merged.df$Taxa == j), paste0("overfit.perc_", l)] <- (pred - fit) / pred * 100
-    #     }
-    #   }
-    #   
+      # temp.df$Big.pred.expl.pow.diff <- apply(temp.df[,1:no.models], 1, FUN = function(x){diff(range(x))})
+      # min.max <- apply(temp.df[,1:no.models], 1, FUN = function(x){range(x)})
+      
+      # Compute biggest difference in expl. pow. of prediction
+      temp.df <- select(merged.df, "Taxa", contains("expl.pow") & contains(".pred") & !contains("diff"))
+      for(j in list.taxa){
+        # j <- list.taxa[1]
+        # Find min and max expl. pow
+        min <- min(temp.df[which(temp.df$Taxa == j), 2:(no.models+1)])
+        max <- max(temp.df[which(temp.df$Taxa == j), 2:(no.models+1)])
+        model.min <- sub("expl.pow_", "", sub(".pred", "", colnames(temp.df)[which(temp.df[which(temp.df$Taxa == j), ] == min)]))
+        model.max <- sub("expl.pow_", "", sub(".pred", "", colnames(temp.df)[which(temp.df[which(temp.df$Taxa == j), ] == max)]))
+        merged.df[which(merged.df$Taxa == j), "Big.model.diff"] <- paste(model.max, model.min, sep = "-")
+        merged.df[which(merged.df$Taxa == j), "Big.pred.expl.pow.diff"] <- max - min
+        
+        # Compare with CF0
+        expl.pow.CF0 <- temp.df[which(temp.df$Taxa == j), which(grepl("CF0", colnames(temp.df)))]
+        merged.df[which(merged.df$Taxa == j), "CF0.model.diff"] <- paste(model.max, "CF0", sep = "-")
+        merged.df[which(merged.df$Taxa == j), "CF0.pred.expl.pow.diff"] <- max - expl.pow.CF0
+        
+        # Compute likelihood ratio
+        for (l in list.models) {
+          pred <- merged.df[which(merged.df$Taxa == j), paste0(l, ".pred")]
+          fit <- merged.df[which(merged.df$Taxa == j), paste0(l, ".fit")]
+          merged.df[which(merged.df$Taxa == j), paste0(l, ".likelihood.ratio")] <- exp(-(pred - fit) / 2)
+        }
+      }
     }
     
     
-    if(CV){
+    if(CV | extrapol){
         result <- list("Table predictive performance CV" = df.pred.perf.cv, "Table predictive performance" = df.pred.perf,
                        "Table fit performance CV" = df.fit.perf.cv, "Table fit performance" = df.fit.perf, "Table merged" = merged.df)
     } else {
@@ -902,7 +946,9 @@ make.table.species <- function(df.merged.perf, list.models){
   names(list.models) <- c()
   
   common.vect <- c("Taxa", "Prevalence", "Null_model")
-  expl.pow.vect <- paste("expl.pow_", list.models, ".pred", sep="")
+  expl.pow.vect.pred <- paste("expl.pow_", list.models, ".pred", sep="")
+  expl.pow.vect.fit <- paste("expl.pow_", list.models, ".fit", sep="")
+  likeli.ratio.vect <- colnames(df.merged.perf)[which(grepl("likelihood.ratio", colnames(df.merged.perf)))]
   
   # Make tables
   tmp.table <- df.merged.perf
@@ -916,6 +962,13 @@ make.table.species <- function(df.merged.perf, list.models){
     tab_spanner(
       label = "Training",
       columns = paste0(list.models, ".fit")
+    ) # %>%
+    
+    fit.vect <- list.models
+    names(fit.vect) <- paste0(list.models, ".fit")
+      
+    tab2 <- tab2 %>% cols_label(
+      .list = fit.vect
     ) %>%
     tab_spanner(
       label = "Testing",
@@ -923,14 +976,22 @@ make.table.species <- function(df.merged.perf, list.models){
     ) %>%
     tab_spanner(
       label = "Explanatory power for prediction",
-      columns = expl.pow.vect
+      columns = all_of(expl.pow.vect.pred)
     ) %>%
     tab_spanner(
-      label = "Biggest perf. difference",
-      columns = c(Big.model.diff, Big.pred.expl.pow.diff)
+      label = "Explanatory power during training",
+      columns = all_of(expl.pow.vect.fit)
+    ) %>%
+    tab_spanner(
+      label = "Likelihood ratio",
+      columns = all_of(likeli.ratio.vect)
+    ) %>%
+    tab_spanner(
+      label = "Biggest expl. pow. difference",
+      columns = c(Big.model.diff, Big.pred.expl.pow.diff, CF0.model.diff, CF0.pred.expl.pow.diff)
     ) %>%
     fmt_number(
-      columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Big.model.diff"))]), # round numbers
+      columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Taxonomic level", "Big.model.diff", "CF0.model.diff"))]), # round numbers
       decimals = 2
     ) %>% # remove uneccessary black lines
     tab_options(
@@ -971,11 +1032,11 @@ make.table.species.rearranged <- function(df.merged.perf, list.models){
     ) %>%
     tab_spanner(
       label = "Biggest expl. pow. difference in pred. ",
-      columns = c(Big.model.diff, Big.pred.expl.pow.diff)
+      columns = c(Big.model.diff, Big.pred.expl.pow.diff, CF0.model.diff, CF0.pred.expl.pow.diff)
     )
   for (l in 0:(no.models-1)) {
-    col.group <- colnames(tmp.table)[which(grepl(list.models[no.models-l], colnames(tmp.table)))]
-    col.names <- c("Fit", "Prediction", "Expl. pow.", "Overfitting perc.")
+    col.group <- colnames(tmp.table)[which(grepl(list.models[no.models-l], colnames(tmp.table)) & !grepl("diff", colnames(tmp.table)) )]
+    col.names <- c("Fit", "Prediction", "Expl. pow.", "Likelihood ratio")
     names(col.names) <- col.group
     
     tab3 <- tab3 %>%
@@ -993,7 +1054,7 @@ make.table.species.rearranged <- function(df.merged.perf, list.models){
   
   tab3 <- tab3 %>%
     fmt_number(
-      columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Big.model.diff"))]), # round numbers
+      columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Taxonomic level", "Big.model.diff", "CF0.model.diff"))]), # round numbers
       decimals = 2
     ) %>% # remove uneccessary black lines
     tab_options(
@@ -1020,7 +1081,7 @@ make.table.species.rearranged.order <- function(df.merged.perf, list.models){
   tmp.table <- df.merged.perf[,-which(grepl("expl.pow",colnames(df.merged.perf)) & grepl(".fit",colnames(df.merged.perf)))]
   
   tmp.table$Taxa <- sub("Occurrence.", "", tmp.table$Taxa)
-  tmp.table  <- arrange(tmp.table, desc(Big.pred.expl.pow.diff))
+  tmp.table  <- arrange(tmp.table, desc(CF0.pred.expl.pow.diff))
   
   tab3 <- tmp.table %>% gt() %>%
     tab_header(
@@ -1033,11 +1094,11 @@ make.table.species.rearranged.order <- function(df.merged.perf, list.models){
     ) %>%
     tab_spanner(
       label = "Biggest expl. pow. difference in pred.",
-      columns = c(Big.model.diff, Big.pred.expl.pow.diff)
+      columns = c(Big.model.diff, Big.pred.expl.pow.diff, CF0.model.diff, CF0.pred.expl.pow.diff)
     )
   for (l in 0:(no.models-1)) {
-    col.group <- colnames(tmp.table)[which(grepl(list.models[no.models-l], colnames(tmp.table)))]
-    col.names <- c("Fit", "Prediction", "Expl. pow.", "Overfitting perc.")
+    col.group <- colnames(tmp.table)[which(grepl(list.models[no.models-l], colnames(tmp.table)) & !grepl("diff", colnames(tmp.table)))]
+    col.names <- c("Fit", "Prediction", "Expl. pow.", "Likelihood ratio")
     names(col.names) <- col.group
     
     tab3 <- tab3 %>%
@@ -1055,7 +1116,7 @@ make.table.species.rearranged.order <- function(df.merged.perf, list.models){
   
   tab3 <- tab3 %>%
     fmt_number(
-      columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Big.model.diff"))]), # round numbers
+      columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Taxonomic level", "Big.model.diff", "CF0.model.diff"))]), # round numbers
       decimals = 2
     ) %>% # remove uneccessary black lines
     tab_options(

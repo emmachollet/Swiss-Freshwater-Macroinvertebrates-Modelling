@@ -1,35 +1,5 @@
 
 
-# Split data in training and testing datasets
-split.data <- function(data, training.ratio, variable = "random", bottom = T){
-    
-    # add an argument in the fct, eg splitcol, which would be here SiteId
-    # first split by this argument, then select rows (aka samples) according to their SiteId
-    
-    if( variable == "random"){
-        sample.size <- floor(ratio*nrow(data)) # size of training set is 80% of the whole dataset
-        # set.seed(100) # used for reproducing the same output of simulations
-        set.seed(77) # try another one
-        rind.train  <- sort(sample(nrow(data), size = sample.size))
-        data.train  <- data[rind.train,]
-        data.test   <- data[-rind.train,]
-    } else {
-        
-        v <- data[,variable]
-        q <- rank(v, na.last = F)/length(v) # put the NA in the testing set
-        rind.train <- if(bottom == T){ which(q < training.ratio)
-        } else { which(q > 1-training.ratio) 
-                }
-        data.train  <- data[rind.train,]
-        data.test   <- data[-rind.train,]
-    }
-    
-    splitted.data <- list("Training data" = data.train, "Testing data" = data.test)
-
-    return(splitted.data)
-}
-
-
 # Define metric function for trainControl within caret package
 stand.dev <- function(data, lev = c("present","absent"), model = NULL){
     
