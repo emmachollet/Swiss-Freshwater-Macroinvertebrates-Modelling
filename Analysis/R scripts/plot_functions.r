@@ -160,11 +160,15 @@ plot.data.envvstax <- function(data, env.fact, list.taxa){
 
 ## ---- Models analysis plots ----
 
-plot.df.perf <- function(df.perf, list.models, list.taxa, CV){
+plot.df.perf <- function(df.perf, list.models, list.taxa, CV, title = c()){
     
     size.val <- ifelse(length(list.taxa) < 25, 5, 1)
-    title <- ifelse(CV, "Table of models predictive performance \n during Cross Validation",
+    if(length(title) != 0){
+      title <- title
+    } else{
+      title <- ifelse(CV, "Table of models predictive performance \n during Cross Validation",
                     "Table of models quality of fit \n during Calibration")
+    }
     
     if(CV){ cind <- 1:which(colnames(df.perf) == "Taxa")
     } else { cind <- 1:which(colnames(df.perf) == "Taxa")
@@ -193,7 +197,7 @@ plot.df.perf <- function(df.perf, list.models, list.taxa, CV){
 }
 
 # Compare models
-model.comparison <- function(df.merged.perf, list.models, CV){
+model.comparison <- function(df.merged.perf, list.models, CV, extrapol, select.taxa){
     
     list.models.temp <- list.models
     list.models <- c("#000000" = "Null_model", list.models)
@@ -206,7 +210,7 @@ model.comparison <- function(df.merged.perf, list.models, CV){
     
     title <- c("Models comparison in quality of fit", "Models comparison in predictive performance")
     
-    if(!CV){
+    if(!CV & !extrapol){
         title <- title[1]
     }
     
@@ -214,7 +218,7 @@ model.comparison <- function(df.merged.perf, list.models, CV){
     
     # ECR: To be completed if CV = F #### 
     
-    if(CV){  
+    if(CV | extrapol){  
       
       plot.data <- df.merged.perf
 
@@ -235,7 +239,7 @@ model.comparison <- function(df.merged.perf, list.models, CV){
     list.plots.temp <- vector(mode = "list", length = 2)
     
     for(n in 1:length(title)){
-      list.plots.temp[[n]] <- vector(mode = "list", length = 3)
+      list.plots.temp[[n]] <- vector(mode = "list", length = 4)
       perf <- paste0("performance", ifelse(n == 1, ".fit", ".pred" ))
       
       # Prevalence vs stand dev
@@ -260,6 +264,27 @@ model.comparison <- function(df.merged.perf, list.models, CV){
       p1 <- p1 + guides(colour = guide_legend(override.aes = list(size=6)))
       
       list.plots.temp[[n]][[1]] <- p1
+      
+      # Prevalence vs stand dev
+      temp.plot.data <- plot.data[which(plot.data$Taxa %in% select.taxa),]
+      p1.2 <- ggplot()
+      p1.2 <- p1.2  + geom_point(data = temp.plot.data, aes_string(x = "Prevalence", y = perf, 
+                                                          colour = "model"# , 
+                                                          # shape = "Taxonomic level"
+      ), 
+      size = 3)
+      p1.2 <- p1.2 + stat_function(fun=function(x) -2*(x*log(x) + (1-x)*log(1-x))) # to plot null model as function line
+      p1.2 <- p1.2  + labs(y = "Standardized deviance",
+                       x = "Prevalence (%)",
+                       shape = "Taxonomic level",
+                       color = "Model",
+                       title = title[n],
+                       subtitle = paste("For", length(select.taxa), "taxa"))
+      p1.2 <- p1.2 + scale_colour_manual(values=col.vect)
+      p1.2 <- p1.2 + theme_bw(base_size = 20)
+      p1.2 <- p1.2 + guides(colour = guide_legend(override.aes = list(size=6)))
+      
+      list.plots.temp[[n]][[2]] <- p1.2
 
       # Boxplots
       p2 <- ggplot(plot.data, aes_string(x="model", y = perf, fill = "model"), alpha = 0.4) 
@@ -277,7 +302,7 @@ model.comparison <- function(df.merged.perf, list.models, CV){
                       title = title[n],
                       subtitle = subtitle)
       
-      list.plots.temp[[n]][[2]] <- p2
+      list.plots.temp[[n]][[3]] <- p2
 
       # Boxplots
       p3 <- ggplot(plot.data, aes(y = reorder(model,-!!ensym(perf)), x = !!ensym(perf), fill = model), alpha = 0.4)
@@ -297,12 +322,12 @@ model.comparison <- function(df.merged.perf, list.models, CV){
                         # paste0(subtitle,
                         #                "\nOrdered by decreasing mean"))
       
-      list.plots.temp[[n]][[3]] <- p3
+      list.plots.temp[[n]][[4]] <- p3
     }
     
-    if(CV){
-      list.plots <- vector(mode = "list", length = 3)
-      for (n in 1:3) {
+    if(CV | extrapol){
+      list.plots <- vector(mode = "list", length = 4)
+      for (n in 1:length(list.plots)) {
         list.plots[[n]] <- grid.arrange(grobs = list(list.plots.temp[[1]][[n]], list.plots.temp[[2]][[n]]), ncol = 2)
       }
     } else {
@@ -371,7 +396,9 @@ plot.perf.fitvspred <- function(df.fit.perf, df.pred.perf, list.models, select.t
   # Taxa selection
   plot.data2 <- plot.data[which(plot.data$Taxa %in% select.taxa),]
   plot.data2$Taxa <- as.factor(plot.data2$Taxa)
+  no.select.taxa <- length(select.taxa)
   title <- "Comparison of performance"
+  subtitle <- paste("Selection of", no.select.taxa, "taxa with biggest expl. pow. diff. across models")
   p3 <- ggplot(plot.data2) +
     geom_point(aes(x = performance.fit, y = performance.pred, 
                    colour = model, size = Balance, shape = Taxa), 
@@ -386,7 +413,7 @@ plot.perf.fitvspred <- function(df.fit.perf, df.pred.perf, list.models, select.t
          color = "Model",
          size = "Taxon balance (%)",
          title = title,
-         subtitle = "Taxa with biggest perf. diff. across models") + 
+         subtitle = subtitle) + 
     scale_colour_manual(values=col.vect) + 
     theme_bw()
 
