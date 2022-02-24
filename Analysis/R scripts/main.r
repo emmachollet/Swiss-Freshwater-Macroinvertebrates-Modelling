@@ -56,16 +56,16 @@ all.taxa <- T
 
 # Set analysis 
 server <- F # Run the script on the server (and then use 3 cores for running in parallel)
-run.ann <- F # Run ANN models or not (needs administrative rights)
+run.ann <- T # Run ANN models or not (needs administrative rights)
 analysis.dl <- F
 analysis.ml <- F
-analysis.ann <- F
+analysis.ann <- T
 analysis.training <- F
 
 # Load libraries ####
 
 # Set a checkpoint to use same library versions, which makes the code repeatable over time
-if ( !require("checkpoint") ) { install.packages("checkpoint"); library("checkpoint") } # need to run things in parallel
+if ( !require("checkpoint") ) { install.packages("checkpoint"); library("checkpoint") }
 checkpoint("2022-01-01") # replace with desired date
 # checkpoint("2020-01-01", r_version="3.6.2") # replace with desired date and R version
 
@@ -223,7 +223,7 @@ list.algo <- c(
   "deepskyblue4" = 'glm', # Generalized Linear Model
   "deepskyblue" = 'gamLoess',
   "#7B1359" = 'svmRadial', # Support Vector Machine
-  # "darkmagenta" = 'RRF', # Regularized Random Forest
+  # "darkmagenta" = 'RRF'#, # Regularized Random Forest
   "hotpink3" = 'rf' # Random Forest
                 )
 no.algo <- length(list.algo)
@@ -311,7 +311,7 @@ ptm <- proc.time() # to calculate time of simulation
 info.file.ml.name <-  paste0("ML_model_",
                              file.prefix, 
                              no.algo, "algo_",
-                             ifelse(analysis.ml, "RFanalysis", ""),
+                             ifelse(analysis.ml, "RFanalysis_", ""),
                              no.taxa, "taxa_", 
                              ifelse(CV, "CV_", 
                                     ifelse(extrapol, paste(c("extrapol", extrapol.info, "_"), collapse = ""), 
@@ -416,7 +416,7 @@ if(analysis.ml){
     # names(mtry.vect) <- paste("rf_", mtry.vect, "mtry", sep = "")
     
     list.tuned.grid <- list()
-    tuned.grid <- expand.grid(mtry = c(2), coefReg = c(0.01, 0.99), coefImp = c(0.3))
+    tuned.grid <- expand.grid(mtry = c(1,2), coefReg = c(1), coefImp = c(0, 0.5))
     for (n in 1:nrow(tuned.grid)) {
       list.tuned.grid[[n]] <- tuned.grid[n,]
       names(list.tuned.grid)[[n]] <- paste(c("RRF_", paste(tuned.grid[n,], colnames(tuned.grid), sep="")), collapse = "")
@@ -459,6 +459,7 @@ act.fct <- c(#"tanh",
   # "relu")
 
 # ECR: For hyperparam grid search
+# grid.hyperparam <- expand.grid(layers = c(3,5), units = c(32, 64), act.fct = act.fct, no.epo = c(150,200))
 # grid.hyperparam <- expand.grid(layers = c(3,5), units = c(32, 64), act.fct = act.fct, no.epo = c(150,200))
 
 # ECR: For specific hyperparam selection
@@ -577,7 +578,9 @@ if(CV | extrapol){
   # outputs.cv <- ann.outputs.cv1
   for (s in list.splits) {
     #s = "Split2"
-    names(outputs.cv[[s]]) <- list.algo
+    # names(outputs.cv[[s]]) <- list.algo
+    
+    outputs.cv[[s]] <- append(outputs.cv[[s]], tuned.ml.outputs.cv[[s]])
     
     outputs.cv[[s]][[list.stat.mod[1]]] <- stat.outputs.transformed[[1]][[s]]
     outputs.cv[[s]][[list.stat.mod[2]]] <- stat.outputs.transformed[[2]][[s]]
@@ -610,6 +613,7 @@ if(CV | extrapol){
  
 # Make final list of models
 # list.models <- c(list.algo, list.stat.mod)
+list.models <- c(list.algo, list.tuned.algo, list.stat.mod, list.ann)
 # list.models <- names(outputs.cv$Split1)
 # list.models <- c(list.algo, list.ann)
 # list.models <- list.algo
@@ -627,6 +631,7 @@ info.file.name <- paste0(file.prefix,
                          no.models, "models_",
                          # no.models, "tunedRRF_",
                          ifelse(analysis.ann, "AnalysisANN_", ""),
+                         ifelse(analysis.ml, "AnalysisML_", ""),
                          no.taxa, "taxa_", 
                          # no.env.fact, "envfact_",
                          ifelse(CV, "CV_", 
