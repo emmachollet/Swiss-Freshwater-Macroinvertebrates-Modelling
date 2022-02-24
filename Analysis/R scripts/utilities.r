@@ -844,11 +844,12 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
         merged.df[which(merged.df$Taxa == j), "Big.model.diff"] <- paste(model.max, model.min, sep = "-")
         merged.df[which(merged.df$Taxa == j), "Big.pred.expl.pow.diff"] <- max - min
         
-        # Compare with CF0
-        expl.pow.CF0 <- temp.df[which(temp.df$Taxa == j), which(grepl("CF0", colnames(temp.df)))]
-        merged.df[which(merged.df$Taxa == j), "CF0.model.diff"] <- paste(model.max, "CF0", sep = "-")
-        merged.df[which(merged.df$Taxa == j), "CF0.pred.expl.pow.diff"] <- max - expl.pow.CF0
-        
+        if(grepl("CF0", colnames(temp.df)) == T){
+            # Compare with CF0
+            expl.pow.CF0 <- temp.df[which(temp.df$Taxa == j), which(grepl("CF0", colnames(temp.df)))]
+            merged.df[which(merged.df$Taxa == j), "CF0.model.diff"] <- paste(model.max, "CF0", sep = "-")
+            merged.df[which(merged.df$Taxa == j), "CF0.pred.expl.pow.diff"] <- max - expl.pow.CF0
+        }
         # Compute likelihood ratio
         for (l in list.models) {
           pred <- merged.df[which(merged.df$Taxa == j), paste0(l, ".pred")]

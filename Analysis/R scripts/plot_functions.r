@@ -170,6 +170,22 @@ plot.df.perf <- function(df.perf, list.models, list.taxa, CV, title = c()){
                     "Table of models quality of fit \n during Calibration")
     }
     
+    if(grepl("likelihood", title)){
+        limits <- c(0,1)
+        midpoint <- 0.7
+        low <- "#c2141b"
+        mid <- "#f9c74f"
+        high <- "#007139"
+        legend <- "Likelihood \nratio"
+    } else {
+        limits <- c(0,2)
+        midpoint <- 0.7
+        low <- "#007139"
+        mid <- "grey70"
+        high <- "#c2141b"
+        legend <- "Standardized \ndeviance"
+    }
+    
     if(CV){ cind <- 1:which(colnames(df.perf) == "Taxa")
     } else { cind <- 1:which(colnames(df.perf) == "Taxa")
       # cind <- 1:which(colnames(df.perf) %in% list.models | colnames(df.perf) == "Taxa") # ECR: was there for FIT
@@ -179,11 +195,11 @@ plot.df.perf <- function(df.perf, list.models, list.taxa, CV, title = c()){
     melted.df <- melt(temp.df, id = "Taxa")
     p <- ggplot(data = melted.df, aes(x = Taxa, y = variable, fill = value)) +
         geom_tile() +
-        scale_fill_gradient2(midpoint = 1, low = "#007139", mid ="grey70", high = "#c2141b", 
-                             limits = c(0, 2)) +
+        scale_fill_gradient2(midpoint = midpoint, low = low, mid = mid, high = high, 
+                             limits = limits) +
         scale_x_discrete(limits = list.taxa) +
         labs(title = title, 
-             x = "", y = "", fill = "Standardized \n deviance") +
+             x = "", y = "", fill = legend) +
         theme(plot.title = element_text(hjust = 0.5, colour = "black"), 
               axis.title.x = element_text(face="bold", colour="darkgreen", size = 2),
               axis.text.x = element_text(angle=90),
@@ -590,7 +606,9 @@ plot.varimp <- function(outputs, list.algo, list.taxa, env.fact){
 
 # Plot ICE manually 
 
-plot.ice.per.taxa <- function(taxa, outputs, list.algo, env.fact, normalization.data){
+plot.ice.per.taxa <- function(taxa, outputs, list.algo, env.fact, normalization.data, BDM){
+    
+    cat("\nProducing ICE plot for taxa", taxa)
     
     no.algo <- length(list.algo)
     
@@ -598,71 +616,68 @@ plot.ice.per.taxa <- function(taxa, outputs, list.algo, env.fact, normalization.
     list.plots <- list()
     
     for(k in env.fact){
-        cat("Producing ICE plot for env. fact.", k, "for taxa", taxa)
+        # k <- env.fact[1]
+        cat("\nFor env. fact.", k)
+        
         # Make temporary list of ICE plots for env.fact k for each algorithm
         temp.list.plots <- vector(mode = 'list', length = no.algo)
         names(temp.list.plots) <- list.algo
         
         for(l in list.algo){
+            # l <- list.algo[2]
             
             # Extract trained model
             trained.mod <- outputs[[l]][[taxa]][["Trained model"]]
-            # if(trained.mod != "NULL_MODEL"){ # this was needed because some models are "NULL" (svmRadial didn't work for all taxa)
-                
-                # Extract environmental dataframe of each sample
-                env.df <- outputs[[l]][[j]][["Observation training set"]][, env.fact]
-                
-                # Make range of values to test for env. fact. k
-                no.steps <- 10 # 30 was way too long to compute ....
-                m <- min(env.df[,k])
-                M <- max(env.df[,k])
-                range.test <- seq(m, M, length.out = no.steps)
-                
-                # Make range of backward normalized values for labelling x axis
-                # !! Might mathematically false 
-                m2 <- (m * normalization.data$SD[k]) + normalization.data$Mean[k]
-                M2 <- (M * normalization.data$SD[k]) + normalization.data$Mean[k]
-                range.orig.fact <- round(seq(m2, M2, length.out = no.steps), digits = 1)
-                
-                # I think that the 2'600 samples are too much, we could maybe randomly select 500 of these
-                set.seed(2021)
-                env.df <- env.df[sample(nrow(env.df), size = 300),]
-                no.samples <- nrow(env.df)
-                
-                # Make a dataframe for predicted values for each sample
-                pred.df <- data.frame(matrix(nrow = no.samples, ncol = no.steps))
-                
-                for(n in 1:no.samples){
-                    for (s in 1:no.steps) {
-                        
-                      # Make test vector for sample n with with each value in range s of env. fact k 
-                      env.fact.test <- env.df[n,]
-                      env.fact.test[k] <- range.test[s]
-                      # try as matrix
-                        
-                      # Use function predict with type probability for each test env. vector
-                      pred.df[n,s] <- predict(trained.mod, env.fact.test, type = 'prob')[,"present"]
-                    }
-                }
-                
-                plot.data <- melt(pred.df)
-                plot.data$rind <- 1:no.samples
-                
-                p <- ggplot(plot.data, aes(x = variable, y = value, group=factor(rind))) 
-                p <- p + geom_line(aes(color=factor(rind)), alpha = 0.3, show.legend = FALSE) # remove legend that would be the number of samples
-                p <- p + labs(title = paste("Model:", l),
-                              x = k,
-                              y = "Predicted probability")
-                p <- p + scale_x_discrete(labels = factor(range.orig.fact))
-                p <- p + theme_bw(base_size = 20)
-                
-                temp.list.plots[[l]] <- p
-                
-            # }
+
+            # Extract environmental dataframe of each sample
+            env.df <- outputs[[l]][[taxa]][["Observation training set"]][, env.fact]
+            
+            # Make range of values to test for env. fact. k
+            no.steps <- 10 # 30 was way too long to compute ....
+            m <- min(env.df[,k])
+            M <- max(env.df[,k])
+            range.test <- seq(m, M, length.out = no.steps)
+            
+            # Make range of backward normalized values for labelling x axis
+            # !! Might mathematically false 
+            m2 <- (m * normalization.data$SD[k]) + normalization.data$Mean[k]
+            M2 <- (M * normalization.data$SD[k]) + normalization.data$Mean[k]
+            range.orig.fact <- round(seq(m2, M2, length.out = no.steps), digits = 1)
+            
+            # I think that the 2'600 samples are too much, we could maybe randomly select 500 of these
+            set.seed(2021)
+            env.df <- env.df[sample(nrow(env.df), size = 300),]
+            no.samples <- nrow(env.df)
+            
+            # Make a dataframe for predicted values for each sample
+            pred.df <- data.frame(matrix(nrow = no.samples, ncol = no.steps))
+            
+            for(n in 1:no.samples){
+                # n <- 1
+                env.fact.test <- env.df[n,] %>%
+                    slice(rep(1:n(), each = no.steps))
+                env.fact.test[,k] <- range.test
+                pred.df[n,] <- predict(trained.mod, env.fact.test, type = 'prob')[,"present"]
+            }
+            
+            plot.data <- melt(pred.df)
+            plot.data$rind <- 1:no.samples
+            
+            p <- ggplot(plot.data, aes(x = variable, y = value, group=factor(rind))) 
+            p <- p + geom_line(aes(color=factor(rind)), alpha = 0.3, show.legend = FALSE) # remove legend that would be the number of samples
+            p <- p + labs(title = paste("Model:", l),
+                          x = k,
+                          y = "Predicted probability")
+            p <- p + scale_x_discrete(labels = factor(range.orig.fact))
+            p <- p + theme_bw(base_size = 20)
+            
+            temp.list.plots[[l]] <- p
+            
+        
         }
         
-        title <- paste("ICE of", taxa, "for", k)
-        q <- grid.arrange(grobs = temp.list.plots, ncol = 2)
+        title <- paste("ICE of", sub("Occurrence.", "", taxa), "for", k)
+        q <- grid.arrange(grobs = temp.list.plots, ncol = 3, top = title)
         list.plots[[k]] <- q
     }
     return(list.plots)

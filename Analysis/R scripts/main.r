@@ -32,11 +32,11 @@ file.prefix <- ifelse(BDM, "BDM_", "All_")
 d <- Sys.Date()    # e.g. 2021-12-17
 
 # Fit models to entire dataset or perform cross-validation (CV)
-CV <- T # Cross-Validation
+CV <- F # Cross-Validation
 extrapol <- ifelse(CV, FALSE, # Extrapolation
                   T
                   )
-extrapol.info <- c(training.ratio = 0.8, variable = "temperature")
+extrapol.info <- c(training.ratio = 0.8, variable = "IAR")
 dl <- F # Data Leakage
 if(!CV){ dl <- F } # if it's only fitting, we don't need with or without dataleakage
 
@@ -582,20 +582,24 @@ if(CV | extrapol){
     
     outputs.cv[[s]] <- append(outputs.cv[[s]], tuned.ml.outputs.cv[[s]])
     
-    outputs.cv[[s]][[list.stat.mod[1]]] <- stat.outputs.transformed[[1]][[s]]
-    outputs.cv[[s]][[list.stat.mod[2]]] <- stat.outputs.transformed[[2]][[s]]
-
-    # ECR: For ANN analysis
-    # names(ann.outputs.cv2[[s]]) <- gsub("1FCT", "tanhFCT", names(ann.outputs.cv2[[s]]))
-    # names(ann.outputs.cv2[[s]]) <- gsub("2FCT", "leakyreluFCT", names(ann.outputs.cv2[[s]]))
-    names(ann.outputs.cv[[s]]) <- list.ann
-
-    outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv[[s]])
-
-    # outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv2[[s]])
-    # outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv3[[s]])
-    # outputs.cv[[s]] <- append(outputs.cv[[s]], tuned.ml.outputs.cv[[s]])
+    if(exists("stat.outputs.transformed")){
+        outputs.cv[[s]][[list.stat.mod[1]]] <- stat.outputs.transformed[[1]][[s]]
+        outputs.cv[[s]][[list.stat.mod[2]]] <- stat.outputs.transformed[[2]][[s]]
     }
+    
+    if(exists("ann.outputs.cv")){
+        # ECR: For ANN analysis
+        # names(ann.outputs.cv2[[s]]) <- gsub("1FCT", "tanhFCT", names(ann.outputs.cv2[[s]]))
+        # names(ann.outputs.cv2[[s]]) <- gsub("2FCT", "leakyreluFCT", names(ann.outputs.cv2[[s]]))
+        names(ann.outputs.cv[[s]]) <- list.ann
+    
+        outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv[[s]])
+    
+        # outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv2[[s]])
+        # outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv3[[s]])
+        # outputs.cv[[s]] <- append(outputs.cv[[s]], tuned.ml.outputs.cv[[s]])
+    }
+  }
 } else {
   # Make final outputs as list
   outputs <- append(append(ml.outputs, stat.outputs.transformed), ann.outputs)
@@ -612,13 +616,15 @@ if(CV | extrapol){
 # list.models <- c(list.algo, list.tuned.algo)
  
 # Make final list of models
-# list.models <- c(list.algo, list.stat.mod)
-list.models <- c(list.algo, list.tuned.algo, list.stat.mod, list.ann)
-# list.models <- names(outputs.cv$Split1)
-# list.models <- c(list.algo, list.ann)
-# list.models <- list.algo
 
-list.models <- c(list.algo, list.stat.mod, list.ann)
+if(exists("ann.outputs.cv")){
+ list.models <- c(list.algo, list.stat.mod, list.ann)
+} else {
+    # list.models <- c(list.algo, list.stat.mod)
+    # list.models <- names(outputs.cv$Split1)
+    # list.models <- c(list.algo, list.ann)
+    list.models <- list.algo
+}
 print(list.models)
 no.models <- length(list.models)
 
@@ -827,13 +833,14 @@ gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTax
 
 # PDF file with colors
 if(CV){
+        # Tables prediction
         list.plots.cv <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
         list.plots <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
         list.plots1 <- append(list.plots.cv, list.plots)
 
         name <- "TablesPredPerf"
         file.name <- paste0(name, ".pdf")
-        print.pdf.plots(list.plots = list.plots1, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+        print.pdf.plots(list.plots = list.plots1, width = 10, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
         
         temp.df.merged <- df.merged.perf[,which(grepl("likelihood.ratio", colnames(df.merged.perf)))]
         colnames(temp.df.merged) <- list.models
@@ -842,12 +849,12 @@ if(CV){
                                    title = "Comparison likelihood ratio")
         name <- "TableLikelihoodRatiof"
         file.name <- paste0(name, ".pdf")
-        print.pdf.plots(list.plots = list.plots, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+        print.pdf.plots(list.plots = list.plots, width = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
         
-        
-        list.plots.cv <- plot.df.perf(df.perf = df.fit.perf.cv, list.models = list.models, list.taxa = list.taxa, CV = F)
-        list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV = F)
-        list.plots <- append(list.plots.cv, list.plots)
+        # Tables fit
+        # list.plots.cv <- plot.df.perf(df.perf = df.fit.perf.cv, list.models = list.models, list.taxa = list.taxa, CV = F)
+        # list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV = F)
+        # list.plots <- append(list.plots.cv, list.plots)
 
         # if(dl){
         # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models)
@@ -930,12 +937,12 @@ if(!CV){
     
     source("plot_functions.r")
     
-    list.list.plots <- lapply(list.taxa[1:2], FUN= plot.ice.per.taxa, outputs, list.algo = list.models[3:4], env.fact, normalization.data)
+    list.list.plots <- lapply(select.taxa, FUN= plot.ice.per.taxa, outputs, list.algo = list.algo[2:4], env.fact, normalization.data, BDM)
     
-    for (j in 1:length(list.taxa[1:2])) {
+    for (j in 1:length(select.taxa)) {
         taxon <- sub("Occurrence.", "", j)
         file.name <- paste0("ICE_", taxon, ".pdf")
-        print.pdf.plots(list.plots = list.list.plots[[j]], width = 20, height = 20, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+        print.pdf.plots(list.plots = list.list.plots[[j]], width = 15, height = 10, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
     }
     
     # file.name <- "testICE.pdf"
