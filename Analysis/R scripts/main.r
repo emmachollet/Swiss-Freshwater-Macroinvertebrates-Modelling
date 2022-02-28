@@ -34,7 +34,7 @@ d <- Sys.Date()    # e.g. 2021-12-17
 # Fit models to entire dataset or perform cross-validation (CV)
 CV <- F # Cross-Validation
 extrapol <- ifelse(CV, FALSE, # Extrapolation
-                  T
+                  F
                   )
 extrapol.info <- c(training.ratio = 0.8, variable = "IAR")
 dl <- F # Data Leakage
@@ -56,10 +56,10 @@ all.taxa <- T
 
 # Set analysis 
 server <- F # Run the script on the server (and then use 3 cores for running in parallel)
-run.ann <- T # Run ANN models or not (needs administrative rights)
+run.ann <- F # Run ANN models or not (needs administrative rights)
 analysis.dl <- F
 analysis.ml <- F
-analysis.ann <- T
+analysis.ann <- F
 analysis.training <- F
 
 # Load libraries ####
@@ -96,16 +96,6 @@ if(!server){ # packages having problems on the server
 # Stat model
 if ( !require("rstan") ) { install.packages("rstan"); library("rstan") } # to read layers for map
 
-# ML models
-if ( !require("mgcv") ) { install.packages("mgcv"); library("mgcv") } # to run generalized additive model (GAM) algorithm
-if ( !require("gam") ) { install.packages("gam"); library("gam") } # to run generalized additive model (GAM) algorithm
-# if ( !require("fastAdaboost") ) { install.packages("fastAdaboost"); library("fastAdaboost") } # to run adaboost ml algorithm
-if ( !require("kernlab") ) { install.packages("kernlab"); library("kernlab") } # to run support vector machine (svm) algorithm
-# if ( !require("earth") ) { install.packages("earth"); library("earth") } # to run MARS ml algorithm
-if ( !require("randomForest") ) { install.packages("randomForest"); library("randomForest") } # to run random forest (RF)
-if ( !require("RRF") ) { install.packages("RRF"); library("RRF") } # to run RF and additional features
-if ( !require("caret") ) { install.packages("caret"); library("caret") } # comprehensive framework to build machine learning models
-
 # ANN model
 if(run.ann){  # packages having problems with administrative rights
   library("reticulate")
@@ -120,6 +110,16 @@ if(run.ann){  # packages having problems with administrative rights
   # install_keras() # run this line only when opening R
   # use_condaenv()
 }
+
+# ML models
+if ( !require("mgcv") ) { install.packages("mgcv"); library("mgcv") } # to run generalized additive model (GAM) algorithm
+if ( !require("gam") ) { install.packages("gam"); library("gam") } # to run generalized additive model (GAM) algorithm
+# if ( !require("fastAdaboost") ) { install.packages("fastAdaboost"); library("fastAdaboost") } # to run adaboost ml algorithm
+if ( !require("kernlab") ) { install.packages("kernlab"); library("kernlab") } # to run support vector machine (svm) algorithm
+# if ( !require("earth") ) { install.packages("earth"); library("earth") } # to run MARS ml algorithm
+if ( !require("randomForest") ) { install.packages("randomForest"); library("randomForest") } # to run random forest (RF)
+if ( !require("RRF") ) { install.packages("RRF"); library("RRF") } # to run RF and additional features
+if ( !require("caret") ) { install.packages("caret"); library("caret") } # comprehensive framework to build machine learning models
 
 # Load functions ####
 
@@ -311,7 +311,7 @@ ptm <- proc.time() # to calculate time of simulation
 info.file.ml.name <-  paste0("ML_model_",
                              file.prefix, 
                              no.algo, "algo_",
-                             ifelse(analysis.ml, "RFanalysis_", ""),
+                             # ifelse(analysis.ml, "RFanalysis_", ""),
                              no.taxa, "taxa_", 
                              ifelse(CV, "CV_", 
                                     ifelse(extrapol, paste(c("extrapol", extrapol.info, "_"), collapse = ""), 
@@ -424,6 +424,7 @@ if(analysis.ml){
     list.tuned.algo <- names(list.tuned.grid)
     no.tuned.algo <- length(list.tuned.algo)
     names(list.tuned.algo) <- rainbow(no.tuned.algo)
+    print(list.tuned.algo)
     
     tuned.ml.outputs.cv <- lapply(centered.data.factors, function(split){
       #split <- centered.data.factors[[1]]
