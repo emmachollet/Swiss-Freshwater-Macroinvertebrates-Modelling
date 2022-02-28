@@ -414,7 +414,7 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
 
     } else {
         
-        centered.data <- center.data(split = splits, CV = CV, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full)
+        centered.data <- center.data(split = splits, CV = CV, extrapol = extrapol, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full = env.fact.full)
         normalization.data <- list("Mean" = mean.dl, "SD" = sd.dl)
         centered.data.factors <- centered.data
         
