@@ -668,7 +668,7 @@ transfrom.stat.outputs <- function(CV, stat.outputs){
     
     # #plot traceplots
     # # res <- stat.outputs[[1]][[1]]
-    # # res.extracted   <- rstan::extract(res,permuted=TRUE,inc_warmup=FALSE)
+    # # parm   <- rstan::extract(res,permuted=TRUE,inc_warmup=FALSE)
     # # 
     # # print(traceplot(res,pars=c(names(res)[1:32],"lp__")))
     # # 
@@ -1135,8 +1135,140 @@ make.table.species.rearranged.order <- function(df.merged.perf, list.models){
   return(tab3)
 }
 
-
-
+stan_predictions <- function(data = centered.data, parm = parameters){
+  # parm  = test.exract
+  data.splits <- splits[[1]] # to test
+  output <- list("deviance" = tibble(), "probability" = tibble(), "parameters" = tibble()) #this is where the data is gathered in the end for the return
+  training.data <- data.splits[[1]]
+  
+  inv.names <- colnames(select(training.data, SiteId, SampId, contains("Occurrence.")))
+  env.names <- colnames(select(training.data, colnames(training.data), -contains("Occurrence.")))
+  
+  env.cond <- training.data[,env.names]
+  occur.taxa <- training.data[,inv.names]
+  # comm.corr = comm.corr
+  inf.fact <- colnames(select(env.cond, -SiteId, -SampId, -X, -Y))
+  # 
+  # # join the environmental conditions to the occurrence data
+  # env.cond <- left_join(occur.taxa[, c("SiteId", "SampId")], env.cond.orig, by = c("SiteId", "SampId"))
+  # 
+  # # Pre-process data ####
+  # # drop rows with incomplete influence factors:
+  # ind <- !apply(is.na(env.cond[,inf.fact]),1,FUN=any)
+  # ind <- ifelse(is.na(ind),FALSE,ind)
+  # occur.taxa <- occur.taxa[ind, ]
+  # env.cond   <- env.cond[ind, c("SiteId", "SampId", inf.fact)]
+  # print(paste(sum(!ind),"sites/samples excluded because of incomplete influence factors"))
+  # 
+  sites <- occur.taxa$SiteId
+  samples <- occur.taxa$SampId
+  
+  n.sites <- length(unique(sites))
+  n.samples <- length(samples)
+  
+  occur.taxa$SiteId <- NULL
+  occur.taxa$SampId <- NULL
+  # occur.taxa <- as.data.frame(occur.taxa)
+  # # drop TAXA without observations at the selected sites:
+  # ind <- apply(occur.taxa,2,sum, na.rm = TRUE) > 0
+  # occur.taxa <- occur.taxa[, ind]
+  n.taxa <- ncol(occur.taxa)
+  # 
+  # unique.sites <- unique(sites)
+  # siteIND <- match(sites, unique.sites)
+  # env.cond2 <- env.cond
+  # 
+  # #if center is true substract the mean of each predictor, check if its divded by sd, I added the division by sd
+  # if(center){
+  #   mean.env.cond <- apply(env.cond[, !(colnames(env.cond) %in% c("SiteId", "SampId"))], 2, function(k){
+  #     mean(k, na.rm = TRUE)
+  #   })
+  #   sd.env.cond <- apply(env.cond[, !(colnames(env.cond) %in% c("SiteId", "SampId"))], 2, function(k){
+  #     sd(k, na.rm = TRUE)
+  #   })
+  #   for(i in 1:length(env.cond[!(colnames(env.cond) %in% c("SiteId", "SampId"))])){
+  #     #i = 6
+  #     #message(i)
+  #     env.cond[i+2] <- as.matrix(env.cond[i+2]) - mean.env.cond[i]
+  #   }
+  #   for(i in 1:length(env.cond[!(colnames(env.cond) %in% c("SiteId", "SampId"))])){
+  #     #i = 6
+  #     env.cond[i+2] <- as.matrix(env.cond[i+2]) / sd.env.cond[i]
+  #   }
+  # }
+  # 
+  # 
+  # replace NA with -1
+  occur.taxa.na.encod <- occur.taxa
+  for(j in 1:ncol(occur.taxa.na.encod)) occur.taxa.na.encod[,j] <- ifelse(is.na(occur.taxa.na.encod[,j]),
+                                                                          -1, occur.taxa.na.encod[,j])
+  
+  colnames(parm[["alpha_taxa"]]) <- colnames(occur.taxa)
+  
+  colnames(parm[["mu_beta_comm"]]) <- inf.fact
+  colnames(parm[["sigma_beta_comm"]]) <- inf.fact
+  
+  # Extract inputs (x), observations (y), and parameters at maximum posterior
+  x <- as.matrix(env.cond[,inf.fact])
+  colnames(x) <- inf.fact
+  y <- as.matrix(occur.taxa)
+  ind.maxpost <- which.max(parm[["lp__"]])
+  mu.alpha.comm.maxpost <- parm[["mu_alpha_comm"]][ind.maxpost]
+  sigma.alpha.comm.maxpost <- parm[["sigma_alpha_comm"]][ind.maxpost]
+  mu.beta.comm.maxpost  <- parm[["mu_beta_comm"]][ind.maxpost,]
+  sigma.beta.comm.maxpost  <- parm[["sigma_beta_comm"]][ind.maxpost,]
+  alpha.taxa.maxpost <- parm[["alpha_taxa"]][ind.maxpost,]
+  beta.taxa.maxpost  <- parm[["beta_taxa"]][ind.maxpost,,]
+  
+  # Name dimensions of maximum posterior community parameters
+  names(mu.beta.comm.maxpost) <- inf.fact
+  names(sigma.beta.comm.maxpost) <- inf.fact
+  rownames(beta.taxa.maxpost) <- inf.fact
+  
+  ### Calibration results
+  # Check if site effects AND latent variables are disabled
+  z <- matrix(rep(alpha.taxa.maxpost,nrow(x)),nrow=nrow(x),byrow=TRUE) + 
+    x%*%beta.taxa.maxpost
+  
+  p.maxpost <- 1/(1+exp(-z))
+  
+  ### Prepare tidy data for output
+  # Melt the occurrence data into columns of Taxon and Obs
+  obs <- as_tibble(occur.taxa)
+  obs$SiteId <- sites
+  obs$SampId <- samples
+  obs <- gather(obs, Taxon, Obs, -SiteId, -SampId)
+  
+  # Prepare tidy data from maximum posterior beta_taxa
+  beta <- t(beta.taxa.maxpost)
+  beta <- as_tibble(beta, stringsAsFactors = F)
+  beta$Taxon <- colnames(occur.taxa)
+  beta <- gather(beta, Variable, Parameter, -Taxon)
+  
+  # Melt the probabilities into columns of Taxon and Pred
+  prob <- as_tibble(p.maxpost)
+  colnames(prob) <- colnames(occur.taxa)
+  prob$SiteId <- sites
+  prob$SampId <- samples
+  prob <- gather(prob, Taxon, Pred, -SiteId, -SampId)
+  
+  # Combine occurrence/probability data and join the site coordinates
+  probability <- left_join(obs, prob, by = c("SiteId", "SampId", "Taxon"))
+  probability <- na.omit(probability)
+  rm(obs, prob)
+  
+  ### Prepare output
+  probability$Model <- model.name
+  output$probability <- bind_rows(output$probability, probability)
+  
+  # Store the site, samples, community, and input data
+  output$sites <- sites
+  output$samples <- samples
+  output$occur.taxa <- occur.taxa
+  output$inf.fact <- inf.fact
+  output$env.cond <- env.cond
+                                                                          
+}
 
 
 
