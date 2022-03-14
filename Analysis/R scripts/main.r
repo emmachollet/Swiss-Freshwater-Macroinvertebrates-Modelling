@@ -32,7 +32,7 @@ file.prefix <- ifelse(BDM, "BDM_", "All_")
 d <- Sys.Date()    # e.g. 2021-12-17
 
 # Fit models to entire dataset or perform cross-validation (CV)
-CV <- F # Cross-Validation
+CV <- T # Cross-Validation
 extrapol <- ifelse(CV, FALSE, # Extrapolation
                   F
                   )
@@ -118,7 +118,9 @@ if ( !require("gam") ) { install.packages("gam"); library("gam") } # to run gene
 if ( !require("kernlab") ) { install.packages("kernlab"); library("kernlab") } # to run support vector machine (svm) algorithm
 # if ( !require("earth") ) { install.packages("earth"); library("earth") } # to run MARS ml algorithm
 if ( !require("randomForest") ) { install.packages("randomForest"); library("randomForest") } # to run random forest (RF)
-if ( !require("RRF") ) { install.packages("RRF"); library("RRF") } # to run RF and additional features
+# if ( !require("RRF") ) { install.packages("RRF"); library("RRF") } # to run RF and additional features
+if ( !require("xgboost") ) { install.packages("xgboost"); library("xgboost") } # to run Boosted Classification Trees
+if ( !require("ada") ) { install.packages("ada"); library("ada") } # to run Boosted Classification Trees
 if ( !require("caret") ) { install.packages("caret"); library("caret") } # comprehensive framework to build machine learning models
 
 # Load functions ####
@@ -225,6 +227,8 @@ list.algo <- c(
   "#7B1359" = 'svmRadial', # Support Vector Machine
   # "darkmagenta" = 'RRF'#, # Regularized Random Forest
   "hotpink3" = 'rf' # Random Forest
+  # "hotpink1" = 'ada'
+  # "hotpink1" = "xgbTree"
                 )
 no.algo <- length(list.algo)
                                        
