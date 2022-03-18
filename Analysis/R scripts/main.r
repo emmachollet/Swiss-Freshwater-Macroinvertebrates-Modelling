@@ -37,12 +37,15 @@ extrapol <- ifelse(CV, FALSE, # Extrapolation
                   F
                   )
 extrapol.info <- c(training.ratio = 0.8, variable = "IAR")
-dl <- F # Data Leakage
+
+# Set if we allow data leakage (changes the way data is normalized)
+dl <- F
 if(!CV){ dl <- F } # if it's only fitting, we don't need with or without dataleakage
 
 # Set number of cores for Stat and ML models
 n.cores.splits <-  3 # a core for each split, 3 in our case
 n.cores.stat.models <- 1 # a core for each stat model 2 in our case (UF0, and CF0)
+
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
 # also make sure the cross-validation (CV) flag is set correctly
@@ -58,8 +61,8 @@ all.taxa <- T
 server <- F # Run the script on the server (and then use 3 cores for running in parallel)
 run.ann <- F # Run ANN models or not (needs administrative rights)
 analysis.dl <- F
-analysis.ml <- F
-analysis.ann <- F
+analysis.ml <- F # Hyperparameter tuning (mainly for RF)
+analysis.ann <- F # Hyperparameter tuning
 analysis.training <- F
 
 # Load libraries ####
@@ -183,17 +186,17 @@ if(CV | extrapol){ splits <- prepro.data$splits
 }
 
 list.taxa <- prepro.data$list.taxa # list taxa after data pre-processing
+prev.inv <- prepro.data$prev.inv # dataframe prevalence after data pre-processing
 list.taxa <- list.taxa[order(match(list.taxa, prev.inv$Occurrence.taxa))] # reorder taxa by prevalence
 centered.data <- prepro.data$centered.data
 centered.data.factors <- prepro.data$centered.data.factors
 normalization.data <- prepro.data$normalization.data
-prev.inv <- prepro.data$prev.inv
 remove(prepro.data)
 
 # Select taxa ####
 
 cind.taxa <- which(grepl("Occurrence.",colnames(data)))
-list.taxa.full <- colnames(data)[cind.taxa] # list of all taxa, before removing these too unbalanced or with too many NA
+list.taxa.full <- colnames(data)[cind.taxa] # list of all taxa
 list.taxa.full <- list.taxa.full[order(match(list.taxa.full, prev.inv$Occurrence.taxa))] # reorder taxa by prevalence
 remove(cind.taxa)
 
@@ -227,8 +230,7 @@ list.algo <- c(
   "#7B1359" = 'svmRadial', # Support Vector Machine
   # "darkmagenta" = 'RRF'#, # Regularized Random Forest
   "hotpink3" = 'rf' # Random Forest
-  # "hotpink1" = 'ada'
-  # "hotpink1" = "xgbTree"
+  # "hotpink1" = "xgbTree" # Boosted Classification Tree
                 )
 no.algo <- length(list.algo)
                                        
@@ -236,6 +238,7 @@ no.algo <- length(list.algo)
 
 # Null model ####
 
+# "Predicts" taxon prevalence everywhere
 null.model.full <- apply.null.model(data = data, list.taxa = list.taxa.full, prev.inv = prev.inv)
 null.model <- null.model.full[list.taxa]
 
@@ -361,52 +364,8 @@ if( file.exists(file.name) == T ){
         }
 }
 
-# Check if we have problem with some ml performance, which would suggest that the model didn't converge
-if(CV | extrapol){
-  cat("Check if performance > 1.5 in\n")
-    for (s in list.splits) {
-        for (l in list.algo) {
-            cat( s, "for model", l, "\n")
-            list.taxa.temp <- names(ml.outputs.cv[[s]][[l]])
-            if(length(list.taxa.temp) != no.taxa){
-              cat(length(list.taxa.temp), "taxa for this algorithm\n")
-            }
-            for (j in list.taxa.temp) {
-                    
-                    perf.test <- ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]]
-                    perf.train <- ml.outputs.cv[[s]][[l]][[j]][["Performance training set"]]
-                    
-                    if(perf.train > 1.5){
-                      cat(j, "has training performance bigger than 1.5", perf.train, "\n")
-                    }
-                    
-                    if(perf.test > 1.5){
-                      cat(j, "has testing performance bigger than 1.5", perf.test, "\n")
-                    }
-                    
-                    # if(length(ml.outputs.cv[[s]][[l]][[j]][["Trained model"]]) == 1){
-                    #   ml.outputs.cv[[s]][[l]][[j]][["Trained model"]]
-                    #   cat("This model has NULL MODEL instead of trained algorithm\n")
-                    # }
-                    # to replace performance having a problem
-                    # ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]] <- ifelse(perf.test > 1.5, Inf, perf.test)
-                    # ml.outputs.cv[[s]][[l]][[j]][["Performance training set"]] <- ifelse(perf.train > 1.5, Inf, perf.train)
-                }
-        }
-    }
-} else {
-    for (l in list.algo) {
-        print(l)
-        list.taxa.temp <- names(ml.outputs[[l]])
-        for (j in list.taxa.temp) {
-            perf <- ml.outputs[[l]][[j]][["Performance training set"]]
-            if(perf > 1.5){
-              cat(j, "has training performance bigger than 1.5", perf, "\n")
-            }
-            # ml.outputs[[l]][[j]][["Performance training set"]] <- ifelse(perf > 1.5, Inf, perf)
-        }
-    }
-}
+# Check if we have problem with some ml performance (>1.5)
+check.outputs.perf(outputs.cv = ml.outputs.cv, list.taxa = list.taxa, CV = CV, extrapol = extrapol)
 
 print(paste("Simulation time of different models ", info.file.ml.name))
 print(proc.time()-ptm)
@@ -555,7 +514,6 @@ if( file.exists(file.name) == T ){
   }
 }
 
-
 # ECR: For ANN analysis, to compare more ann outputs
 # file.name <- file.name <- paste0(dir.models.output, "ANN_model_All_1ann50epo_59taxa_CV_no_DL_.rds")
 # ann.outputs.cv2 <- readRDS(file = file.name)
@@ -583,9 +541,12 @@ if(CV | extrapol){
   # outputs.cv <- ann.outputs.cv1
   for (s in list.splits) {
     #s = "Split2"
-    # names(outputs.cv[[s]]) <- list.algo
+    names(outputs.cv[[s]]) <- list.algo
+    names(ml.outputs.cv.brt[[s]]) <- "BRT"
     
-    outputs.cv[[s]] <- append(outputs.cv[[s]], tuned.ml.outputs.cv[[s]])
+    # outputs.cv[[s]] <- append(outputs.cv[[s]], tuned.ml.outputs.cv[[s]])
+    outputs.cv[[s]] <- append(outputs.cv[[s]], ml.outputs.cv.brt[[s]])
+    
     
     if(exists("stat.outputs.transformed")){
         outputs.cv[[s]][[list.stat.mod[1]]] <- stat.outputs.transformed[[1]][[s]]
@@ -622,12 +583,13 @@ if(CV | extrapol){
  
 # Make final list of models
 
-if(exists("ann.outputs.cv")){
- list.models <- c(list.algo, list.stat.mod, list.ann)
+if( all(names(outputs.cv$Split1) %in% c(list.algo, list.stat.mod, list.ann))){
+    list.models <- c(list.algo, list.stat.mod, list.ann)
 } else {
     # list.models <- c(list.algo, list.stat.mod)
     # list.models <- names(outputs.cv$Split1)
     # list.models <- c(list.algo, list.ann)
+    list.models <- c(list.algo,"hotpink" = "BRT", list.stat.mod, list.ann)
     list.models <- list.algo
 }
 print(list.models)
