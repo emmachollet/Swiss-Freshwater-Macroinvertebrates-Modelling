@@ -59,7 +59,7 @@ all.taxa <- T
 
 # Set analysis 
 server <- F # Run the script on the server (and then use 3 cores for running in parallel)
-run.ann <- F # Run ANN models or not (needs administrative rights)
+run.ann <- T # Run ANN models or not (needs administrative rights)
 analysis.dl <- F
 analysis.ml <- F # Hyperparameter tuning (mainly for RF)
 analysis.ann <- F # Hyperparameter tuning
@@ -106,11 +106,11 @@ if(run.ann){  # packages having problems with administrative rights
   # 
   # install.packages("tensorflow")
   library("tensorflow")
-  # install_tensorflow() # run this line only when opening R
+  # install_tensorflow() # run this line only when opening new R session
   # 
   # install.packages("keras")
   library("keras")
-  # install_keras() # run this line only when opening R
+  # install_keras() # run this line only when opening new R session
   # use_condaenv()
 }
 
@@ -308,6 +308,7 @@ print(proc.time()-ptm)
 stat.outputs.transformed <- transfrom.stat.outputs(CV, stat.outputs)
 
 # Make vector statistical models
+names(stat.outputs.transformed) <- c("chGLM", "hGLM")
 list.stat.mod <- names(stat.outputs.transformed)
 names(list.stat.mod) <- c("#59AB2D","#256801")
 
@@ -523,7 +524,7 @@ if( file.exists(file.name) == T ){
 
 # Change names of algorithms
 print(list.algo)
-list.algo.temp <- c( "GLM", # Generalized Linear Model
+list.algo.temp <- c( "iGLM", # Generalized Linear Model
                     "GAM", # Generalized Additive Model
                     "SVM", # Support Vector Machine
                     "RF" # Random Forest
@@ -542,10 +543,10 @@ if(CV | extrapol){
   for (s in list.splits) {
     #s = "Split2"
     names(outputs.cv[[s]]) <- list.algo
-    names(ml.outputs.cv.brt[[s]]) <- "BRT"
+    # names(ml.outputs.cv.bct[[s]]) <- "BCT"
     
     # outputs.cv[[s]] <- append(outputs.cv[[s]], tuned.ml.outputs.cv[[s]])
-    outputs.cv[[s]] <- append(outputs.cv[[s]], ml.outputs.cv.brt[[s]])
+    # outputs.cv[[s]] <- append(outputs.cv[[s]], ml.outputs.cv.bct[[s]])
     
     
     if(exists("stat.outputs.transformed")){
@@ -617,6 +618,7 @@ cat(info.file.name)
 source("utilities.r")
 
 # Produce final outputs with mean performance across splits
+# ECR: I will fix CF0 soon ####
 if(CV | extrapol){ 
     # Make final outputs as list
     # outputs <- make.final.outputs.cv(outputs.cv = outputs.cv, list.models = list.models, list.taxa = list.taxa)
@@ -638,131 +640,6 @@ if(CV | extrapol){
                              null.model = null.model, prev.inv = prev.inv, CV = CV)
 }
 
-# Look into the effect of data leakage ####
-
-# save intermediate output to compare dl no dl
-# saveRDS(df.pred.perf, file = paste0(dir.models.output, info.file.name, "df_perf_.rds"), version = 2)
-#df.pred.perf.no.dl <- readRDS(file = paste0(dir.models.output, "All_7models_59taxa_CV_no_DL_df_perf_.rds"))
-#df.pred.perf.dl <- readRDS(file = paste0(dir.models.output, "All_7models_59taxa_CV_DL_df_perf_.rds"))
-
-# df.pred.perf.no.dl <- readRDS(file = paste0(dir.models.output, "All_9models_126taxa_CV_no_DL_df_perf_.rds"))
-# df.pred.perf.dl <- readRDS(file = paste0(dir.models.output, "All_9models_126taxa_CV_DL_df_perf_.rds"))
-#
-# df.pred.perf.no.dl$DL <- F
-# df.pred.perf.dl$DL <- T
-# df.pred.perf.dl.comb <- rbind(df.pred.perf.no.dl,df.pred.perf.dl)
-#
-# #remove infite vlaues to take mean later
-# df.pred.perf.dl.comb$rf[!is.finite(df.pred.perf.dl.comb$rf)] <- NA
-# df.pred.perf.dl.comb$gamSpline[!is.finite(df.pred.perf.dl.comb$gamSpline)] <- NA
-# df.pred.perf.dl.comb$glm[!is.finite(df.pred.perf.dl.comb$glm)] <- NA
-#
-# colnames(df.pred.perf.dl.comb)
-#
-# df.pred.perf.dl.comb.table <- as.data.frame(df.pred.perf.dl.comb %>% group_by(DL) %>%
-#                                       summarise(glm.mean = mean(glm, na.rm = T),
-#                                       glm.sd = sd(glm, na.rm = T),
-# 
-#                                       gamLoess.mean = mean(gamLoess,na.rm = T),
-#                                       gamLoess.sd = sd(gamLoess,na.rm = T),
-# 
-#                                       svmRadial.mean = mean(svmRadial, na.rm = T),
-#                                       svmRadial.sd = sd(svmRadial, na.rm = T),
-# 
-#                                       rf.mean = mean(rf, na.rm = T),
-#                                       rf.sd = sd(rf, na.rm = T),
-# 
-#                                       CF0.mean = mean(CF0, na.rm = T),
-#                                       CF0.sd = sd(CF0, na.rm = T),
-# 
-#                                       UF0.mean = mean(UF0, na.rm = T),
-#                                       UF0.sd = sd(UF0, na.rm = T),
-# 
-# 
-#                                       ANN_3L32UleakyreluFCT50epo.mean = mean(ANN_3L32UleakyreluFCT50epo, na.rm = T),
-#                                       ANN_3L32UleakyreluFCT50epo.sd = sd(ANN_3L32UleakyreluFCT50epo, na.rm = T)
-# 
-#                                       #ANN3L64U.mean = mean(ANN3L64U, na.rm = T),
-#                                       #ANN3L64U.sd = sd(ANN3L64U, na.rm = T),
-# 
-#                                       #ANN5L32U.mean = mean(ANN5L32U, na.rm = T),
-#                                       #ANN5L32U.sd = sd(ANN5L32U, na.rm = T)
-# 
-#                                        ))
-
-#saveRDS(df.pred.perf.dl.comb.table, file = paste0(dir.plots.output, "Table_means_dl.rds"), version = 2)
-#df.pred.perf.dl.comb.table <- readRDS(file = paste0(dir.plots.output, "Table_means_dl.rds"))
-# diff.means.dl <- df.pred.perf.dl.comb.table[1,c("glm.mean", "gamLoess.mean","svmRadial.mean",
-#                          "rf.mean", "CF0.mean", "UF0.mean", "ANN_3L32UleakyreluFCT50epo.mean")] -
-#   df.pred.perf.dl.comb.table[2,c("glm.mean", "gamLoess.mean","svmRadial.mean",
-#                             "rf.mean", "CF0.mean", "UF0.mean", "ANN_3L32UleakyreluFCT50epo.mean")]
-# 
-# diff.means.dl <- df.pred.perf.dl.comb.table[1,c("glm.mean", "CF0.mean", "UF0.mean")] -
-#   df.pred.perf.dl.comb.table[2,c("glm.mean", "CF0.mean", "UF0.mean")]
-# 
-# 
-# 
-# dloui <- subset(df.pred.perf.dl.comb, DL == T)
-# dloui <- dloui[,1:7]
-# dlno <- subset(df.pred.perf.dl.comb, DL == F)
-# dlno <- dlno[,1:7]
-# comb <- cbind(dlno,dloui)
-# comb2 <- dloui[,1:7] - dlno[,1:7]
-# comb2 <- cbind(comb2,dlno[,8])
-# colnames(comb2)[8] <- "Taxa"
-# 
-# comb3 <- comb2
-# mean_difference <- colMeans(comb2[1:7])
-# sd_difference <- colSds(as.matrix(comb2[1:7]))
-# names(sd_difference) <- c("glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN")
-# 
-# table2 <- comb3 %>% gt()
-# 
-# tmp.table <- comb2[c("Taxa", "glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN_3L32UleakyreluFCT50epo")]
-# colnames(tmp.table) <- c("Taxa", "glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN")
-# #tmp.table <- tmp.table %>% mutate((across(is.numeric, round, digits=3)))
-# table1 <- tmp.table %>% gt() %>%
-#   tab_header(
-#     title = md("**Difference in predictive performance between dl and no dl**") # make bold title
-#   ) %>%
-#   fmt_number(
-#     columns = c("glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN"), # round numbers
-#     decimals = 3
-#   ) %>% # remove uneccessary black lines
-#   tab_options(
-#     table.border.top.color = "white",
-#     heading.border.bottom.color = "black",
-#     row_group.border.top.color = "black",
-#     row_group.border.bottom.color = "white",
-#     #stub.border.color = "transparent",
-#     table.border.bottom.color = "white",
-#     column_labels.border.top.color = "black",
-#     column_labels.border.bottom.color = "black",
-#     table_body.border.bottom.color = "black",
-#     table_body.hlines.color = "white")
-# 
-# table2 <- comb3 %>% gt() %>%
-#   tab_header(
-#     title = md("**Difference in predictive performance between dl and no dl**") # make bold title
-#   ) %>%
-#   fmt_number(
-#     columns = c("glm", "UF0","CF0","gamLoess", "svmRadial", "rf", "ANN_3L32UleakyreluFCT50epo"), # round numbers
-#     decimals = 3
-#   ) %>% # remove uneccessary black lines
-#   tab_options(
-#     table.border.top.color = "white",
-#     heading.border.bottom.color = "black",
-#     row_group.border.top.color = "black",
-#     row_group.border.bottom.color = "white",
-#     #stub.border.color = "transparent",
-#     table.border.bottom.color = "white",
-#     column_labels.border.top.color = "black",
-#     column_labels.border.bottom.color = "black",
-#     table_body.border.bottom.color = "black",
-#     table_body.hlines.color = "white")
-# 
-
-
 ## ---- PLOTS ----
 source("utilities.r")
 source("ml_model_functions.r")
@@ -770,18 +647,16 @@ source("plot_functions.r")
 # rm(list=ls())
 # graphics.off()
 
-# # Stat model traceplots ####
-# res <- stat.outputs[[1]][[1]][[1]]
-# res.extracted   <- rstan::extract(res,permuted=TRUE,inc_warmup=FALSE)
-# 
-# print(traceplot(res,pars=c(names(res)[134:162],"lp__")))
-# print(traceplot(res))
-
 # Models comparison ####
 
 source("utilities.r")
 
 # Table with performance
+
+# Make csv file
+file.name <- paste(dir.workspace, info.file.name,"TableResults",".csv", sep="")
+write.table(df.merged.perf, file.name, sep=";", row.names=F, col.names=TRUE)
+
 # HTML file with numbers
 file.name <- paste0(info.file.name, "ModelsCompar_")
 
@@ -801,39 +676,26 @@ gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTax
 # PDF file with colors
 if(CV){
         # Tables prediction
-        list.plots.cv <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
-        list.plots <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
-        list.plots1 <- append(list.plots.cv, list.plots)
-
-        name <- "TablesPredPerf"
-        file.name <- paste0(name, ".pdf")
-        print.pdf.plots(list.plots = list.plots1, width = 10, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+        list.plots1 <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
+        list.plots2 <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
         
         temp.df.merged <- df.merged.perf[,which(grepl("likelihood.ratio", colnames(df.merged.perf)))]
         colnames(temp.df.merged) <- list.models
         temp.df.merged$Taxa <- df.merged.perf$Taxa
-        list.plots <- plot.df.perf(df.perf = temp.df.merged, list.models = list.models, list.taxa = list.taxa, CV,
+        list.plots3 <- plot.df.perf(df.perf = temp.df.merged, list.models = list.models, list.taxa = list.taxa, CV,
                                    title = "Comparison likelihood ratio")
-        name <- "TableLikelihoodRatiof"
+        
+        list.plots <- append(append(list.plots1, list.plots2), list.plots3)
+        name <- "VisualTablesResults"
         file.name <- paste0(name, ".pdf")
         print.pdf.plots(list.plots = list.plots, width = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
         
-        # Tables fit
-        # list.plots.cv <- plot.df.perf(df.perf = df.fit.perf.cv, list.models = list.models, list.taxa = list.taxa, CV = F)
-        # list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV = F)
-        # list.plots <- append(list.plots.cv, list.plots)
-
         # if(dl){
         # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models)
         # }
     } else {
         list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV)
 }
-# 
-# name <- "TablesFitPerf"
-# file.name <- paste0(name, ".pdf")
-# # list.plots.dl[[1]]
-# print.pdf.plots(list.plots = list.plots, width = 12, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 temp.df.merged <- arrange(df.merged.perf, desc(CF0.pred.expl.pow.diff))
 select.taxa <- temp.df.merged$Taxa[1:5]
@@ -860,56 +722,27 @@ print.pdf.plots(list.plots = list.plots, width = 12, dir.output = dir.plots.outp
 
 # Plots specifically related to trained models (and not to CV)
 
-if(!CV){
+if(CV){
     
   # ECR: For ML analysis, if CV = T, take just the first split for trained models analysis (instead of running everything for CV=F, i.e. FIT, again)
   outputs <- outputs.cv[[1]]
   normalization.data.cv <- normalization.data
-  normalization.data <- normalization.data[[1]]
+  normalization.data <- normalization.data.cv[[1]]
+
+}  else {
   
-    # Performance vs hyperparameters ####
-    
-    # Compute plots
-    list.plots <- plot.perf.hyperparam(outputs = outputs, 
-                                       list.algo = list.algo[4], # GLM algo doesn't have hyperparameters
-                                       list.taxa = list.taxa)
-    # Print a pdf file
-    name <- "PerfvsHyperparam"
-    file.name <- paste0(name, ".pdf")
-    if( file.exists(paste0(dir.plots.output, info.file.name, file.name)) == F ){ # produce pdf only if it doesn't exist yet (takes too much time)
-        print.pdf.plots(list.plots = list.plots, width = 9, height = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-    }
-    # # Print a jpeg file
-    # file.name <- paste0(name, ".jpg")
-    # jpeg(paste0(dir.plots.output,"JPEG/",info.file.name,file.name))
-    # print(list.plots[[1]])
-    # dev.off()
-    
-    # Variables importance ####
-
-    list.plots <- plot.varimp(outputs = outputs, list.algo = list.algo, list.taxa = list.taxa)
-    
-    name <- "VarImp"
-    file.name <- paste0(name, ".pdf")
-    if( file.exists(paste0(dir.plots.output, info.file.name, file.name)) == F ){ # produce pdf only if it doesn't exist yet (takes too much time)
-        print.pdf.plots(list.plots = list.plots, width = 10, height = 10, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-    }
-    # # Print a jpeg file
-    # file.name <- paste0(name, ".jpg")
-    # jpeg(paste0(dir.plots.output,"JPEG/",info.file.name,file.name))
-    # print(list.plots[[1]])
-    # dev.off()
-
     # ICE Manual ####
     
     source("plot_functions.r")
     
-    list.list.plots <- lapply(select.taxa, FUN= plot.ice.per.taxa, outputs, list.algo = list.algo[2:4], env.fact, normalization.data, BDM)
+    list.list.plots <- lapply(select.taxa, FUN= plot.ice.per.taxa, outputs, list.algo = list.models[c(2:4,7)], env.fact, normalization.data, BDM)
     
     for (j in 1:length(select.taxa)) {
         taxon <- sub("Occurrence.", "", j)
         file.name <- paste0("ICE_", taxon, ".pdf")
-        print.pdf.plots(list.plots = list.list.plots[[j]], width = 15, height = 10, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+        print.pdf.plots(list.plots = list.list.plots[[j]], width = 15, height = 10, 
+                        dir.output = paste0(dir.plots.output, "ICE/"), 
+                        info.file.name = info.file.name, file.name = file.name)
     }
     
     # file.name <- "testICE.pdf"
