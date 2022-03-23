@@ -2,7 +2,7 @@
 ## 
 ## --- "Bridging gap in macroinvertebrates community assembly" -- PhD Project ---
 ## 
-##                          --- February 04, 2022 ---
+##                          --- Endless moment, 2022 ---
 ##
 ## --- Emma Chollet, Jonas Wydler, Andreas Scheidegger and Nele Schuwirth ---
 ##
@@ -698,7 +698,9 @@ if(CV){
 }
 
 temp.df.merged <- arrange(df.merged.perf, desc(CF0.pred.expl.pow.diff))
-select.taxa <- temp.df.merged$Taxa[1:5]
+# select.taxa <- temp.df.merged$Taxa[1:5]
+# select.taxa <- "Occurrence.Gammaridae"
+select.taxa <- "Occurrence.Psychodidae"
 
 # Performance against prevalence and boxplots
 
@@ -723,101 +725,99 @@ print.pdf.plots(list.plots = list.plots, width = 12, dir.output = dir.plots.outp
 # Plots specifically related to trained models (and not to CV)
 
 if(CV){
-    
   # ECR: For ML analysis, if CV = T, take just the first split for trained models analysis (instead of running everything for CV=F, i.e. FIT, again)
   outputs <- outputs.cv[[1]]
   normalization.data.cv <- normalization.data
   normalization.data <- normalization.data.cv[[1]]
+} 
 
-}  else {
-  
-    # ICE Manual ####
-    
-    source("plot_functions.r")
-    
-    list.list.plots <- lapply(select.taxa, FUN= plot.ice.per.taxa, outputs, list.algo = list.models[c(2:4,7)], env.fact, normalization.data, BDM)
-    
-    for (j in 1:length(select.taxa)) {
-        taxon <- sub("Occurrence.", "", j)
-        file.name <- paste0("ICE_", taxon, ".pdf")
-        print.pdf.plots(list.plots = list.list.plots[[j]], width = 15, height = 10, 
-                        dir.output = paste0(dir.plots.output, "ICE/"), 
-                        info.file.name = info.file.name, file.name = file.name)
-    }
-    
-    # file.name <- "testICE.pdf"
-    # pdf(paste0(dir.plots.output, info.file.name, file.name), paper = 'special', width = 20, # height = height, 
-    #     onefile = TRUE)
-    # print(q)
-    # dev.off()
-    
-    # PDP ####
-    
-    # source("plot_functions.r")
-    
-    ptm <- proc.time() # to calculate time of simulation
-    
-    # PDP of one model
-    list.plots <- plot.pdp(outputs = outputs, algo = "rf", list.algo = list.algo,
-                           list.taxa = list.taxa, env.fact = env.fact)
-    
-    
-    # PDP of one model
-    # list.plots <- plot.pdp(outputs = outputs, algo = "rf", list.algo = list.algo,
-    #                       list.taxa = list.taxa, env.fact = env.fact)
-    #
-    file.name <- "rf_PDP.pdf"
-    print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-    
-    # PDP of all models
-    list.plots <- plot.pdp(outputs = outputs[[1]], list.algo = list.algo,
-                           list.taxa = list.taxa, env.fact = env.fact)
-    
-    file.name <- "allPDP.pdf"
-    print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-    
-    # PDP of all models
-    # We sub-select taxa and env.fact because it takes a lot of time
-    list.plots <- plot.pdp(outputs = outputs, list.algo = list.algo,
-                           list.taxa = list.taxa, env.fact = env.fact)
-    
-    file.name <- "allPDP.pdf"
-    print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-    
-    print(paste(file.name, "printing:"))
-    print(proc.time()-ptm)
-    
-    # ICE ####
-    
-    ptm <- proc.time() # to calculate time of simulation
-    
-    # ICE of one model
-    list.plots <- plot.ice(outputs = outputs, algo = list.algo[2], list.algo = list.algo,
-                           list.taxa = list.taxa[1:2], env.fact = env.fact[1:2])
-    
-    file.name <- "ICE.pdf"
-    print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-    
-    print(paste(file.name, "printing:"))
-    print(proc.time()-ptm)
-    
-    # multiple PDP ####
-    
-    # We just make one example because it's computationally heavy
-    
-    ptm <- proc.time() # to calculate time of simulation
-    
-    # Multiple (2) predictors PDP (of one model) for now just for 1 algo and 1 taxa
-    list.plots <- plot.mult.pred.pdp(outputs = outputs, list.algo = list.algo,
-                                     list.taxa = list.taxa, env.fact = env.fact)
-    
-    file.name <- "multpredPDP.pdf"
-    print.pdf.plots(list.plots = list.plots, width = 17, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-    
-    print(paste(file.name, "printing:"))
-    print(proc.time()-ptm)
+# ICE Manual ####
 
-} # closing bracket of !CV clause
+source("plot_functions.r")
+
+list.list.plots <- lapply(select.taxa, FUN= plot.ice.per.taxa, outputs, list.algo = list.models[c(2:4,7)], env.fact, normalization.data, BDM)
+
+for (j in 1:length(select.taxa)) {
+    taxon <- sub("Occurrence.", "", select.taxa[j])
+    file.name <- paste0("ICE_", taxon, ".pdf")
+    print.pdf.plots(list.plots = list.list.plots[[j]], width = 15, height = 10, 
+                    dir.output = paste0(dir.plots.output, "ICE/"), 
+                    info.file.name = info.file.name, file.name = file.name)
+}
+
+# file.name <- "testICE.pdf"
+# pdf(paste0(dir.plots.output, info.file.name, file.name), paper = 'special', width = 20, # height = height, 
+#     onefile = TRUE)
+# print(q)
+# dev.off()
+
+# PDP ####
+
+# source("plot_functions.r")
+
+ptm <- proc.time() # to calculate time of simulation
+
+# PDP of one model
+list.plots <- plot.pdp(outputs = outputs, algo = "rf", list.algo = list.algo,
+                       list.taxa = list.taxa, env.fact = env.fact)
+
+
+# PDP of one model
+# list.plots <- plot.pdp(outputs = outputs, algo = "rf", list.algo = list.algo,
+#                       list.taxa = list.taxa, env.fact = env.fact)
+#
+file.name <- "rf_PDP.pdf"
+print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+# PDP of all models
+list.plots <- plot.pdp(outputs = outputs[[1]], list.algo = list.algo,
+                       list.taxa = list.taxa, env.fact = env.fact)
+
+file.name <- "allPDP.pdf"
+print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+# PDP of all models
+# We sub-select taxa and env.fact because it takes a lot of time
+list.plots <- plot.pdp(outputs = outputs, list.algo = list.algo,
+                       list.taxa = list.taxa, env.fact = env.fact)
+
+file.name <- "allPDP.pdf"
+print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+print(paste(file.name, "printing:"))
+print(proc.time()-ptm)
+
+# ICE ####
+
+ptm <- proc.time() # to calculate time of simulation
+
+# ICE of one model
+list.plots <- plot.ice(outputs = outputs, algo = list.algo[2], list.algo = list.algo,
+                       list.taxa = list.taxa[1:2], env.fact = env.fact[1:2])
+
+file.name <- "ICE.pdf"
+print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+print(paste(file.name, "printing:"))
+print(proc.time()-ptm)
+
+# multiple PDP ####
+
+# We just make one example because it's computationally heavy
+
+ptm <- proc.time() # to calculate time of simulation
+
+# Multiple (2) predictors PDP (of one model) for now just for 1 algo and 1 taxa
+list.plots <- plot.mult.pred.pdp(outputs = outputs, list.algo = list.algo,
+                                 list.taxa = list.taxa, env.fact = env.fact)
+
+file.name <- "multpredPDP.pdf"
+print.pdf.plots(list.plots = list.plots, width = 17, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+print(paste(file.name, "printing:"))
+print(proc.time()-ptm)
+
+
 
 # Map predictions ####
 

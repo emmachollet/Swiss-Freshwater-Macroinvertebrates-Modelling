@@ -677,6 +677,7 @@ plot.ice.per.taxa <- function(taxa, outputs, list.algo, env.fact, normalization.
               } 
             
             # Make dataframe for ICE
+            colnames(pred.df) <- range.orig.fact
             plot.data <- melt(pred.df)
             plot.data$variable <- as.numeric(as.character(plot.data$variable))
             plot.data$rind <- 1:no.samples
@@ -704,7 +705,7 @@ plot.ice.per.taxa <- function(taxa, outputs, list.algo, env.fact, normalization.
                           x = k,
                           y = "Predicted probability")
             # p <- p + scale_x_discrete(labels = factor(range.orig.fact))
-            p <- p + theme_bw(base_size = 20)
+            p <- p + theme_bw(base_size = 10)
             
             temp.list.plots[[l]] <- p
             
@@ -712,7 +713,7 @@ plot.ice.per.taxa <- function(taxa, outputs, list.algo, env.fact, normalization.
         }
         
         title <- paste("ICE of", sub("Occurrence.", "", taxa), "for", k)
-        q <- grid.arrange(grobs = temp.list.plots, ncol = 3, top = title)
+        q <- grid.arrange(grobs = temp.list.plots, ncol = 2, top = title)
         list.plots[[k]] <- q
     }
     return(list.plots)
