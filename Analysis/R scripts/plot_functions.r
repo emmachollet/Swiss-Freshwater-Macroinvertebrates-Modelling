@@ -626,7 +626,10 @@ plot.ice.per.taxa <- function(taxa, outputs, list.algo, env.fact, normalization.
         for(l in list.algo){
             # l <- list.algo[2]
             
+          cat("\nfor model", l)
+          
             # Extract trained model
+            #trained.mod <- ann.outputs.cv$Split1$ANN$Occurrence.Gammaridae$`Trained model`
             trained.mod <- outputs[[l]][[taxa]][["Trained model"]]
 
             # Extract environmental dataframe of each sample
@@ -646,30 +649,63 @@ plot.ice.per.taxa <- function(taxa, outputs, list.algo, env.fact, normalization.
             
             # I think that the 2'600 samples are too much, we could maybe randomly select 500 of these
             set.seed(2021)
-            env.df <- env.df[sample(nrow(env.df), size = 300),]
-            no.samples <- nrow(env.df)
+            no.samples <- 300
+            env.df <- env.df[sample(nrow(env.df), size = no.samples),]
             
             # Make a dataframe for predicted values for each sample
             pred.df <- data.frame(matrix(nrow = no.samples, ncol = no.steps))
             
             for(n in 1:no.samples){
                 # n <- 1
-                env.fact.test <- env.df[n,] %>%
-                    slice(rep(1:n(), each = no.steps))
+                if(l == "ANN"){
+                  env.fact.test <- t(env.df[n,])
+                } else {
+                  env.fact.test <- env.df[n,]
+                }
+              env.fact.test <- env.fact.test[rep(seq_len(1), each = no.steps), ]
+              
+                  # rep(env.df[n,], each = no.steps)
+                  # env.fact.test[rep(each = no.steps), ]
+                # env.fact.test <-             t(env.df[n,]) %>%
+                #     slice(rep(1:n(), each = no.steps))
                 env.fact.test[,k] <- range.test
+                if(l == "ANN"){
+                  pred.df[n,] <- predict(trained.mod, env.fact.test)[ , which(names(outputs[[l]]) == taxa)]
+                } else {
                 pred.df[n,] <- predict(trained.mod, env.fact.test, type = 'prob')[,"present"]
-            }
+                }
+              } 
             
+            # Make dataframe for ICE
+            colnames(pred.df) <- range.orig.fact
             plot.data <- melt(pred.df)
+            plot.data$variable <- as.numeric(as.character(plot.data$variable))
             plot.data$rind <- 1:no.samples
+            
+            # Make dataframe for rug (datapoints of observations)
+            observations <- data.frame(env.df[,k])
+            colnames(observations) <- "variable"
+            observations$variable <- (observations$variable * normalization.data$SD[k]) + normalization.data$Mean[k]
+            
+            # Make dataframe for PDP (mean of ICE)
+            means <- data.frame(colMeans(pred.df))
+            colnames(means) <- "mean"
+            means$variable <- range.orig.fact
             
             p <- ggplot(plot.data, aes(x = variable, y = value, group=factor(rind))) 
             p <- p + geom_line(aes(color=factor(rind)), alpha = 0.3, show.legend = FALSE) # remove legend that would be the number of samples
+            p <- p + geom_line(data = means,
+                               aes(x = variable, y = mean), 
+                               color = "grey30", size = 1.5, # alpha = 0.7, 
+                               inherit.aes = F)
+            p <- p + geom_rug(data = observations,
+                              aes(x = variable), 
+                              color = "grey30", alpha = 0.7, inherit.aes = F)
             p <- p + labs(title = paste("Model:", l),
                           x = k,
                           y = "Predicted probability")
-            p <- p + scale_x_discrete(labels = factor(range.orig.fact))
-            p <- p + theme_bw(base_size = 20)
+            # p <- p + scale_x_discrete(labels = factor(range.orig.fact))
+            p <- p + theme_bw(base_size = 10)
             
             temp.list.plots[[l]] <- p
             
@@ -677,7 +713,7 @@ plot.ice.per.taxa <- function(taxa, outputs, list.algo, env.fact, normalization.
         }
         
         title <- paste("ICE of", sub("Occurrence.", "", taxa), "for", k)
-        q <- grid.arrange(grobs = temp.list.plots, ncol = 3, top = title)
+        q <- grid.arrange(grobs = temp.list.plots, ncol = 2, top = title)
         list.plots[[k]] <- q
     }
     return(list.plots)
