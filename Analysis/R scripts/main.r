@@ -128,6 +128,7 @@ if ( !require("xgboost") ) { install.packages("xgboost"); library("xgboost") } #
 if ( !require("ada") ) { install.packages("ada"); library("ada") } # to run Boosted Classification Trees
 if ( !require("caret") ) { install.packages("caret"); library("caret") } # comprehensive framework to build machine learning models
 
+
 # Load functions ####
 
 source("ml_model_functions.r")
@@ -135,6 +136,7 @@ source("stat_model_functions.r")
 source("plot_functions.r")
 source("utilities.r")
 if(run.ann){ source("ann_model_functions.r")}
+
 
 # Load data ####
 
@@ -158,6 +160,7 @@ prev.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.prev),hea
 
 # Select env. factors ####
 
+# 9 environmental factors selected on expert knowledge and previous studies (Caradima et al. 2019, 2020)
 env.fact <- c("temperature",     # Temp
             "velocity",          # FV
             "A10m",              # A10m
@@ -175,8 +178,10 @@ env.fact.full <- c(env.fact,
 # env.fact <- env.fact.full
 no.env.fact <- length(env.fact)
 
+
 # Preprocess data ####
 
+# Remove NAs, normalize data, split data for CV or extrapolation
 prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv, prev.inv = prev.inv,
                                  env.fact.full = env.fact.full, dir.workspace = dir.workspace, 
                                  BDM = BDM, dl = dl, CV = CV, extrapol = extrapol, extrapol.info = extrapol.info)
@@ -194,6 +199,7 @@ centered.data <- prepro.data$centered.data
 centered.data.factors <- prepro.data$centered.data.factors
 normalization.data <- prepro.data$normalization.data
 remove(prepro.data)
+
 
 # Select taxa ####
 
@@ -244,13 +250,14 @@ no.algo <- length(list.algo)
 null.model.full <- apply.null.model(data = data, list.taxa = list.taxa.full, prev.inv = prev.inv)
 null.model <- null.model.full[list.taxa]
 
+
 # Statistical models ####
 
 ptm <- proc.time() # to calculate time of simulation
-#file.name <- paste0(dir.models.output, "Stat_model_100iterations_corr_22taxa_CV_no_DL.rds") #to test
+# file.name <- paste0(dir.models.output, "Stat_model_100iterations_corr_22taxa_CV_no_DL.rds") #to test
 
 comm.corr.options <- c(T,F)
-#comm.corr.options <- c(F)
+# comm.corr.options <- c(F)
 
 names(comm.corr.options) <- c("CF0", "UF0")
 
@@ -314,6 +321,7 @@ stat.outputs.transformed <- stat.outputs.transformed[2:1]
 names(stat.outputs.transformed) <- c("hGLM", "chGLM")
 list.stat.mod <- names(stat.outputs.transformed)
 names(list.stat.mod) <- c("#256801", "#59AB2D")
+
 
 # Machine Learning models ####
 
@@ -394,7 +402,7 @@ if(analysis.ml){
     print(list.tuned.algo)
     
     tuned.ml.outputs.cv <- lapply(centered.data.factors, function(split){
-      #split <- centered.data.factors[[1]]
+      # split <- centered.data.factors[[1]]
       lapply(list.tuned.grid, FUN = apply.tuned.ml.model, splitted.data = split, algorithm = "RRF", list.taxa = list.taxa,
              env.fact = env.fact, CV = CV, prev.inv = prev.inv)})
   
@@ -581,7 +589,7 @@ if(CV | extrapol){
 } else {
   # Make final outputs as list
   outputs <- append(append(ml.outputs, stat.outputs.transformed), ann.outputs)
-  #outputs <- append(appendml.outputs, ann.outputs)
+  # outputs <- append(ml.outputs, ann.outputs)
 }
   
 # ECR: For analysis
@@ -880,5 +888,5 @@ dev.off()
 print("Producing PDF time:")
 print(proc.time()-ptm)
 
-} # closing server braket
+# } # closing server braket
 
