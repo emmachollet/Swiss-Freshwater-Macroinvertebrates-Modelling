@@ -7,7 +7,8 @@ build_and_train_model <- function (hyper.param = hyper.param,
                                    learning.rate = learning.rate,
                                    # num.epochs = num.epochs,
                                    batch.size = batch.size,
-                                   CV = CV){
+                                   CV = CV,
+                                   extrapol = extrapol){
   # Set hyperparameters
   num.layers <- hyper.param[,1]
   num.units.per.layer <- hyper.param[,2]
@@ -70,7 +71,7 @@ build_and_train_model <- function (hyper.param = hyper.param,
   list.outputs <- vector(mode = 'list', length = length(list.taxa))
   names(list.outputs) <- list.taxa
   
-  if(CV == T){
+  if(CV == T | extrapol == T){
     which.set <- c("training set", "testing set")
     Xtest <- as.matrix(split[[2]][ ,env.fact])
     Ytest <- as.matrix(split[[2]][ ,list.taxa])
@@ -103,7 +104,7 @@ build_and_train_model <- function (hyper.param = hyper.param,
     temp.list <- vector(mode = 'list', length = length(output.names))
     names(temp.list) <- output.names
     
-    temp.sets <- if(CV == T){ list(cbind(Xtrain, Ytrain[,j]), cbind(Xtest, Ytest[,j])) } else { list(cbind(Xtrain, Ytrain[,j])) }
+    temp.sets <- if(CV == T | extrapol == T){ list(cbind(Xtrain, Ytrain[,j]), cbind(Xtest, Ytest[,j])) } else { list(cbind(Xtrain, Ytrain[,j])) }
     
     temp.list[[1]] <- model
     temp.list[[2]] <- history

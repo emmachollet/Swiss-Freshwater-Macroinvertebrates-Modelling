@@ -505,7 +505,6 @@ apply.null.model <- function(data, list.taxa, prev.inv){
 
 ## ---- Process output from stat models to fit structure of ml models (makes plotting easier)
 #JW: THE CODE IS QUITE UGLY AND DUPLICATE ATM BUT AT LEAST IT WORKS
-#ECR: I won't be the one blaming you for ugly code ':D (awkward smiley)
 transfrom.stat.outputs <- function(CV, stat.outputs){
     #CV = F
     #stat.outputs = stat.outputs
@@ -879,8 +878,8 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
       merged.df[, paste0(list.models, ".likelihood.ratio")] <- NA
       merged.df$Big.model.diff <- NA
       merged.df$Big.pred.expl.pow.diff <- NA
-      merged.df$CF0.model.diff <- NA
-      merged.df$CF0.pred.expl.pow.diff <- NA
+      merged.df$chGLM.model.diff <- NA
+      merged.df$chGLM.pred.expl.pow.diff <- NA
       
       
       # temp.df$Big.pred.expl.pow.diff <- apply(temp.df[,1:no.models], 1, FUN = function(x){diff(range(x))})
@@ -898,11 +897,11 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
         merged.df[which(merged.df$Taxa == j), "Big.model.diff"] <- paste(model.max, model.min, sep = "-")
         merged.df[which(merged.df$Taxa == j), "Big.pred.expl.pow.diff"] <- max - min
         
-        if(grepl("CF0", colnames(temp.df)) == T){
-            # Compare with CF0
-            expl.pow.CF0 <- temp.df[which(temp.df$Taxa == j), which(grepl("CF0", colnames(temp.df)))]
-            merged.df[which(merged.df$Taxa == j), "CF0.model.diff"] <- paste(model.max, "CF0", sep = "-")
-            merged.df[which(merged.df$Taxa == j), "CF0.pred.expl.pow.diff"] <- max - expl.pow.CF0
+        if(grepl("chGLM", colnames(temp.df)) == T){
+            # Compare with chGLM
+            expl.pow.chGLM <- temp.df[which(temp.df$Taxa == j), which(grepl("chGLM", colnames(temp.df)))]
+            merged.df[which(merged.df$Taxa == j), "chGLM.model.diff"] <- paste(model.max, "chGLM", sep = "-")
+            merged.df[which(merged.df$Taxa == j), "chGLM.pred.expl.pow.diff"] <- max - expl.pow.chGLM
         }
         # Compute likelihood ratio
         for (l in list.models) {
@@ -1043,10 +1042,10 @@ make.table.species <- function(df.merged.perf, list.models){
     ) %>%
     tab_spanner(
       label = "Biggest expl. pow. difference",
-      columns = c(Big.model.diff, Big.pred.expl.pow.diff, CF0.model.diff, CF0.pred.expl.pow.diff)
+      columns = c(Big.model.diff, Big.pred.expl.pow.diff, chGLM.model.diff, chGLM.pred.expl.pow.diff)
     ) %>%
     fmt_number(
-      columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Taxonomic level", "Big.model.diff", "CF0.model.diff"))]), # round numbers
+      columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Taxonomic level", "Big.model.diff", "chGLM.model.diff"))]), # round numbers
       decimals = 2
     ) %>% # remove uneccessary black lines
     tab_options(
@@ -1070,7 +1069,8 @@ make.table.species.rearranged <- function(df.merged.perf, list.models){
   no.models <- length(list.models)
   
   # Make tables
-  tmp.table <- df.merged.perf[,-which(grepl("expl.pow",colnames(df.merged.perf)) & grepl(".fit",colnames(df.merged.perf)))]
+  # tmp.table <- df.merged.perf[,-which(grepl("expl.pow",colnames(df.merged.perf)) & grepl(".fit",colnames(df.merged.perf)))]
+  tmp.table <- df.merged.perf[,c(1, 2, which((grepl("expl.pow_",colnames(df.merged.perf)) & grepl(".pred",colnames(df.merged.perf))) | grepl("likelihood",colnames(df.merged.perf)))) ]
   
   tmp.table$Taxa <- sub("Occurrence.", "", tmp.table$Taxa)
   # colnames(tmp.table) <- c("Taxa", "Prevalence", list.models)
@@ -1078,26 +1078,26 @@ make.table.species.rearranged <- function(df.merged.perf, list.models){
   
   tab3 <- tmp.table %>% gt() %>%
     tab_header(
-      title = md("**Different performance accross models**") # make bold title
-    ) %>%
-    cols_label(
-      Null_model = "Null model",
-      Big.model.diff = "Models",
-      Big.pred.expl.pow.diff = "Value"
-    ) %>%
-    tab_spanner(
-      label = "Biggest expl. pow. difference in pred. ",
-      columns = c(Big.model.diff, Big.pred.expl.pow.diff, CF0.model.diff, CF0.pred.expl.pow.diff)
-    )
+      title = md("**Different performance accross models**")) # make bold title
+    # ) %>%
+    # cols_label(
+    #   Null_model = "Null model",
+    #   Big.model.diff = "Models",
+    #   Big.pred.expl.pow.diff = "Value"
+    # ) %>%
+    # tab_spanner(
+    #   label = "Biggest expl. pow. difference in pred. ",
+    #   columns = c(Big.model.diff, Big.pred.expl.pow.diff, chGLM.model.diff, chGLM.pred.expl.pow.diff)
+    # )
   for (l in 0:(no.models-1)) {
     col.group <- colnames(tmp.table)[which(grepl(list.models[no.models-l], colnames(tmp.table)) & !grepl("diff", colnames(tmp.table)) )]
-    col.names <- c("Fit", "Prediction", "Expl. pow.", "Likelihood ratio")
+    col.names <- c("Expl. pow.", "Likelihood ratio")
     names(col.names) <- col.group
     
     tab3 <- tab3 %>%
       cols_move(
         columns = all_of(col.group),
-        after = "Null_model"
+        after = "Prevalence"
         ) %>%
       tab_spanner(
         label = list.models[no.models-l],
@@ -1109,7 +1109,7 @@ make.table.species.rearranged <- function(df.merged.perf, list.models){
   
   tab3 <- tab3 %>%
     fmt_number(
-      columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Taxonomic level", "Big.model.diff", "CF0.model.diff"))]), # round numbers
+      columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Taxonomic level", "Big.model.diff", "chGLM.model.diff"))]), # round numbers
       decimals = 2
     ) %>% # remove uneccessary black lines
     tab_options(
@@ -1136,7 +1136,7 @@ make.table.species.rearranged.order <- function(df.merged.perf, list.models){
   tmp.table <- df.merged.perf[,-which(grepl("expl.pow",colnames(df.merged.perf)) & grepl(".fit",colnames(df.merged.perf)))]
   
   tmp.table$Taxa <- sub("Occurrence.", "", tmp.table$Taxa)
-  tmp.table  <- arrange(tmp.table, desc(CF0.pred.expl.pow.diff))
+  tmp.table  <- arrange(tmp.table, desc(chGLM.pred.expl.pow.diff))
   
   tab3 <- tmp.table %>% gt() %>%
     tab_header(
@@ -1149,7 +1149,7 @@ make.table.species.rearranged.order <- function(df.merged.perf, list.models){
     ) %>%
     tab_spanner(
       label = "Biggest expl. pow. difference in pred.",
-      columns = c(Big.model.diff, Big.pred.expl.pow.diff, CF0.model.diff, CF0.pred.expl.pow.diff)
+      columns = c(Big.model.diff, Big.pred.expl.pow.diff, chGLM.model.diff, chGLM.pred.expl.pow.diff)
     )
   for (l in 0:(no.models-1)) {
     col.group <- colnames(tmp.table)[which(grepl(list.models[no.models-l], colnames(tmp.table)) & !grepl("diff", colnames(tmp.table)))]
@@ -1171,7 +1171,7 @@ make.table.species.rearranged.order <- function(df.merged.perf, list.models){
   
   tab3 <- tab3 %>%
     fmt_number(
-      columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Taxonomic level", "Big.model.diff", "CF0.model.diff"))]), # round numbers
+      columns = c("Prevalence", colnames(tmp.table)[-which(colnames(tmp.table) %in% c("Taxa", "Taxonomic level", "Big.model.diff", "chGLM.model.diff"))]), # round numbers
       decimals = 2
     ) %>% # remove uneccessary black lines
     tab_options(

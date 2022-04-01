@@ -132,6 +132,151 @@
 # print(traceplot(res,pars=c(names(res)[134:162],"lp__")))
 # print(traceplot(res))
 
+# Compare models # changed by ecr 23.03.2022
+model.comparison <- function(df.merged.perf, list.models, CV, extrapol, select.taxa){
+  
+  list.models.temp <- list.models
+  list.models <- c("#000000" = "Null_model", list.models)
+  
+  # Make a vector of colors
+  col.vect <- names(list.models)
+  names(col.vect) <- list.models
+  
+  no.taxa <- nrow(df.merged.perf)
+  
+  title <- c("Models comparison in quality of fit", "Models comparison in predictive performance")
+  
+  if(!CV & !extrapol){
+    title <- title[1]
+  }
+  
+  subtitle <- paste("For", no.taxa, "taxa")
+  
+  # ECR: To be completed if CV = F
+  
+  if(CV | extrapol){  
+    
+    plot.data <- df.merged.perf
+    
+    col.fit <- c(paste0(list.models.temp , ".fit"), "Null_model")
+    col.pred <- c(paste0(list.models.temp , ".pred"), "Null_model")
+    
+    plot.data1 <- gather(plot.data, key = model, value = performance.fit, all_of(col.fit))
+    plot.data2 <- gather(plot.data, key = model, value = performance.pred, all_of(col.pred))
+    plot.data1$model <- sub(".fit", "", plot.data1$model)
+    plot.data1 <- plot.data1[,c("Taxa", "Prevalence", "Taxonomic level", "model", "performance.fit")]
+    plot.data2$model <- sub(".pred", "", plot.data2$model)
+    plot.data2 <- plot.data2[,c("Taxa", "Prevalence", "Taxonomic level", "model", "performance.pred")]
+    
+    plot.data <- left_join(plot.data1, plot.data2, by = c("Taxa", "Prevalence", "Taxonomic level", "model"))
+    
+  }
+  
+  list.plots.temp <- vector(mode = "list", length = 2)
+  
+  for(n in 1:length(title)){
+    list.plots.temp[[n]] <- vector(mode = "list", length = 4)
+    perf <- paste0("performance", ifelse(n == 1, ".fit", ".pred" ))
+    
+    # Prevalence vs stand dev
+    p1 <- ggplot()
+    p1 <- p1  + geom_point(data = plot.data, aes_string(x = "Prevalence", y = perf, 
+                                                        colour = "model"# , 
+                                                        # shape = "Taxonomic level"
+    ), 
+    # alpha = 0.4,
+    size = 3)
+    p1 <- p1 + xlim(0.045, 0.955)
+    #p1 <- p1 + geom_line(data = plot.data, aes(x = Prevalence, y = null.perf), linetype = "dashed", alpha=0.4, show.legend = FALSE) # to plot null model as dash line between data points
+    p1 <- p1 + stat_function(fun=function(x) -2*(x*log(x) + (1-x)*log(1-x))) # to plot null model as function line
+    p1 <- p1  + labs(y = "Standardized deviance",
+                     x = "Prevalence (%)",
+                     shape = "Taxonomic level",
+                     color = "Model",
+                     title = title[n],
+                     subtitle = subtitle)
+    p1 <- p1 + scale_colour_manual(values=col.vect)
+    p1 <- p1 + theme_bw(base_size = 20)
+    p1 <- p1 + guides(colour = guide_legend(override.aes = list(size=6)))
+    
+    list.plots.temp[[n]][[1]] <- p1
+    
+    # Prevalence vs stand dev
+    temp.plot.data <- plot.data[which(plot.data$Taxa %in% select.taxa),]
+    p1.2 <- ggplot()
+    p1.2 <- p1.2  + geom_point(data = temp.plot.data, aes_string(x = "Prevalence", y = perf, 
+                                                                 colour = "model"# , 
+                                                                 # shape = "Taxonomic level"
+    ), 
+    size = 3)
+    p1.2 <- p1.2 + stat_function(fun=function(x) -2*(x*log(x) + (1-x)*log(1-x))) # to plot null model as function line
+    p1.2 <- p1.2  + labs(y = "Standardized deviance",
+                         x = "Prevalence (%)",
+                         shape = "Taxonomic level",
+                         color = "Model",
+                         title = title[n],
+                         subtitle = paste("For", length(select.taxa), "taxa"))
+    p1.2 <- p1.2 + scale_colour_manual(values=col.vect)
+    p1.2 <- p1.2 + theme_bw(base_size = 20)
+    p1.2 <- p1.2 + guides(colour = guide_legend(override.aes = list(size=6)))
+    
+    list.plots.temp[[n]][[2]] <- p1.2
+    
+    # Boxplots
+    p2 <- ggplot(plot.data, aes_string(x="model", y = perf, fill = "model"), alpha = 0.4) 
+    p2 <- p2 + geom_boxplot()
+    p2 <- p2 + scale_fill_manual(values=col.vect)
+    p2 <- p2 + labs(title = title)
+    # p2 <- p2 + ylim(0,2) # ECR: only because perf problems
+    p2 <- p2 + scale_x_discrete(limits = rev(list.models))
+    p2 <- p2 + coord_flip()
+    p2 <- p2 + theme_bw(base_size = 20)
+    p2 <- p2 + theme(legend.position = "none")
+    p2 <- p2 + labs(x="Models",
+                    y="Standardized deviance",
+                    # fill = "Models",
+                    title = title[n],
+                    subtitle = subtitle)
+    
+    list.plots.temp[[n]][[3]] <- p2
+    
+    # Boxplots
+    p3 <- ggplot(plot.data, aes(y = reorder(model,-!!ensym(perf)), x = !!ensym(perf), fill = model), alpha = 0.4)
+    p3 <- p3 + geom_boxplot()
+    p3 <- p3 + scale_fill_manual(values=col.vect)
+    p3 <- p3 + labs(title = title)
+    # p3 <- p3 + ylim(0.2,1.5) # ECR: only because perf problems
+    # p3 <- p3 + scale_x_discrete(limits = rev(list.models))
+    #p3 <- p3 + coord_flip()
+    p3 <- p3 + theme_bw(base_size = 20)
+    p3 <- p3 + theme(legend.position = "none")
+    p3 <- p3 + labs(x="Models",
+                    y="Standardized deviance",
+                    # fill = "Models",
+                    title = title[n],
+                    subtitle = subtitle)
+    # paste0(subtitle,
+    #                "\nOrdered by decreasing mean"))
+    
+    list.plots.temp[[n]][[4]] <- p3
+  }
+  
+  if(CV | extrapol){
+    list.plots <- vector(mode = "list", length = 4)
+    for (n in 1:length(list.plots)) {
+      list.plots[[n]] <- grid.arrange(grobs = list(list.plots.temp[[1]][[n]], list.plots.temp[[2]][[n]]), ncol = 2)
+    }
+  } else {
+    list.plots <- list.plots.temp
+  }
+  
+  return(list.plots)
+  
+}
+
+
+
+
 # Performance vs hyperparameters ####
 
 # Compute plots
