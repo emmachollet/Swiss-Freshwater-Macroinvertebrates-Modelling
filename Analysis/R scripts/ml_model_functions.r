@@ -47,7 +47,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
         algorithm = list.algo[k]
         
         if(algorithm == "glm"){
-          env.fact <- c(env.fact.orig, "temperature2", "velocity2") # add squared terms for glms
+          env.fact <- env.fact.full # add squared terms for glms
         }else{
           env.fact <- env.fact.orig
         }
