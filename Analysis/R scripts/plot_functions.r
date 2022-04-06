@@ -645,7 +645,7 @@ plot.varimp <- function(outputs, list.algo, list.taxa, env.fact){
 #  return(temp.list)
 # }
 
-# Plot ICE manually 
+# Plot ICE 
 
 plot.ice.per.taxa <- function(taxa, outputs, list.models, env.fact, select.env.fact, normalization.data, extrapol, no.samples, no.steps, subselect){
     
@@ -653,6 +653,7 @@ plot.ice.per.taxa <- function(taxa, outputs, list.models, env.fact, select.env.f
     
     no.models <- length(list.models)
     no.subselect <- length(subselect)
+    env.fact.orig <- env.fact
     
     # Initialize final list with all arranged plots
     list.plots <- list()
@@ -674,6 +675,12 @@ plot.ice.per.taxa <- function(taxa, outputs, list.models, env.fact, select.env.f
           #trained.mod <- ann.outputs.cv$Split1$ANN$Occurrence.Gammaridae$`Trained model`
           trained.mod <- outputs[[l]][[taxa]][["Trained model"]]
 
+          if(grepl("GLM", l)){
+            env.fact <- c(env.fact, "temperature2", "velocity2")
+          } else {
+            env.fact <- env.fact.orig
+          }
+          
           # Extract environmental dataframe of each sample
           if(extrapol){
             env.df <- outputs[[l]][[taxa]][["Observation training set"]][, env.fact]
@@ -710,23 +717,25 @@ plot.ice.per.taxa <- function(taxa, outputs, list.models, env.fact, select.env.f
           
           for(n in 1:no.samples){
               # n <- 1
-              if(l == "ANN"){
-                env.fact.test <- t(env.df[n,])
-              } else {
+              # if(l == "ANN"){
+              #   env.fact.test <- t(env.df[n,])
+              # } else {
                 env.fact.test <- env.df[n,]
-              }
+              # }
             env.fact.test <- env.fact.test[rep(seq_len(1), each = no.steps), ]
             
                 # rep(env.df[n,], each = no.steps)
                 # env.fact.test[rep(each = no.steps), ]
               # env.fact.test <-             t(env.df[n,]) %>%
               #     slice(rep(1:n(), each = no.steps))
-              env.fact.test[,k] <- range.test
-              if(l == "ANN"){
-                pred.df[n,] <- predict(trained.mod, env.fact.test)[ , which(names(outputs[[l]]) == taxa)]
-              } else {
-              pred.df[n,] <- predict(trained.mod, env.fact.test, type = 'prob')[,"present"]
-              }
+            env.fact.test[,k] <- range.test
+
+            if(l == "ANN"){
+              env.fact.test <- as.matrix(env.fact.test)
+              pred.df[n,] <- predict(trained.mod, env.fact.test)[ , which(names(outputs[[l]]) == taxa)]
+            } else {
+            pred.df[n,] <- predict(trained.mod, env.fact.test, type = 'prob')[,"present"]
+            }
             } 
           
           # Make dataframe for ICE
@@ -736,6 +745,7 @@ plot.ice.per.taxa <- function(taxa, outputs, list.models, env.fact, select.env.f
           
           for (n in 1:no.subselect) {
               
+            cat("\nProducing plot for resolution of", subselect[n], "steps")
             temp.range.fact <- range.orig.fact[seq(1,200, by = subselect[n])]
             temp.pred.df <- pred.df[, which(colnames(pred.df) %in% temp.range.fact)]
             plot.data <- temp.pred.df
@@ -762,10 +772,10 @@ plot.ice.per.taxa <- function(taxa, outputs, list.models, env.fact, select.env.f
             p <- p + geom_rug(data = observations,
                               aes(x = variable), 
                               color = "grey30", alpha = 0.7, inherit.aes = F)
-            p <- p + labs(title = paste("Model:", l),
+            p <- p + labs(title = paste(l),
                           # subtitle = paste("Resolution:", no.steps/no.subselect, "steps"),
-                          x = k,
-                          y = "Predicted probability")
+                          x = "", #k,
+                          y = "") #"Predicted probability")
             # p <- p + scale_x_discrete(labels = factor(range.orig.fact))
             p <- p + theme_bw(base_size = 10)
             
@@ -794,86 +804,81 @@ plot.ice.per.taxa <- function(taxa, outputs, list.models, env.fact, select.env.f
     return(list.plots)
 }
 
+# Response shape plot
 
-# Plot PDP
-
-plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
+plot.rs.taxa <- function(taxa, outputs, list.models, env.fact, CV, extrapol){
   
-  no.algo <- length(list.algo)
-  no.taxa <- length(list.taxa)
-  no.env.taxa <- length(env.fact)
+  taxon <- sub("Occurrence.", "", taxa)
+  cat("Constructing ggplot for:", taxon, "\n")
   
-  # make a vector of colors
-  col.vect <- names(list.algo)
-  names(col.vect) <- list.algo
-  col.vect <- c("Null_model" = "#000000", col.vect)
+  temp.list.models <- c("Observations", list.models)
   
-  list.plots <- list()
+  # Make list of plots per model to be returned at the end
+  list.plots <- vector(mode = 'list', length = length(temp.list.models))
+  names(list.plots) <- temp.list.models
   
-  if ( algo == "all"){
+  for (l in temp.list.models) {
+    # l <- temp.list.models[2]
+    cat("For model", l, "\n")
+    m <- "training set"
     
-    for(j in list.taxa){
-      plot.title <- paste("PDP for", j)
-      plot.data <- data.frame(matrix(ncol = 4, nrow = 0))
-      colnames(plot.data) <- c("value","factor","model","fct")
-      plot.data$factor <- as.character(plot.data$factor)
-      plot.data$model <- as.character(plot.data$model)
-        
-      for (k in 1:no.env.fact) {
-        print(paste("Producing PDP of", k, env.fact[k], "for", j,  j))
-        temp.df <- data.frame(pdp::partial(outputs[[1]][[j]][["Trained model"]], pred.var = env.fact[k])[,env.fact[k]])
-        colnames(temp.df) <- "value"
-        temp.df$factor <- env.fact[k]
-        for (l in list.algo){ 
-        temp.df[,l] <- pdp::partial(outputs[[l]][[j]][["Trained model"]], pred.var = env.fact[k])[,"yhat"]
-        }
-        temp.df <- gather(temp.df, key = model, value = fct, -value, - factor)
-        plot.data <- union(plot.data,temp.df)
-      }
-      
-      p <- ggplot(plot.data, aes(x = value, y = fct, color = model))
-      p <- p + geom_line()
-      p <- p + facet_wrap( ~ factor, scales = "free_x", 
-                           #labeller=label_parsed, 
-                           strip.position="bottom")
-      p <- p  + labs(# title = plot.title,
-                     x = "",
-                     y = plot.title, # paste("f( environmental factor )"),
-                     color = "Model")
-      p <- p + scale_colour_manual(values=col.vect)
-      p <- p + theme_bw(base_size = 20)
-      p <- p + theme(axis.text=element_text(size=14),
-                       plot.title = element_blank())
-      p <- p + guides(colour = guide_legend(override.aes = list(size=6)))
-      p <- p + coord_cartesian(ylim = c(-2,2))
-      # p <- p + ggtitle(plot.title)
-      # print(p)
-      list.plots[[j]] <- p
+    if(l == "Observations"){
+      plot.data1 <- outputs[["iGLM"]][[taxa]][[paste("Observation",m)]]
+      plot.data1$pred <- ifelse(plot.data1[,taxa] == "present", 1, 0)
+    } else { 
+      plot.data1 <- outputs[[l]][[taxa]][[paste("Observation",m)]]
+      plot.data1$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities",m)]][,"present"]
     }
-  } else {
-    for(j in 1:no.taxa){
-      temp.list.plots <- vector(mode = 'list', length = no.env.fact)
-      names(temp.list.plots) <- env.fact  
+    plot.data1[,env.fact] <- as.data.frame(sweep(sweep(plot.data1[,env.fact], 2, normalization.data$SD[env.fact], FUN="*"), 2, normalization.data$Mean[env.fact], FUN = "+"))
+    plot.data1 <- gather(plot.data1, key = factors, value = value, -SiteId, -SampId, -X, -Y, -taxa, -pred)
+    
+    if(CV | extrapol){
+      plot.data1$set <- "Training"
       
-      for (k in 1:no.env.fact) {
-          print(paste("Producing PDP of", k, env.fact[k], "for", j,  j))
-          plot.title <- paste("PDP of", env.fact[k])
-        
-        p <- partial(outputs[[algo]][[j]][["Trained model"]], pred.var = env.fact[k])
-        p <- autoplot(p, ylab = paste("f(", env.fact[k], ")")) +
-          theme_light() +
-          ggtitle(plot.title)
-        p <- p + coord_cartesian(ylim = c(-2,2))
-        temp.list.plots[[k]] <- p
-        
+      m <- "testing set"
+      if(l == "Observations"){
+        plot.data2 <- outputs[["iGLM"]][[taxa]][[paste("Observation",m)]]
+        plot.data2$pred <- ifelse(plot.data2[,taxa] == "present", 1, 0)
+      } else { 
+        plot.data2 <- outputs[[l]][[taxa]][[paste("Observation",m)]]
+        plot.data2$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities",m)]][,"present"]
       }
-      title <- paste(algo, "applied to", j)
-      p <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title))
-        
-      list.plots[[j]] <- p
+      plot.data2[,env.fact] <- as.data.frame(sweep(sweep(plot.data2[,env.fact], 2, normalization.data$SD[env.fact], FUN="*"), 2, normalization.data$Mean[env.fact], FUN = "+"))
+      plot.data2 <- gather(plot.data2, key = factors, value = value, -SiteId, -SampId, -X, -Y, -taxa, -pred)
+      plot.data2$set <- "Testing"
+      
+      plot.data <- bind_rows(plot.data1, plot.data2)
     }
     
+    g <- ggplot(data = plot.data, aes_string(x = "value", y = "pred", color = taxa))
+    if(CV | extrapol){
+      g <- g + geom_point(aes_string(shape = "set"), alpha = 0.35)
+      g <- g + labs(shape = "")
+      g <- g + guides(shape = guide_legend(override.aes = list(size=3)))
+    } else {
+      g <- g + geom_point(alpha = 0.35)
+    }
+    g <- g + theme_bw(base_size=15)
+    g <- g + facet_wrap( ~ factors, scales = "free_x", 
+                         #labeller=label_parsed, 
+                         strip.position="bottom")
+    
+    g <- g + scale_color_manual(name = "Observation", values=c(absent = "#c2141b", present = "#007139"), labels = c("Absence", "Presence"))
+    g <- g + labs(title = paste("Probability of occurrence vs explanatory variables"),
+                  subtitle = paste(l, "-",paste(taxon)),
+                  x = "Explanatory variable",
+                  y = "Predicted probability of occurrence",
+                  color = "Observation")
+    g <- g + theme(strip.background = element_blank(),
+                   strip.placement = "outside"# ,
+                   # plot.title = element_text(size=10)
+                   )
+    g <- g + ylim(0,1)
+    g <- g + guides(colour = guide_legend(override.aes = list(size=6)))
+  
+    list.plots[[l]] <- g
   }
+  
   return(list.plots)
 }
 
@@ -890,13 +895,13 @@ plot.mult.pred.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.
   
   # For now set number of env fact, algo and taxa to minimum
   # Later can be looped but computationally heavy
-  k1 = 5
-  k2 = 6
-  l = 2
-  j = 1
+  k1 = env.fact[1]
+  k2 = env.fact[2]
+  l = list.algo[1]
+  j = list.taxa[1]
   
   p <- outputs[[l]][[j]][["Trained model"]] %>%
-    partial(pred.var = c(env.fact[k1], env.fact[k2]))
+    pdp::partial(pred.var = c(k1, k2))
   
   # p1 <- plotPartial(p,# default 2 fact. PDP
   #                   main = "Basic 2 predictors PDP")
@@ -917,71 +922,6 @@ plot.mult.pred.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.
   list.plots[[n]] <- p2
   n <- n + 1
   
-  return(list.plots)
-}
-
-# Plot ICE
-
-plot.ice <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
-  
-  no.algo <- length(list.algo)
-  no.taxa <- length(list.taxa)
-  no.env.fact <- length(env.fact)
-  
-  list.plots <- list()
-  n = 1
-  
-  if ( algo == "all"){
-    for(j in 1:no.taxa){
-      for (l in 1:no.algo){ 
-        
-        temp.list.plots <- vector(mode = 'list', length = no.env.fact)
-        names(temp.list.plots) <- env.fact  
-        
-        for (k in 1:no.env.fact) {
-          plot.title <- paste("ICE of", env.fact[k])
-          
-          p <- partial(outputs[[l]][[j]][["Trained model"]], pred.var = env.fact[k], ice = TRUE, alpha = 0.1)
-          p <- autoplot(p, smooth = TRUE, ylab = paste("f(", env.fact[k], ")")) +
-            theme_light() +
-            ggtitle(plot.title)
-          p <- p + coord_cartesian(ylim = c(-2,2))
-          temp.list.plots[[k]] <- p
-          
-        }
-        title <- paste(l, "applied to", j)
-        p <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title))
-          
-        list.plots[[n]] <- p
-        n <- n + 1
-      }
-    }  
-  } else {
-    for(j in 1:no.taxa){
-        
-        temp.list.plots <- vector(mode = 'list', length = no.env.fact)
-        names(temp.list.plots) <- env.fact  
-        
-        for (k in 1:no.env.fact) {
-            
-            print(paste("Producing ICE of", k, env.fact[k], "for", j,  j))
-            plot.title <- paste("ICE of", env.fact[k])
-          
-          p <- partial(outputs[[algo]][[j]][["Trained model"]], pred.var = env.fact[k], ice = TRUE, alpha = 0.1)
-          p <- autoplot(p, smooth = TRUE, ylab = paste("f(", env.fact[k], ")")) +
-            theme_light() +
-            ggtitle(plot.title) +
-            coord_cartesian(ylim = c(-2,2))
-          temp.list.plots[[k]] <- p
-          
-        }
-        title <- paste(algo, "applied to", j)
-        p <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title))
-          
-        list.plots[[n]] <- p
-        n <- n + 1
-    }
-  }
   return(list.plots)
 }
 
@@ -1042,36 +982,6 @@ map.ml.pred.taxa <- function(taxa, inputs, outputs, list.algo, CV){
     
 }
 
-response.ml.pred.taxa <- function(taxa, outputs, list.algo, env.fact, algo = list.algo[1], CV){
-    
-        m <- ifelse(CV, "testing set", "training set")
-    
-        taxon <- sub("Occurrence.", "", taxa)
-        cat("Constructing ggplot for:", taxon, "\n")
-        
-        plot.data <- outputs[[algo]][[taxa]][[paste("Observation",m)]]
-        plot.data$pred <- outputs[[algo]][[taxa]][[paste("Prediction probabilities",m)]][,"present"]
-        plot.data <- gather(plot.data, key = factors, value = value, -SiteId, -SampId, -X, -Y, -taxa, -pred)
-        
-        g <- ggplot(data = plot.data, aes(x = value, y = pred, color = plot.data[,taxa]))
-        
-        g <- g + geom_point(alpha = 0.35)
-        g <- g + theme_bw(base_size=15)
-        g <- g + facet_wrap( ~ factors, scales = "free_x", 
-                             #labeller=label_parsed, 
-                             strip.position="bottom")
 
-        g <- g + scale_color_manual(name = "Observation", values=c(absent = "#c2141b", present = "#007139"), labels = c("Absence", "Presence"))
-        g <- g + labs(title = paste("Probability of occurrence vs explanatory variables:",algo, "applied to",paste(taxon)),
-                      subtitle = paste("Predicted on", m),
-                      x = "Explanatory variable",
-                      y = "Predicted probability of occurrence",
-                      color = "Observation")
-        g <- g + theme(strip.background = element_blank(),
-                       strip.placement = "outside",
-                       plot.title = element_text(size=10))
-        g <- g + ylim(0,1)
-        g <- g + guides(colour = guide_legend(override.aes = list(size=6)))
-       
-    return(g)
-}
+
+

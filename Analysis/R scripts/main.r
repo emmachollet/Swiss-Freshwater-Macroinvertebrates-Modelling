@@ -67,6 +67,8 @@ analysis.ml <- F # Hyperparameter tuning (mainly for RF)
 analysis.ann <- F # Hyperparameter tuning
 analysis.training <- F
 
+lme.temp <- F # Select if you want to use the linear mixed effect temperature model or not
+
 # Load libraries ####
 
 # Set a checkpoint to use same library versions, which makes the code repeatable over time
@@ -148,20 +150,37 @@ dir.plots.output  <- "../Plots/Models analysis plots/"
 dir.models.output <- "../Intermediate results/Trained models/"
 
 file.env.data     <- "environmental_data_2020-06-25.dat"
+file.env.data.lme <- "environmental_data_lme_2020-06-25.dat"
 file.inv.data     <- "occ_data_2020-06-25.dat"
 file.prev         <- "prevalence_2020-06-25.dat"
 
 # Load datasets
-data.env          <- read.delim(paste0(dir.env.data, file.prefix, file.env.data),header=T,sep="\t", stringsAsFactors=T)
+
+data.env          <- read.delim(paste0(dir.env.data, file.prefix, file.env.data.lme),header=T,sep="\t", stringsAsFactors=T)
 data.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.inv.data),header=T,sep="\t", stringsAsFactors=F)
 prev.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.prev),header=T,sep="\t", stringsAsFactors=F)
 
 ## ---- DATA WRANGLING  ----
 
 # Select env. factors ####
+if (lme.temp)
+  { env.fact <- c("temperature.lme",     # Temp
+                  "velocity",          # FV
+                  "A10m",              # A10m
+                  "cow.density",       # LUD
+                  "IAR",               # IAR
+                  "urban.area",        # Urban
+                  "FRI",               # FRI
+                  "bFRI",              # bFRI
+                  "width.variability") # WV
+  
+    env.fact.full <- c(env.fact,
+                     "temperature2.lme",
+                     "velocity2")
 
-# 9 environmental factors selected on expert knowledge and previous studies (Caradima et al. 2019, 2020)
-env.fact <- c("temperature",     # Temp
+
+}else
+  { env.fact <- c("temperature",     # Temp
             "velocity",          # FV
             "A10m",              # A10m
             "cow.density",       # LUD
@@ -170,10 +189,11 @@ env.fact <- c("temperature",     # Temp
             "FRI",               # FRI
             "bFRI",              # bFRI
             "width.variability") # WV
-
-env.fact.full <- c(env.fact,
+  
+    env.fact.full <- c(env.fact,
               "temperature2",
               "velocity2")
+}
 
 # env.fact <- env.fact.full
 no.env.fact <- length(env.fact)
@@ -233,7 +253,7 @@ no.taxa <- length(list.taxa)
 # Select machine learning algorithms to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
 list.algo <- c( 
-  "deepskyblue4" = 'glm', # Generalized Linear Model
+ "deepskyblue4" = 'glm',#, # Generalized Linear Model
   "deepskyblue" = 'gamLoess',
   "#7B1359" = 'svmRadial', # Support Vector Machine
   # "darkmagenta" = 'RRF'#, # Regularized Random Forest
@@ -323,6 +343,9 @@ list.stat.mod <- names(stat.outputs.transformed)
 names(list.stat.mod) <- c("#256801", "#59AB2D")
 
 
+#res2 <- stat.outputs[[1]][[1]]
+#res.extracted   <- rstan::extract(res2,permuted=TRUE,inc_warmup=FALSE)
+
 # Machine Learning models ####
 
 ptm <- proc.time() # to calculate time of simulation
@@ -335,7 +358,9 @@ info.file.ml.name <-  paste0("ML_model_",
                              ifelse(CV, "CV_", 
                                     ifelse(extrapol, paste(c("extrapol", extrapol.info, "_"), collapse = ""), 
                                            "FIT_")),
-                             ifelse(dl, "DL_", "no_DL_"))
+                             ifelse(dl, "DL_", "no_DL_"),
+                             ifelse(lme.temp, "lme_temp_", "")
+                             )
 
 file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
 # file.name <- paste0(dir.models.output, "ML_model_All_8tunedRRF_59taxa_CV_no_DL_.rds")
@@ -355,10 +380,10 @@ if( file.exists(file.name) == T ){
         if(server == T){
             # Compute three splits in paralel (should be run on the server)
             ml.outputs.cv <- mclapply(centered.data.factors, mc.cores = n.cores.splits,
-                                   FUN = apply.ml.model, list.algo, list.taxa, env.fact, prev.inv = prev.inv)
+                                   FUN = apply.ml.model, list.algo, list.taxa, env.fact, env.fact.full, prev.inv = prev.inv)
         } else {
             # Compute one split after the other
-            ml.outputs.cv <- lapply(centered.data.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, CV, prev.inv = prev.inv)
+            ml.outputs.cv <- lapply(centered.data.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, env.fact.full, CV, prev.inv = prev.inv)
         }
         
         cat("Saving outputs of algorithms in", file.name)
@@ -368,7 +393,7 @@ if( file.exists(file.name) == T ){
         
         splitted.data <- list("Training data" =  centered.data.factors[[1]], "Testing data" = data.frame())
         ml.outputs <- apply.ml.model(splitted.data = splitted.data, list.algo = list.algo, list.taxa = list.taxa,
-                                      env.fact = env.fact, CV = F, prev.inv = prev.inv)
+                                      env.fact = env.fact, env.fact.full, CV = F, prev.inv = prev.inv)
         
         cat("Saving outputs of algorithms in", file.name)
         saveRDS(ml.outputs, file = file.name, version = 2)
@@ -423,6 +448,8 @@ if(analysis.ml){
 # if(!server){
    
 # Neural Networks ####
+
+source("ann_model_functions.r")
 
 # Set hyperparameters
 learning.rate <- 0.01
@@ -565,7 +592,7 @@ if(CV | extrapol){
         outputs.cv[[s]][[list.stat.mod[2]]] <- stat.outputs.transformed[[2]][[s]]
         outputs.cv[[s]][[list.stat.mod[1]]] <- stat.outputs.transformed[[1]][[s]]
     }
-    
+
     for (l in list.algo[2:no.algo]) {
       outputs.cv[[s]][[l]] <- ml.outputs.cv[[s]][[l]]
     }
@@ -591,7 +618,30 @@ if(CV | extrapol){
   outputs <- append(append(ml.outputs, stat.outputs.transformed), ann.outputs)
   # outputs <- append(ml.outputs, ann.outputs)
 }
-  
+
+# JW analyis for different temp models, need to move somewhere else
+
+outputs <- list()
+outputs <- append(outputs, ml.outputs)
+names(outputs)[[1]] <- "GlM_LM"
+names(outputs)[[2]] <- "RF_LM"
+#saveRDS(outputs, file = paste0(dir.models.output,"temp_comp_glm"), version = 2)
+temp.lm <- readRDS(file = paste0(dir.models.output, info.file.ml.name,".rds"))
+names(temp.lm) <- c("glm_lm_temp", "rf_lm_temp")
+
+temp.lme <- readRDS(file = paste0(dir.models.output, info.file.ml.name,".rds"))
+names(temp.lme) <- c("glm_lme_temp", "rf_lme_temp")
+
+names(outputs)
+outputs <- append(outputs, temp.lme[1:2])
+outputs <- append(outputs, temp.lm[1:2])
+
+outputs <- outputs[c("glm_lm_temp", "glm_lme_temp", "rf_lm_temp", "rf_lme_temp")]
+#saveRDS(outputs, file = paste0(dir.models.output,"temp_comp_2models.rds"), version = 2)
+
+
+list.models <- names(outputs)
+no.models <- length(list.models)
 # ECR: For analysis
 # To analyze ANN
 # list.ann <- c(names(ann.outputs.cv[[1]]), names(ann.outputs.cv2[[1]]))
@@ -659,8 +709,9 @@ if(CV | extrapol){
     # Make final outputs as tables
     df.fit.perf <- make.df.outputs(outputs = outputs, list.models = list.models, 
                              list.taxa = list.taxa, list.splits = list.splits,
-                             null.model = null.model, prev.inv = prev.inv, CV = CV)
+                             null.model = null.model, prev.inv = prev.inv, CV = CV, extrapol = extrapol)
 }
+#saveRDS(df.fit.perf, file = paste0(dir.models.output,"rf_glm_lm.rds"), version = 2)
 
 ## ---- PLOTS ----
 source("utilities.r")
@@ -670,6 +721,8 @@ source("plot_functions.r")
 # graphics.off()
 
 # Models comparison ####
+
+source("utilities.r") # JW: Why do we source the utilities all the time
 
 # Table with performance
 
@@ -692,11 +745,11 @@ file.name <- paste0(info.file.name, "ModelsCompar_")
 # tab.model.comp.species <- make.table.species.rearranged.order(df.merged.perf = df.merged.perf, list.models = list.models)
 # gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTaxonperModel_OrderedbyDiff.html"), path =  dir.plots.output)
 
-# Reorder performance dataframe according to expl.pow of RF ratio and select taxa with intermediate prevalence
+# Reorder performance dataframe according to likelihood ratio of RF and select taxa with intermediate prevalence
 temp.df.merged <- df.merged.perf[,which(grepl("likelihood.ratio", colnames(df.merged.perf)))]
 colnames(temp.df.merged) <- list.models
 temp.df.merged$Taxa <- df.merged.perf$Taxa
-temp.df.merged <- arrange(df.merged.perf, desc(expl.pow_RF.pred))
+temp.df.merged <- arrange(temp.df.merged, desc(RF))
 temp.df.merged <- temp.df.merged[which(temp.df.merged$Taxa %in% list.taxa.int),]
 select.taxa <- temp.df.merged$Taxa[1:5]
 # select.taxa <- "Occurrence.Gammaridae"
@@ -751,20 +804,40 @@ if(CV | extrapol){
   normalization.data <- normalization.data.cv[[1]]
 } 
 
-# ICE Manual ####
+# Individual Cond. Exp. ####
 
 source("plot_functions.r")
 
-list.list.plots <- lapply(select.taxa, FUN= plot.ice.per.taxa, outputs, list.models = list.models[c(3,4)], env.fact = env.fact, select.env.fact = env.fact[1], 
-                          normalization.data = normalization.data, extrapol = extrapol, no.samples = 3, no.steps = 200, subselect = c(1,2,5,10))
+no.samples <- 100
+no.steps <- 200
+subselect <- c(1,2,5,10)
+
+list.list.plots <- lapply(select.taxa, FUN= plot.ice.per.taxa, outputs, list.models = list.models, env.fact = env.fact, select.env.fact = env.fact[1], 
+                          normalization.data = normalization.data, extrapol = extrapol, no.samples = no.samples, no.steps = no.steps, subselect = subselect)
 
 for (j in 1:length(select.taxa)) {
     taxon <- sub("Occurrence.", "", select.taxa[j])
-    file.name <- paste0("ICE_DiffRes_", taxon, ".pdf")
+    file.name <- paste0("ICE_", no.samples, "samp", length(subselect),"res_", taxon, ".pdf")
     print.pdf.plots(list.plots = list.list.plots[[j]], width = 10, 
                     dir.output = paste0(dir.plots.output, "ICE/"), 
                     info.file.name = info.file.name, file.name = file.name)
 }
+
+# Response shape ####
+
+list.list.plots <- lapply(select.taxa, FUN = plot.rs.taxa, outputs, list.models, env.fact, CV, extrapol)
+
+for (j in 1:length(select.taxa)) {
+  taxon <- sub("Occurrence.", "", select.taxa[j])
+  file.name <- paste0("RS_", taxon, ".pdf")
+  print.pdf.plots(list.plots = list.list.plots[[j]], width = 10, 
+                  dir.output = paste0(dir.plots.output, "ICE/"), 
+                  info.file.name = info.file.name, file.name = file.name)
+}
+
+# 10 samples - 200 steps - 5 taxa - 1 env fact --> take 2 minutes
+# 100 samples - 200 steps - 5 taxa - 1 env fact --> take 5 minutes
+
 
 # file.name <- "testICE.pdf"
 # pdf(paste0(dir.plots.output, info.file.name, file.name), paper = 'special', width = 20, # height = height, 
@@ -828,12 +901,14 @@ print(proc.time()-ptm)
 
 ptm <- proc.time() # to calculate time of simulation
 
-# Multiple (2) predictors PDP (of one model) for now just for 1 algo and 1 taxa
-list.plots <- plot.mult.pred.pdp(outputs = outputs, list.algo = list.algo,
-                                 list.taxa = list.taxa, env.fact = env.fact)
+select.algo <- list.algo[4]
 
-file.name <- "multpredPDP.pdf"
-print.pdf.plots(list.plots = list.plots, width = 17, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+# Multiple (2) predictors PDP (of one model) for now just for 1 algo and 1 taxa
+list.plots <- plot.mult.pred.pdp(outputs = outputs, list.algo = select.algo,
+                                 list.taxa = select.taxa, env.fact = env.fact[c(1,5)])
+
+file.name <- paste0("multpredPDP_", select.algo[1], "_", sub("Occurrence.", "", select.taxa[1]), ".pdf")
+print.pdf.plots(list.plots = list.plots, width = 10, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
@@ -864,21 +939,7 @@ dev.off()
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
 
-# Response shape ####
 
-ptm <- proc.time() # to calculate time of pdf production
-
-# select an algorithm to plot
-algo <- list.algo[4]
-
-# make a list with all plots and plot them in a pdf
-list.plots <- lapply(list.taxa, FUN = response.ml.pred.taxa, outputs, list.algo, env.fact, algo, CV)
-
-name <- paste0(algo, "_Resp_EnvFactvsTax")
-
-# Print a pdf file
-file.name <- paste0(name, ".pdf")
-print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # Print a jpeg file
 file.name <- paste0(name, ".jpg")

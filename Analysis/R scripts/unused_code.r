@@ -311,3 +311,153 @@ if( file.exists(paste0(dir.plots.output, info.file.name, file.name)) == F ){ # p
 # dev.off()
 
 
+# Functions for plotting ####
+
+# Plot PDP
+
+old.plot.pdp <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
+  
+  no.algo <- length(list.algo)
+  no.taxa <- length(list.taxa)
+  no.env.taxa <- length(env.fact)
+  
+  # make a vector of colors
+  col.vect <- names(list.algo)
+  names(col.vect) <- list.algo
+  col.vect <- c("Null_model" = "#000000", col.vect)
+  
+  list.plots <- list()
+  
+  if ( algo == "all"){
+    
+    for(j in list.taxa){
+      plot.title <- paste("PDP for", j)
+      plot.data <- data.frame(matrix(ncol = 4, nrow = 0))
+      colnames(plot.data) <- c("value","factor","model","fct")
+      plot.data$factor <- as.character(plot.data$factor)
+      plot.data$model <- as.character(plot.data$model)
+      
+      for (k in 1:no.env.fact) {
+        print(paste("Producing PDP of", k, env.fact[k], "for", j,  j))
+        temp.df <- data.frame(pdp::partial(outputs[[1]][[j]][["Trained model"]], pred.var = env.fact[k])[,env.fact[k]])
+        colnames(temp.df) <- "value"
+        temp.df$factor <- env.fact[k]
+        for (l in list.algo){ 
+          temp.df[,l] <- pdp::partial(outputs[[l]][[j]][["Trained model"]], pred.var = env.fact[k])[,"yhat"]
+        }
+        temp.df <- gather(temp.df, key = model, value = fct, -value, - factor)
+        plot.data <- union(plot.data,temp.df)
+      }
+      
+      p <- ggplot(plot.data, aes(x = value, y = fct, color = model))
+      p <- p + geom_line()
+      p <- p + facet_wrap( ~ factor, scales = "free_x", 
+                           #labeller=label_parsed, 
+                           strip.position="bottom")
+      p <- p  + labs(# title = plot.title,
+        x = "",
+        y = plot.title, # paste("f( environmental factor )"),
+        color = "Model")
+      p <- p + scale_colour_manual(values=col.vect)
+      p <- p + theme_bw(base_size = 20)
+      p <- p + theme(axis.text=element_text(size=14),
+                     plot.title = element_blank())
+      p <- p + guides(colour = guide_legend(override.aes = list(size=6)))
+      p <- p + coord_cartesian(ylim = c(-2,2))
+      # p <- p + ggtitle(plot.title)
+      # print(p)
+      list.plots[[j]] <- p
+    }
+  } else {
+    for(j in 1:no.taxa){
+      temp.list.plots <- vector(mode = 'list', length = no.env.fact)
+      names(temp.list.plots) <- env.fact  
+      
+      for (k in 1:no.env.fact) {
+        print(paste("Producing PDP of", k, env.fact[k], "for", j,  j))
+        plot.title <- paste("PDP of", env.fact[k])
+        
+        p <- partial(outputs[[algo]][[j]][["Trained model"]], pred.var = env.fact[k])
+        p <- autoplot(p, ylab = paste("f(", env.fact[k], ")")) +
+          theme_light() +
+          ggtitle(plot.title)
+        p <- p + coord_cartesian(ylim = c(-2,2))
+        temp.list.plots[[k]] <- p
+        
+      }
+      title <- paste(algo, "applied to", j)
+      p <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title))
+      
+      list.plots[[j]] <- p
+    }
+    
+  }
+  return(list.plots)
+}
+
+# Plot ICE
+
+old.plot.ice <- function(outputs, algo = "all", list.algo, list.taxa, env.fact){
+  
+  no.algo <- length(list.algo)
+  no.taxa <- length(list.taxa)
+  no.env.fact <- length(env.fact)
+  
+  list.plots <- list()
+  n = 1
+  
+  if ( algo == "all"){
+    for(j in 1:no.taxa){
+      for (l in 1:no.algo){ 
+        
+        temp.list.plots <- vector(mode = 'list', length = no.env.fact)
+        names(temp.list.plots) <- env.fact  
+        
+        for (k in 1:no.env.fact) {
+          plot.title <- paste("ICE of", env.fact[k])
+          
+          p <- partial(outputs[[l]][[j]][["Trained model"]], pred.var = env.fact[k], ice = TRUE, alpha = 0.1)
+          p <- autoplot(p, smooth = TRUE, ylab = paste("f(", env.fact[k], ")")) +
+            theme_light() +
+            ggtitle(plot.title)
+          p <- p + coord_cartesian(ylim = c(-2,2))
+          temp.list.plots[[k]] <- p
+          
+        }
+        title <- paste(l, "applied to", j)
+        p <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title))
+        
+        list.plots[[n]] <- p
+        n <- n + 1
+      }
+    }  
+  } else {
+    for(j in 1:no.taxa){
+      
+      temp.list.plots <- vector(mode = 'list', length = no.env.fact)
+      names(temp.list.plots) <- env.fact  
+      
+      for (k in 1:no.env.fact) {
+        
+        print(paste("Producing ICE of", k, env.fact[k], "for", j,  j))
+        plot.title <- paste("ICE of", env.fact[k])
+        
+        p <- partial(outputs[[algo]][[j]][["Trained model"]], pred.var = env.fact[k], ice = TRUE, alpha = 0.1)
+        p <- autoplot(p, smooth = TRUE, ylab = paste("f(", env.fact[k], ")")) +
+          theme_light() +
+          ggtitle(plot.title) +
+          coord_cartesian(ylim = c(-2,2))
+        temp.list.plots[[k]] <- p
+        
+      }
+      title <- paste(algo, "applied to", j)
+      p <- as_ggplot(grid.arrange(grobs = temp.list.plots, top = title))
+      
+      list.plots[[n]] <- p
+      n <- n + 1
+    }
+  }
+  return(list.plots)
+}
+
+

@@ -71,7 +71,7 @@ build_and_train_model <- function (hyper.param = hyper.param,
   list.outputs <- vector(mode = 'list', length = length(list.taxa))
   names(list.outputs) <- list.taxa
   
-  if(CV == T | extrapol == T){
+  if(CV | extrapol){
     which.set <- c("training set", "testing set")
     Xtest <- as.matrix(split[[2]][ ,env.fact])
     Ytest <- as.matrix(split[[2]][ ,list.taxa])
@@ -104,7 +104,7 @@ build_and_train_model <- function (hyper.param = hyper.param,
     temp.list <- vector(mode = 'list', length = length(output.names))
     names(temp.list) <- output.names
     
-    temp.sets <- if(CV == T | extrapol == T){ list(cbind(Xtrain, Ytrain[,j]), cbind(Xtest, Ytest[,j])) } else { list(cbind(Xtrain, Ytrain[,j])) }
+    temp.sets <- if(CV | extrapol){ list(cbind(Xtrain, Ytrain[,j]), cbind(Xtest, Ytest[,j])) } else { list(cbind(Xtrain, Ytrain[,j])) }
     
     temp.list[[1]] <- model
     temp.list[[2]] <- history
@@ -112,7 +112,9 @@ build_and_train_model <- function (hyper.param = hyper.param,
     for(n in 1:length(which.set)){
       pred.prob <- pred[[n]][,j]
       pred.fact <- ifelse(pred.prob > 0.5, "present", "absent")
-      temp.list[[paste(out[1],which.set[n])]] <- temp.sets[[n]]
+      temp.list[[paste(out[1],which.set[n])]] <- split[[n]][,c("SiteId", "SampId", "X", "Y", env.fact)]
+      temp.list[[paste(out[1],which.set[n])]][,list.taxa[j]] <- ifelse(split[[n]][,list.taxa[j]] == 1, "present", "absent")
+      temp.list[[paste(out[1],which.set[n])]][,list.taxa[j]] <- as.factor(temp.list[[paste(out[1],which.set[n])]][,list.taxa[j]])
       temp.list[[paste(out[2],which.set[n])]] <-  pred.fact
       temp.list[[paste(out[3],which.set[n])]] <-  data.frame("absent" = 1 - pred.prob, "present" = pred.prob)
       temp.list[[paste(out[4],which.set[n])]] <-  likeli[[n]][,j]
