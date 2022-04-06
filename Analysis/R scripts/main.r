@@ -424,6 +424,8 @@ if(analysis.ml){
    
 # Neural Networks ####
 
+source("ann_model_functions.r")
+
 # Set hyperparameters
 learning.rate <- 0.01
 batch.size <-  64
@@ -565,7 +567,7 @@ if(CV | extrapol){
         outputs.cv[[s]][[list.stat.mod[2]]] <- stat.outputs.transformed[[2]][[s]]
         outputs.cv[[s]][[list.stat.mod[1]]] <- stat.outputs.transformed[[1]][[s]]
     }
-    
+
     for (l in list.algo[2:no.algo]) {
       outputs.cv[[s]][[l]] <- ml.outputs.cv[[s]][[l]]
     }
@@ -692,11 +694,11 @@ file.name <- paste0(info.file.name, "ModelsCompar_")
 # tab.model.comp.species <- make.table.species.rearranged.order(df.merged.perf = df.merged.perf, list.models = list.models)
 # gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTaxonperModel_OrderedbyDiff.html"), path =  dir.plots.output)
 
-# Reorder performance dataframe according to expl.pow of RF ratio and select taxa with intermediate prevalence
+# Reorder performance dataframe according to likelihood ratio of RF and select taxa with intermediate prevalence
 temp.df.merged <- df.merged.perf[,which(grepl("likelihood.ratio", colnames(df.merged.perf)))]
 colnames(temp.df.merged) <- list.models
 temp.df.merged$Taxa <- df.merged.perf$Taxa
-temp.df.merged <- arrange(df.merged.perf, desc(expl.pow_RF.pred))
+temp.df.merged <- arrange(temp.df.merged, desc(RF))
 temp.df.merged <- temp.df.merged[which(temp.df.merged$Taxa %in% list.taxa.int),]
 select.taxa <- temp.df.merged$Taxa[1:5]
 # select.taxa <- "Occurrence.Gammaridae"
@@ -751,20 +753,40 @@ if(CV | extrapol){
   normalization.data <- normalization.data.cv[[1]]
 } 
 
-# ICE Manual ####
+# Individual Cond. Exp. ####
 
 source("plot_functions.r")
 
-list.list.plots <- lapply(select.taxa, FUN= plot.ice.per.taxa, outputs, list.models = list.models[c(3,4)], env.fact = env.fact, select.env.fact = env.fact[1], 
-                          normalization.data = normalization.data, extrapol = extrapol, no.samples = 3, no.steps = 200, subselect = c(1,2,5,10))
+no.samples <- 100
+no.steps <- 200
+subselect <- c(1,2,5,10)
+
+list.list.plots <- lapply(select.taxa, FUN= plot.ice.per.taxa, outputs, list.models = list.models, env.fact = env.fact, select.env.fact = env.fact[1], 
+                          normalization.data = normalization.data, extrapol = extrapol, no.samples = no.samples, no.steps = no.steps, subselect = subselect)
 
 for (j in 1:length(select.taxa)) {
     taxon <- sub("Occurrence.", "", select.taxa[j])
-    file.name <- paste0("ICE_DiffRes_", taxon, ".pdf")
+    file.name <- paste0("ICE_", no.samples, "samp", length(subselect),"res_", taxon, ".pdf")
     print.pdf.plots(list.plots = list.list.plots[[j]], width = 10, 
                     dir.output = paste0(dir.plots.output, "ICE/"), 
                     info.file.name = info.file.name, file.name = file.name)
 }
+
+# Response shape ####
+
+list.list.plots <- lapply(select.taxa, FUN = plot.rs.taxa, outputs, list.models, env.fact, CV, extrapol)
+
+for (j in 1:length(select.taxa)) {
+  taxon <- sub("Occurrence.", "", select.taxa[j])
+  file.name <- paste0("RS_", taxon, ".pdf")
+  print.pdf.plots(list.plots = list.list.plots[[j]], width = 10, 
+                  dir.output = paste0(dir.plots.output, "ICE/"), 
+                  info.file.name = info.file.name, file.name = file.name)
+}
+
+# 10 samples - 200 steps - 5 taxa - 1 env fact --> take 2 minutes
+# 100 samples - 200 steps - 5 taxa - 1 env fact --> take 5 minutes
+
 
 # file.name <- "testICE.pdf"
 # pdf(paste0(dir.plots.output, info.file.name, file.name), paper = 'special', width = 20, # height = height, 
@@ -828,12 +850,14 @@ print(proc.time()-ptm)
 
 ptm <- proc.time() # to calculate time of simulation
 
-# Multiple (2) predictors PDP (of one model) for now just for 1 algo and 1 taxa
-list.plots <- plot.mult.pred.pdp(outputs = outputs, list.algo = list.algo,
-                                 list.taxa = list.taxa, env.fact = env.fact)
+select.algo <- list.algo[4]
 
-file.name <- "multpredPDP.pdf"
-print.pdf.plots(list.plots = list.plots, width = 17, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+# Multiple (2) predictors PDP (of one model) for now just for 1 algo and 1 taxa
+list.plots <- plot.mult.pred.pdp(outputs = outputs, list.algo = select.algo,
+                                 list.taxa = select.taxa, env.fact = env.fact[c(1,5)])
+
+file.name <- paste0("multpredPDP_", select.algo[1], "_", sub("Occurrence.", "", select.taxa[1]), ".pdf")
+print.pdf.plots(list.plots = list.plots, width = 10, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
@@ -864,21 +888,7 @@ dev.off()
 print(paste(file.name, "printing:"))
 print(proc.time()-ptm)
 
-# Response shape ####
 
-ptm <- proc.time() # to calculate time of pdf production
-
-# select an algorithm to plot
-algo <- list.algo[4]
-
-# make a list with all plots and plot them in a pdf
-list.plots <- lapply(list.taxa, FUN = response.ml.pred.taxa, outputs, list.algo, env.fact, algo, CV)
-
-name <- paste0(algo, "_Resp_EnvFactvsTax")
-
-# Print a pdf file
-file.name <- paste0(name, ".pdf")
-print.pdf.plots(list.plots = list.plots, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # Print a jpeg file
 file.name <- paste0(name, ".jpg")
