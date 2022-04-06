@@ -253,9 +253,9 @@ no.taxa <- length(list.taxa)
 # Select machine learning algorithms to apply (! their packages have to be installed first)
 # Already select the colors assigned to each algorithms for the plots
 list.algo <- c( 
- # "deepskyblue4" = 'glm',#, # Generalized Linear Model
-  #"deepskyblue" = 'gamLoess',
-  #"#7B1359" = 'svmRadial', # Support Vector Machine
+ "deepskyblue4" = 'glm',#, # Generalized Linear Model
+  "deepskyblue" = 'gamLoess',
+  "#7B1359" = 'svmRadial', # Support Vector Machine
   # "darkmagenta" = 'RRF'#, # Regularized Random Forest
   "hotpink3" = 'rf' # Random Forest
   # "hotpink1" = "xgbTree" # Boosted Classification Tree
@@ -359,7 +359,7 @@ info.file.ml.name <-  paste0("ML_model_",
                                     ifelse(extrapol, paste(c("extrapol", extrapol.info, "_"), collapse = ""), 
                                            "FIT_")),
                              ifelse(dl, "DL_", "no_DL_"),
-                             ifelse(lme.temp, "lme_temp_", "lm_temp_")
+                             ifelse(lme.temp, "lme_temp_", "")
                              )
 
 file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
