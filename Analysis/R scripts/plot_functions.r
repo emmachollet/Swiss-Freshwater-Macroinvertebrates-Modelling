@@ -358,16 +358,19 @@ model.comparison <- function(df.merged.perf, list.models, CV, extrapol, select.t
       p4 <- ggplot(plot.data3, aes(x = model, y = performance, fill = dataset))
       p4 <- p4 + geom_boxplot()
       p4 <- p4 + scale_x_discrete(limits = lev)
-      p4 <- p4 + theme_bw(base_size = 25)
+      p4 <- p4 + ylim(0,ifelse(extrapol, 2.5, 1.5)) # ECR: only because perf problems
+      p4 <- p4 + scale_fill_manual(values=c(Calibration = "#f1a340", Prediction = "#998ec3"))
+      p4 <- p4 + theme_bw(base_size = 20)
       p4 <- p4 + labs(x="Models",
                       y="Standardized deviance",
                       fill = "",
                       title = "Models performance comparison",
                       subtitle = paste0(subtitle, "\nOrdered by increasing mean"))
       
+      
       list.plots <- append(list.plots, list(p4))
       
-      select.model <- c("RF", "chGLM")
+      select.model <- c("RF", "iGLM")
       temp.plot.data <- plot.data3[which(plot.data3$Taxa %in% select.taxa),]
       temp.plot.data <- temp.plot.data[which(temp.plot.data$model %in% select.model),]
       
@@ -662,145 +665,173 @@ plot.ice.per.taxa <- function(taxa, outputs, list.models, env.fact, select.env.f
       # k <- env.fact[1]
       cat("\nFor env. fact.", k)
     
-      # Make temporary list of ICE plots for env.fact k for each algorithm
-      temp.list.plots <- vector(mode = 'list', length = no.models)
-      names(temp.list.plots) <- list.models
+      # # Make temporary list of ICE plots for env.fact k for each algorithm
+      # temp.list.plots <- vector(mode = 'list', length = no.models)
+      # names(temp.list.plots) <- list.models
+      # 
+      plot.data <- data.frame()
+      plot.data.means <- data.frame()
+      plot.data.rug <- data.frame()
       
       for(l in list.models){
-          # l <- list.models[2]
+          # l <- list.models[3]
           
         cat("\nfor model", l)
         
-          # Extract trained model
-          #trained.mod <- ann.outputs.cv$Split1$ANN$Occurrence.Gammaridae$`Trained model`
-          trained.mod <- outputs[[l]][[taxa]][["Trained model"]]
+        # Extract trained model
+        #trained.mod <- ann.outputs.cv$Split1$ANN$Occurrence.Gammaridae$`Trained model`
+        trained.mod <- outputs[[l]][[taxa]][["Trained model"]]
 
-          if(grepl("GLM", l)){
-            env.fact <- c(env.fact, "temperature2", "velocity2")
-          } else {
-            env.fact <- env.fact.orig
-          }
-          
-          # Extract environmental dataframe of each sample
-          if(extrapol){
-            env.df <- outputs[[l]][[taxa]][["Observation training set"]][, env.fact]
-            all.env.df <- bind_rows(outputs[[l]][[taxa]][["Observation training set"]][, env.fact],
-                                outputs[[l]][[taxa]][["Observation testing set"]][, env.fact])
-          } else {
-            env.df <- outputs[[l]][[taxa]][["Observation training set"]][, env.fact]
-          }
-          
-          # Make range of values to test for env. fact. k
-          no.steps <- no.steps # 30 was way too long to compute ....
-          if(extrapol){
-            m <- min(all.env.df[,k])
-            M <- max(all.env.df[,k])
-          } else {
-            m <- min(env.df[,k])
-            M <- max(env.df[,k])
-          }
-          range.test <- seq(m, M, length.out = no.steps)
-          
-          # Make range of backward normalized values for labelling x axis
-          # !! Might mathematically false 
-          m2 <- (m * normalization.data$SD[k]) + normalization.data$Mean[k]
-          M2 <- (M * normalization.data$SD[k]) + normalization.data$Mean[k]
-          range.orig.fact <- round(seq(m2, M2, length.out = no.steps), digits = 1)
-          
-          # I think that the 2'600 samples are too much, we could maybe randomly select 500 of these
-          set.seed(2021)
-          no.samples <- no.samples # 300
-          env.df <- env.df[sample(nrow(env.df), size = no.samples),]
-          
-          # Make a dataframe for predicted values for each sample
-          pred.df <- data.frame(matrix(nrow = no.samples, ncol = no.steps))
-          
-          for(n in 1:no.samples){
-              # n <- 1
-              # if(l == "ANN"){
-              #   env.fact.test <- t(env.df[n,])
-              # } else {
-                env.fact.test <- env.df[n,]
-              # }
-            env.fact.test <- env.fact.test[rep(seq_len(1), each = no.steps), ]
-            
-                # rep(env.df[n,], each = no.steps)
-                # env.fact.test[rep(each = no.steps), ]
-              # env.fact.test <-             t(env.df[n,]) %>%
-              #     slice(rep(1:n(), each = no.steps))
-            env.fact.test[,k] <- range.test
+        if(grepl("GLM", l)){
+          env.fact <- c(env.fact, "temperature2", "velocity2")
+        } else {
+          env.fact <- env.fact.orig
+        }
+        
+        # Extract environmental dataframe of each sample
+        if(extrapol){
+          env.df <- outputs[[l]][[taxa]][["Observation training set"]][, env.fact]
+          all.env.df <- bind_rows(outputs[[l]][[taxa]][["Observation training set"]][, env.fact],
+                              outputs[[l]][[taxa]][["Observation testing set"]][, env.fact])
+        } else {
+          env.df <- outputs[[l]][[taxa]][["Observation training set"]][, env.fact]
+        }
+        
+        # Make range of values to test for env. fact. k
+        # no.steps <- 200
+        if(extrapol){
+          m <- min(all.env.df[,k])
+          M <- max(all.env.df[,k])
+        } else {
+          m <- min(env.df[,k])
+          M <- max(env.df[,k])
+        }
+        range.test <- seq(m, M, length.out = no.steps)
+        
+        # Make range of backward normalized values for labelling x axis
+        # !! Might mathematically false 
+        m2 <- (m * normalization.data$SD[k]) + normalization.data$Mean[k]
+        M2 <- (M * normalization.data$SD[k]) + normalization.data$Mean[k]
+        range.orig.fact <- round(seq(m2, M2, length.out = no.steps), digits = 1)
+        
+        # Subselect a number of samples/observations to plot
+        # no.samples <- 3
+        set.seed(2021)
+        env.df <- env.df[sample(nrow(env.df), size = no.samples),]
+        
+        # Make a dataframe for predicted values for each sample
+        pred.df <- data.frame(matrix(nrow = no.samples, ncol = no.steps))
+        
+        for(n in 1:no.samples){
+          # n <- 1
+          env.fact.test <- env.df[n,]
+          env.fact.test <- env.fact.test[rep(seq_len(1), each = no.steps), ]
+          env.fact.test[,k] <- range.test
 
-            if(l == "ANN"){
-              env.fact.test <- as.matrix(env.fact.test)
-              pred.df[n,] <- predict(trained.mod, env.fact.test)[ , which(names(outputs[[l]]) == taxa)]
-            } else {
-            pred.df[n,] <- predict(trained.mod, env.fact.test, type = 'prob')[,"present"]
-            }
-            } 
-          
-          # Make dataframe for ICE
-          colnames(pred.df) <- range.orig.fact
-          
-          temp.list.plots.subselect <- vector(mode = 'list', length = no.subselect)
-          
-          for (n in 1:no.subselect) {
-              
-            cat("\nProducing plot for resolution of", subselect[n], "steps")
-            temp.range.fact <- range.orig.fact[seq(1,200, by = subselect[n])]
-            temp.pred.df <- pred.df[, which(colnames(pred.df) %in% temp.range.fact)]
-            plot.data <- temp.pred.df
-            plot.data <- melt(plot.data)
-            plot.data$variable <- as.numeric(as.character(plot.data$variable))
-            plot.data$rind <- 1:no.samples
+          if(l == "ANN"){
+            env.fact.test <- as.matrix(env.fact.test)
+            pred.df[n,] <- predict(trained.mod, env.fact.test)[ , which(names(outputs[[l]]) == taxa)]
+          } else {
+          pred.df[n,] <- predict(trained.mod, env.fact.test, type = 'prob')[,"present"]
+          }
+        } 
+        
+        # Make dataframe for ICE
+        colnames(pred.df) <- range.orig.fact
+
+        # subselect predictions for plot resolution
+        n <- 1
+        temp.range.fact <- range.orig.fact[seq(1,200, by = subselect[n])]
+        temp.pred.df <- pred.df[, which(colnames(pred.df) %in% temp.range.fact)]
+        temp.pred.df$observation <- rownames(pred.df)
+        
+        temp.plot.data <- gather(temp.pred.df, key = variable, value = value, -observation)
+        temp.plot.data$observation <- as.factor(temp.plot.data$observation)
+        temp.plot.data$Model <- as.factor(l)
+        temp.plot.data[, c("variable")] <- as.numeric(temp.plot.data[, c("variable")])
+        
+        plot.data <- bind_rows(plot.data, temp.plot.data)
+        
+        # Make dataframe for PDP (mean of ICE)
+        means <- data.frame(colMeans(temp.pred.df[,1:(length(temp.pred.df)-1)]))
+        colnames(means) <- "mean"
+        means$variable <- temp.range.fact
+        means$Model <- as.factor(l)
+        plot.data.means <- bind_rows(plot.data.means, means)
+        
+        # Make dataframe for rug (datapoints of observations)
+        observations <- data.frame(env.df[,k])
+        colnames(observations) <- "variable"
+        observations$variable <- (observations$variable * normalization.data$SD[k]) + normalization.data$Mean[k]
+        observations$Model <- as.factor(l)
+        plot.data.rug <- bind_rows(plot.data.rug, observations)
+      }
+        
             
-            # Make dataframe for rug (datapoints of observations)
-            observations <- data.frame(env.df[,k])
-            colnames(observations) <- "variable"
-            observations$variable <- (observations$variable * normalization.data$SD[k]) + normalization.data$Mean[k]
-            
-            # Make dataframe for PDP (mean of ICE)
-            means <- data.frame(colMeans(temp.pred.df))
-            colnames(means) <- "mean"
-            means$variable <- temp.range.fact
-            
-            p <- ggplot(plot.data, aes(x = variable, y = value, group=factor(rind))) 
-            p <- p + geom_line(aes(color=factor(rind)), alpha = 0.3, show.legend = FALSE) # remove legend that would be the number of samples
-            p <- p + geom_line(data = means,
+          # temp.list.plots.subselect <- vector(mode = 'list', length = no.subselect)
+          # 
+          # for (n in 1:no.subselect) {
+          #     
+          #   cat("\nProducing plot for resolution of", subselect[n], "steps")
+          #   temp.range.fact <- range.orig.fact[seq(1,200, by = subselect[n])]
+          #   temp.pred.df <- pred.df[, which(colnames(pred.df) %in% temp.range.fact)]
+          #   plot.data <- temp.pred.df
+          #   plot.data <- melt(plot.data)
+          #   plot.data$variable <- as.numeric(as.character(plot.data$variable))
+          #   plot.data$rind <- 1:no.samples
+          #   
+          #   # Make dataframe for rug (datapoints of observations)
+          #   observations <- data.frame(env.df[,k])
+          #   colnames(observations) <- "variable"
+          #   observations$variable <- (observations$variable * normalization.data$SD[k]) + normalization.data$Mean[k]
+          #   
+          #   # Make dataframe for PDP (mean of ICE)
+          #   means <- data.frame(colMeans(temp.pred.df))
+          #   colnames(means) <- "mean"
+          #   means$variable <- temp.range.fact
+          #   
+            p <- ggplot(plot.data, aes(x = variable, y = value, group=factor(observation))) 
+            p <- p + geom_line(aes(color=factor(observation)), alpha = 0.3, show.legend = FALSE) # remove legend that would be the number of samples
+            p <- p + geom_line(data = plot.data.means,
                                aes(x = variable, y = mean), 
                                color = "grey30", size = 1.5, # alpha = 0.7, 
                                inherit.aes = F)
-            p <- p + geom_rug(data = observations,
+            p <- p + geom_rug(data = plot.data.rug,
                               aes(x = variable), 
                               color = "grey30", alpha = 0.7, inherit.aes = F)
-            p <- p + labs(title = paste(l),
+            p <- p + facet_wrap( ~ Model,# scales = "free_x", 
+                                 #labeller=label_parsed, 
+                                 strip.position="top")
+            p <- p + labs(title = "Individual Conditional Expectation and Partial Differential Plot", # paste(l),
                           # subtitle = paste("Resolution:", no.steps/no.subselect, "steps"),
-                          x = "", #k,
-                          y = "") #"Predicted probability")
+                          x = k,
+                          y = "Predicted probability")
             # p <- p + scale_x_discrete(labels = factor(range.orig.fact))
             p <- p + theme_bw(base_size = 10)
             
-            temp.list.plots.subselect[[n]] <- p
-          }
+            # temp.list.plots.subselect[[n]] <- p
+          # }
           
-          temp.list.plots[[l]] <- temp.list.plots.subselect
-      }
+          # temp.list.plots[[l]] <- temp.list.plots.subselect
+      # }
       
-      for (n in 1:no.subselect) {
-        
-        temp.temp.list.plots <- vector(mode = 'list', length = no.models)
-        names(temp.temp.list.plots) <- list.models
-        
-        for (l in list.models) {
-          temp.temp.list.plots[[l]] <- temp.list.plots[[l]][[n]]
-        }
-      
-        for (l in list.models) {
-          title <- paste("ICE of", sub("Occurrence.", "", taxa), "for", k, "with resolution of", no.steps/subselect[n], "steps")
-          q <- grid.arrange(grobs = temp.temp.list.plots, ncol = 2, top = title)
-          list.plots[[paste(k,subselect[n], sep = "_")]] <- q
-        }
+      # for (n in 1:no.subselect) {
+      #   
+      #   temp.temp.list.plots <- vector(mode = 'list', length = no.models)
+      #   names(temp.temp.list.plots) <- list.models
+      #   
+      #   for (l in list.models) {
+      #     temp.temp.list.plots[[l]] <- temp.list.plots[[l]][[n]]
+      #   }
+      # 
+      #   for (l in list.models) {
+      #     title <- paste("ICE of", sub("Occurrence.", "", taxa), "for", k, "with resolution of", no.steps/subselect[n], "steps")
+      #     q <- grid.arrange(grobs = temp.temp.list.plots, ncol = 2, top = title)
+      #     list.plots[[paste(k,subselect[n], sep = "_")]] <- q
+      #   }
+      # }
+          list.plots[[paste(k,subselect[n], sep = "_")]] <- p
       }
-    }
     return(list.plots)
 }
 

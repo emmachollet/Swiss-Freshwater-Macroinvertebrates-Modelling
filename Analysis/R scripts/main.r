@@ -32,7 +32,7 @@ file.prefix <- ifelse(BDM, "BDM_", "All_")
 d <- Sys.Date()    # e.g. 2021-12-17
 
 # Fit models to entire dataset or perform cross-validation (CV)
-CV <- F # Cross-Validation
+CV <- T # Cross-Validation
 extrapol <- ifelse(CV, FALSE, # If CV is TRUE, then no extrapolation
                   T # Set to TRUE for extrapolation
                   )
@@ -703,6 +703,7 @@ temp.df.merged <- temp.df.merged[which(temp.df.merged$Taxa %in% list.taxa.int),]
 select.taxa <- temp.df.merged$Taxa[1:5]
 # select.taxa <- "Occurrence.Gammaridae"
 # select.taxa <- "Occurrence.Psychodidae"
+select.taxa <- c("Occurrence.Gammaridae", "Occurrence.Psychodidae")
 
 # PDF file with colors
 if(CV){
@@ -729,7 +730,7 @@ if(CV){
 list.plots <- model.comparison(df.merged.perf = df.merged.perf, list.models = list.models, CV = CV, extrapol = extrapol, select.taxa = select.taxa)
 name <- "PredFitModelsCompar_Boxplots"
 file.name <- paste0(name, ".pdf")
-print.pdf.plots(list.plots = list.plots, width = 25, height = 14, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, width = 20, height = 6, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # Performance training vs prediction
 
@@ -759,22 +760,22 @@ source("plot_functions.r")
 
 no.samples <- 100
 no.steps <- 200
-subselect <- c(1,2,5,10)
+subselect <- c(1)
 
-list.list.plots <- lapply(select.taxa, FUN= plot.ice.per.taxa, outputs, list.models = list.models, env.fact = env.fact, select.env.fact = env.fact[1], 
+list.list.plots <- lapply(select.taxa, FUN= plot.ice.per.taxa, outputs, list.models = list.models[4:7], env.fact = env.fact, select.env.fact = env.fact[1], 
                           normalization.data = normalization.data, extrapol = extrapol, no.samples = no.samples, no.steps = no.steps, subselect = subselect)
 
 for (j in 1:length(select.taxa)) {
     taxon <- sub("Occurrence.", "", select.taxa[j])
     file.name <- paste0("ICE_", no.samples, "samp", length(subselect),"res_", taxon, ".pdf")
-    print.pdf.plots(list.plots = list.list.plots[[j]], width = 10, 
+    print.pdf.plots(list.plots = list.list.plots[[j]], width = 12, height = 8, 
                     dir.output = paste0(dir.plots.output, "ICE/"), 
                     info.file.name = info.file.name, file.name = file.name)
 }
 
 # Response shape ####
 
-list.list.plots <- lapply(select.taxa, FUN = plot.rs.taxa, outputs, list.models, env.fact, CV, extrapol)
+list.list.plots <- lapply(select.taxa, FUN = plot.rs.taxa, outputs, list.models[4:7], env.fact, CV, extrapol)
 
 for (j in 1:length(select.taxa)) {
   taxon <- sub("Occurrence.", "", select.taxa[j])
