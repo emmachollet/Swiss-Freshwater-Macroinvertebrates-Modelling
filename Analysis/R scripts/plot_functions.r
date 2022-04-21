@@ -667,7 +667,7 @@ plot.ice.per.taxa <- function(taxa, outputs, list.models, env.fact, select.env.f
       names(temp.list.plots) <- list.models
       
       for(l in list.models){
-          # l <- list.models[2]
+          # l <- list.models[1]
           
         cat("\nfor model", l)
         
@@ -703,7 +703,7 @@ plot.ice.per.taxa <- function(taxa, outputs, list.models, env.fact, select.env.f
           
           # Make range of backward normalized values for labelling x axis
           # !! Might mathematically false 
-          m2 <- (m * normalization.data$SD[k]) + normalization.data$Mean[k]
+          m2 <- (m * normalization.data$SD[k]) + normalization.data$Mean[k] 
           M2 <- (M * normalization.data$SD[k]) + normalization.data$Mean[k]
           range.orig.fact <- round(seq(m2, M2, length.out = no.steps), digits = 1)
           
@@ -733,8 +733,14 @@ plot.ice.per.taxa <- function(taxa, outputs, list.models, env.fact, select.env.f
             if(l == "ANN"){
               env.fact.test <- as.matrix(env.fact.test)
               pred.df[n,] <- predict(trained.mod, env.fact.test)[ , which(names(outputs[[l]]) == taxa)]
-            } else {
+              
+            } 
+            else if (l == "hGLM" | l == "chGLM"){
+              pred.df[n,] <- t(pred.stat.models(model = res.extracted, taxa = taxa , env.fact.test = env.fact.test, list.taxa = list.taxa))
+            }
+            else {
             pred.df[n,] <- predict(trained.mod, env.fact.test, type = 'prob')[,"present"]
+            
             }
             } 
           
@@ -744,7 +750,7 @@ plot.ice.per.taxa <- function(taxa, outputs, list.models, env.fact, select.env.f
           temp.list.plots.subselect <- vector(mode = 'list', length = no.subselect)
           
           for (n in 1:no.subselect) {
-              
+            # n = 1 
             cat("\nProducing plot for resolution of", subselect[n], "steps")
             temp.range.fact <- range.orig.fact[seq(1,200, by = subselect[n])]
             temp.pred.df <- pred.df[, which(colnames(pred.df) %in% temp.range.fact)]

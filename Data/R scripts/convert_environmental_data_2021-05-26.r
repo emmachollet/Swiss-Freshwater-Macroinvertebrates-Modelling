@@ -11,7 +11,7 @@
 rm(list=ls())  # free workspace etc.
 graphics.off()
 cat("\14")
-
+lme = T # Do you want to create the output with the linear mixed effect temperature model?
 # packages and functions  ####
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -178,25 +178,27 @@ dim(data)   # 3068  290
 data$A_EZG <- as.numeric(data$A_EZG)   # in m2
 data$DEM_EZG <- as.numeric(data$DEM_EZG)  # in m
 
-#read in temperature lme model
-temp.lme <- readRDS(paste0(dir.env.data, file.temp.lme))
-fixEffect <- fixef(temp.lme)
-randEffect <- ranef(temp.lme)
-randEffect <- rownames_to_column(randEffect, "year")
-colnames(randEffect)[2] <- "intercept"
+if(lme == T){
+  #read in temperature lme model
+  temp.lme <- readRDS(paste0(dir.env.data, file.temp.lme))
+  fixEffect <- fixef(temp.lme)
+  randEffect <- ranef(temp.lme)
+  randEffect <- rownames_to_column(randEffect, "year")
+  colnames(randEffect)[2] <- "intercept"
+  
+  # Use linear mixed effects model for temperature 
+ #data$temperature<- fixEffect[[1]] + fixEffect[[2]] * log10(data$A_EZG/1e6) + fixEffect[[3]] * data$DEM_EZG  # mean morning temperature in summer from linear mixed effect model
+  data$temperature<- 18.83731 + 2.726326 * log10(data$A_EZG/1e6) -0.006594001 * data$DEM_EZG  # mean morning temperature in summer from linear mixed effect model
+  
+  # Add random intercept to the corresponding year
+  for( i in unique(data$Year_)){
+    data[data[,"Year_"] == i, "temperature"] <- data[data[,"Year_"] == i, "temperature"] + randEffect[randEffect$year == i, "intercept"]
+  }
+}else{
 
-# Use linear mixed effects model for temperature 
-data$temperature.lme <- fixEffect[[1]] + fixEffect[[2]] * log10(data$A_EZG/1e6) - fixEffect[[3]] * data$DEM_EZG  # mean morning temperature in summer from linear mixed effect model
-
-# Add random intercept to the corresponding year
-for( i in unique(data$Year_)){
-  data[data[,"Year_"] == i, "temperature.lme"] <- data[data[,"Year_"] == i, "temperature.lme"] + randEffect[randEffect$year == i, "intercept"]
+  # data$temp.max.sum <- 17.836 + 1.858 * log10(data$A_EZG/1e6) -  0.005 * data$DEM_EZG  # mean maximum temperature in summer
+  data$temperature <- 18.4 + 2.77 * log10(data$A_EZG/1e6) -  0.006 * data$DEM_EZG        # mean morning temperature in summer
 }
-data[which(data$temperature.lme<0), "temperature.lme"] <- 0  # there are no negative temperatures now, constrained to 0
-
-
-# data$temp.max.sum <- 17.836 + 1.858 * log10(data$A_EZG/1e6) -  0.005 * data$DEM_EZG  # mean maximum temperature in summer
-data$temperature <- 18.4 + 2.77 * log10(data$A_EZG/1e6) -  0.006 * data$DEM_EZG        # mean morning temperature in summer
 data[which(data$temperature<0), "temperature"] <- 0  # there are no negative temperatures now, constrained to 0
 
 ## < discharge ##########################################################################
@@ -503,9 +505,7 @@ colnames(jarable) <- c("EZG_NR", "A10m")
 data <- left_join(data, jarable, by = "EZG_NR") #JW: can we use EZG just like this or are some of the EZG not correct (EZG_ok?), also whats EZG1?
 
 ## < transformations temperature and flow velocity ###########################################################################
-# Here we add the squared values of temperature and flow velocity, #JW: Not sure were Bogdan is doing this (or you emma?). Maybe here is not the right place.
 
-data$temperature2.lme <- as.numeric(data$temperature.lme**2)
 data$temperature2 <- as.numeric(data$temperature**2)
 data$velocity2 <- as.numeric(data$velocity**2)
 
@@ -596,17 +596,32 @@ if ( length(setdiff(colnames(data), colnames(rank.env))) != 0){
 
 d <- "2020-06-25"  # date of the MIDAT invertebrate datafile
 
-# write All env data set
-filename <- paste(dir.env.data,"All_environmental_data_lme_",d,".dat", sep="")
-write.table(data, filename,sep="\t",row.names=F,col.names=TRUE)
-
-# write BDM env data set
-data.BDM <- data[which(data$MonitoringProgram == "BDM"),]
-dim(data.BDM)
-
-filename <- paste(dir.env.data,"BDM_environmental_data_lme_",d,".dat", sep="")
-write.table(data.BDM, filename,sep="\t",row.names=F,col.names=TRUE)
-
+if(lme == T){
+  
+  # write All env data set
+  filename <- paste(dir.env.data,"All_environmental_data_lme_",d,".dat", sep="")
+  write.table(data, filename,sep="\t",row.names=F,col.names=TRUE)
+  
+  # write BDM env data set
+  data.BDM <- data[which(data$MonitoringProgram == "BDM"),]
+  dim(data.BDM)
+  
+  filename <- paste(dir.env.data,"BDM_environmental_data_lme_",d,".dat", sep="")
+  write.table(data.BDM, filename,sep="\t",row.names=F,col.names=TRUE)
+  
+}else{
+  
+  # write All env data set
+  filename <- paste(dir.env.data,"All_environmental_data_",d,".dat", sep="")
+  write.table(data, filename,sep="\t",row.names=F,col.names=TRUE)
+  
+  # write BDM env data set
+  data.BDM <- data[which(data$MonitoringProgram == "BDM"),]
+  dim(data.BDM)
+  
+  filename <- paste(dir.env.data,"BDM_environmental_data_",d,".dat", sep="")
+  write.table(data.BDM, filename,sep="\t",row.names=F,col.names=TRUE)
+}
 
 cat("Information about sample/site:\n", length(info), info, "\n",
     "Environmental factors to prioritize: \n", length(prio), prio, "\n",
