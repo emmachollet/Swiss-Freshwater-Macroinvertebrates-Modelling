@@ -674,7 +674,7 @@ plot.ice.per.taxa <- function(taxa, outputs, list.models, env.fact, select.env.f
       plot.data.rug <- data.frame()
       
       for(l in list.models){
-          # l <- list.models[3]
+          # l <- list.models[1]
           
         cat("\nfor model", l)
         
@@ -731,6 +731,8 @@ plot.ice.per.taxa <- function(taxa, outputs, list.models, env.fact, select.env.f
           if(l == "ANN"){
             env.fact.test <- as.matrix(env.fact.test)
             pred.df[n,] <- predict(trained.mod, env.fact.test)[ , which(names(outputs[[l]]) == taxa)]
+          } else if (l == "hGLM" | l == "chGLM"){
+              pred.df[n,] <- t(pred.stat.models(model = res.extracted, taxa = taxa , env.fact.test = env.fact.test, list.taxa = list.taxa))
           } else {
           pred.df[n,] <- predict(trained.mod, env.fact.test, type = 'prob')[,"present"]
           }

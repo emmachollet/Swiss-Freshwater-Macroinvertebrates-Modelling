@@ -24,8 +24,9 @@ stat_mod_cv <- function (data.splits, CV, comm.corr, sampsize, n.chain){
     fact.sd         <- 1  
     max.warmup      <- 1000 # max warm up iterations for runs with a lot of iterations
     
-    #data.splits <- centered.splits[[1]] # to test
-    #data.splits <- splits[[1]] # to test
+    # data.splits <- centered.splits[[1]] # to test
+    # data.splits <- splits[[1]] # to test
+    # data.splits <- centered.data[[1]]
     output <- list("deviance" = tibble(), "probability" = tibble(), "parameters" = tibble()) #this is where the data is gathered in the end for the return
     training.data <- data.splits[[1]]
     
