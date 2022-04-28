@@ -505,13 +505,13 @@ apply.null.model <- function(data, list.taxa, prev.inv){
 
 ## ---- Process output from stat models to fit structure of ml models (makes plotting easier)
 #JW: THE CODE IS QUITE UGLY AND DUPLICATE ATM BUT AT LEAST IT WORKS
-transfrom.stat.outputs <- function(CV, stat.outputs){
-    #CV = F
-    #stat.outputs = stat.outputs
+transfrom.stat.outputs <- function(stat.outputs, list.taxa, CV, extrapol){
+    # CV = F
+    # stat.outputs = stat.outputs
     
-    #stat.output.list <- vector(mode = "list", length = length(stat.outputs))
+    # stat.output.list <- vector(mode = "list", length = length(stat.outputs))
     
-    if ( CV == F){ # Model performance (FIT)
+    if ( CV == F & extrapol == F ){ # Model performance (FIT)
         stat.fit.res <- lapply(stat.outputs, function(models){
           #models <- stat.outputs[[1]]
           temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
@@ -570,7 +570,7 @@ transfrom.stat.outputs <- function(CV, stat.outputs){
         # names(stat.output.list) <- names(stat.outputs)
         # return(stat.output.list)
         return(stat.fit.res) # this return statments are not really needed
-    } else { # Prediction (CV)
+    } else { # Prediction (CV or extrapol)
         stat.cv.res <- lapply(stat.outputs, function(models){
             #models <- stat.outputs[[2]]
             

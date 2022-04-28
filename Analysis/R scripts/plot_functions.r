@@ -856,11 +856,11 @@ plot.rs.taxa <- function(taxa, outputs, list.models, env.fact, CV, extrapol){
     m <- "training set"
     
     if(l == "Observations"){
-      plot.data1 <- outputs[["iGLM"]][[taxa]][[paste("Observation",m)]]
+      plot.data1 <- outputs[["iGLM"]][[taxa]][[paste("Observation", m)]]
       plot.data1$pred <- ifelse(plot.data1[,taxa] == "present", 1, 0)
     } else { 
       plot.data1 <- outputs[[l]][[taxa]][[paste("Observation",m)]]
-      plot.data1$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities",m)]][,"present"]
+      plot.data1$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities", m)]][,"present"]
     }
     plot.data1[,env.fact] <- as.data.frame(sweep(sweep(plot.data1[,env.fact], 2, normalization.data$SD[env.fact], FUN="*"), 2, normalization.data$Mean[env.fact], FUN = "+"))
     plot.data1 <- gather(plot.data1, key = factors, value = value, -SiteId, -SampId, -X, -Y, -taxa, -pred)
@@ -870,11 +870,11 @@ plot.rs.taxa <- function(taxa, outputs, list.models, env.fact, CV, extrapol){
       
       m <- "testing set"
       if(l == "Observations"){
-        plot.data2 <- outputs[["iGLM"]][[taxa]][[paste("Observation",m)]]
+        plot.data2 <- outputs[["iGLM"]][[taxa]][[paste("Observation", m)]]
         plot.data2$pred <- ifelse(plot.data2[,taxa] == "present", 1, 0)
       } else { 
-        plot.data2 <- outputs[[l]][[taxa]][[paste("Observation",m)]]
-        plot.data2$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities",m)]][,"present"]
+        plot.data2 <- outputs[[l]][[taxa]][[paste("Observation", m)]]
+        plot.data2$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities", m)]][,"present"]
       }
       plot.data2[,env.fact] <- as.data.frame(sweep(sweep(plot.data2[,env.fact], 2, normalization.data$SD[env.fact], FUN="*"), 2, normalization.data$Mean[env.fact], FUN = "+"))
       plot.data2 <- gather(plot.data2, key = factors, value = value, -SiteId, -SampId, -X, -Y, -taxa, -pred)

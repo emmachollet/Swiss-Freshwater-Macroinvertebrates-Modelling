@@ -32,7 +32,7 @@ file.prefix <- ifelse(BDM, "BDM_", "All_")
 d <- Sys.Date()    # e.g. 2021-12-17
 
 # Fit models to entire dataset or perform cross-validation (CV)
-CV <- T # Cross-Validation
+CV <- F # Cross-Validation
 extrapol <- ifelse(CV, FALSE, # If CV is TRUE, then no extrapolation
                   T # Set to TRUE for extrapolation
                   )
@@ -68,7 +68,7 @@ analysis.ml <- F # Hyperparameter tuning (mainly for RF)
 analysis.ann <- F # Hyperparameter tuning
 analysis.training <- F
 
-lme.temp <- T # Select if you want to use the linear mixed effect temperature model or not
+lme.temp <- F # Select if you want to use the linear mixed effect temperature model or not
 
 # Load libraries ####
 
@@ -162,8 +162,8 @@ if(lme.temp){
   data.env          <- read.delim(paste0(dir.env.data, file.prefix, file.env.data.lme),header=T,sep="\t", stringsAsFactors=T)
 }else{
   data.env          <- read.delim(paste0(dir.env.data, file.prefix, file.env.data),header=T,sep="\t", stringsAsFactors=T)
-  
 }
+
 data.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.inv.data),header=T,sep="\t", stringsAsFactors=F)
 prev.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.prev),header=T,sep="\t", stringsAsFactors=F)
 
@@ -247,7 +247,7 @@ list.algo <- c(
   "deepskyblue" = 'gamLoess',
   "#7B1359" = 'svmRadial', # Support Vector Machine
   # "darkmagenta" = 'RRF'#, # Regularized Random Forest
-  "hotpink3" = 'rf' # Random Forest
+  "hotpink3" = 'rf' # , # Random Forest
   # "hotpink1" = "xgbTree" # Boosted Classification Tree
                 )
 no.algo <- length(list.algo)
@@ -282,7 +282,6 @@ stat.outputs <- mclapply(comm.corr.options, mc.cores = n.cores.stat.models, func
                                                "FIT_")),
                                 sampsize,"iterations_",
                                 ifelse(comm.corr,"CF0_","UF0_"),
-                                ifelse(CV, "CV_", "FIT_"),
                                 ifelse(dl, "DL_", "no_DL_"),
                                 ifelse(lme.temp, "lme_temp",""))
 
@@ -306,7 +305,7 @@ stat.outputs <- mclapply(comm.corr.options, mc.cores = n.cores.stat.models, func
 
       if(CV == T | extrapol == T){
 
-        stat.output <- mclapply(centered.data, mc.cores = n.cores.splits, FUN = stat_mod_cv, CV, comm.corr, sampsize, n.chain)
+        stat.output <- mclapply(centered.data, mc.cores = n.cores.splits, FUN = stat_mod_cv, CV, extrapol, comm.corr, sampsize, n.chain)
 
         cat("\nSaving output of statistical models in", file.name)
         saveRDS(stat.output, file = file.name, version = 2) #version two here is to ensure compatibility across R versions
@@ -314,7 +313,7 @@ stat.outputs <- mclapply(comm.corr.options, mc.cores = n.cores.stat.models, func
       } else {
         # apply temporary on training data of Split1, later take whole dataset centered etc
 
-        stat.output <- stat_mod_cv(centered.data, CV, comm.corr, sampsize, n.chain = n.chain)
+        stat.output <- stat_mod_cv(centered.data, CV, extrapol, comm.corr, sampsize, n.chain = n.chain)
         cat("\nSaving output of statistical models in", file.name)
         saveRDS(stat.output, file = file.name, version = 2)
         }
@@ -326,8 +325,12 @@ stat.outputs <- mclapply(comm.corr.options, mc.cores = n.cores.stat.models, func
 print(paste("Simulation time of statistical model "))
 print(proc.time()-ptm)
 
+
+if(!server){
+
+  
 # Process output from stat models to fit structure of ml models (makes plotting easier)
-stat.outputs.transformed <- transfrom.stat.outputs(CV, stat.outputs)
+stat.outputs.transformed <- transfrom.stat.outputs(stat.outputs = stat.outputs, list.taxa = list.taxa, CV = CV, extrapol = extrapol)
 stat.outputs.transformed <- stat.outputs.transformed[2:1]
 
 # Make vector statistical models
@@ -513,42 +516,42 @@ info.file.ann.name <-  paste0("ANN_model_",
 file.name <- paste0(dir.models.output, info.file.ann.name, ".rds")
 cat(file.name)
 
-# if( file.exists(file.name) == T ){
-#   cat("The file already exists. Reading it", file.name)
-#   if(CV | extrapol){
-#     ann.outputs.cv <- readRDS(file = file.name)
-#   } else {
-#     ann.outputs <- readRDS(file = file.name)
-#   }
-# } else {
-#     if(run.ann){
-#
-#     cat("This ANN output doesn't exist yet, we produce it and save it in", file.name)
-#     if(CV | extrapol){
-#       ann.outputs.cv <- lapply(centered.data, function(split){
-#         lapply(list.hyper.param, FUN = build_and_train_model, split = split,
-#                env.fact = env.fact,
-#                list.taxa = list.taxa,
-#                learning.rate = learning.rate,
-#                batch.size = batch.size,
-#                CV = CV,
-#                extrapol = extrapol)
-#       })
-#       saveRDS(ann.outputs.cv, file = file.name)
-#
-#     } else {
-#       ann.outputs <- lapply(list.hyper.param, FUN = build_and_train_model, split = centered.data,
-#                             env.fact = env.fact,
-#                             list.taxa = list.taxa,
-#                             learning.rate = learning.rate,
-#                             batch.size = batch.size,
-#                             CV = CV)
-#       saveRDS(ann.outputs, file = file.name)
-#     }
-#     } else {
-#     cat("This ANN output doesn't exist yet and the run.ann condition is set to false.")
-#   }
-# }
+if( file.exists(file.name) == T ){
+  cat("The file already exists. Reading it", file.name)
+  if(CV | extrapol){
+    ann.outputs.cv <- readRDS(file = file.name)
+  } else {
+    ann.outputs <- readRDS(file = file.name)
+  }
+} else {
+    if(run.ann){
+
+    cat("This ANN output doesn't exist yet, we produce it and save it in", file.name)
+    if(CV | extrapol){
+      ann.outputs.cv <- lapply(centered.data, function(split){
+        lapply(list.hyper.param, FUN = build_and_train_model, split = split,
+               env.fact = env.fact,
+               list.taxa = list.taxa,
+               learning.rate = learning.rate,
+               batch.size = batch.size,
+               CV = CV,
+               extrapol = extrapol)
+      })
+      saveRDS(ann.outputs.cv, file = file.name)
+
+    } else {
+      ann.outputs <- lapply(list.hyper.param, FUN = build_and_train_model, split = centered.data,
+                            env.fact = env.fact,
+                            list.taxa = list.taxa,
+                            learning.rate = learning.rate,
+                            batch.size = batch.size,
+                            CV = CV)
+      saveRDS(ann.outputs, file = file.name)
+    }
+    } else {
+    cat("This ANN output doesn't exist yet and the run.ann condition is set to false.")
+  }
+}
 
 # ECR: For ANN analysis, to compare more ann outputs
 # file.name <- file.name <- paste0(dir.models.output, "ANN_model_All_1ann50epo_59taxa_CV_no_DL_.rds")
@@ -557,13 +560,14 @@ cat(file.name)
 
 # Merge outputs ####
 
-# Change names of algorithms
+# Change names of algorithms but keeping colors selected at the beginning
 print(list.algo)
-list.algo.temp <- c( "iGLM"#, # Generalized Linear Model
-                    #"GAM", # Generalized Additive Model
-                   # "SVM", # Support Vector Machine
-                   # "RF" # Random Forest
-)
+list.algo.temp <- c( "iGLM", # Generalized Linear Model
+                   "GAM", # Generalized Additive Model
+                   "SVM", # Support Vector Machine
+                   "RF"# , # Random Forest
+                   # "BCT" # Boosted Classification Tree
+                   )
 
 # list.algo <- list.stat.mod
 names(list.algo.temp) <- names(list.algo) # keep the same colors
@@ -584,7 +588,9 @@ if(CV | extrapol){
     # names(ml.outputs.cv.bct[[s]]) <- "BCT"
 
     outputs.cv[[s]][[list.algo[1]]] <- ml.outputs.cv[[s]][[list.algo[1]]]
-
+    
+    
+    
     if(exists("stat.outputs.transformed")){
         outputs.cv[[s]][[list.stat.mod[2]]] <- stat.outputs.transformed[[2]][[s]]
         outputs.cv[[s]][[list.stat.mod[1]]] <- stat.outputs.transformed[[1]][[s]]
@@ -609,7 +615,10 @@ if(CV | extrapol){
         # outputs.cv[[s]] <- append(outputs.cv[[s]], ann.outputs.cv3[[s]])
         # outputs.cv[[s]] <- append(outputs.cv[[s]], tuned.ml.outputs.cv[[s]])
     }
+    # outputs.cv[[s]] <- outputs.cv[[s]][-which(names(outputs.cv[[s]]) == "BCT")]
+    
   }
+  
 } else {
   # Make final outputs as list
   outputs <- append(append(ml.outputs, stat.outputs.transformed), ann.outputs)
@@ -651,17 +660,22 @@ if(CV | extrapol){
 
 # Make final list of models
 
-if( exists("stat.outputs.transformed")){
+if( exists("stat.outputs.transformed") & exists("ann.outputs.cv") ){
   if(all(names(outputs.cv$Split1) %in% c(list.algo, list.stat.mod, list.ann))){
-    list.models <- c(list.algo[1], list.stat.mod, list.algo[2:no.algo], list.ann)
-    if(identical(list.models,names(outputs.cv$Split1))){ print("Problem in list models.")}
+    vec1 <- names(outputs.cv$Split1)
+    vec2 <- c(list.algo, list.stat.mod, list.ann)
+    list.models <- vec2[match(vec1, vec2)]
+    if(identical(list.models, names(outputs.cv$Split1))){ print("Problem in list models.")}
   }
 } else {
-    # list.models <- c(list.algo, list.stat.mod)
-    # list.models <- names(outputs.cv$Split1)
-    # list.models <- c(list.algo, list.ann)
-    # list.models <- c(list.algo,"hotpink" = "BRT", list.stat.mod, list.ann)
-    list.models <- list.algo
+  # list.models <- c(list.algo, list.stat.mod)
+  # list.models <- names(outputs.cv$Split1)
+  # list.models <- c(list.algo, list.ann)
+  # list.models <- c(list.algo,"hotpink" = "BRT", list.stat.mod, list.ann)
+  # list.models <- list.algo
+  vec1 <- names(outputs.cv$Split1)
+  vec2 <- c(list.algo, list.stat.mod, list.ann)
+  list.models <- vec2[match(vec1, vec2)]
 }
 print(list.models)
 no.models <- length(list.models)
@@ -711,6 +725,16 @@ if(CV | extrapol){
                              null.model = null.model, prev.inv = prev.inv, CV = CV, extrapol = extrapol)
 }
 #saveRDS(df.fit.perf, file = paste0(dir.models.output,"rf_glm_lm.rds"), version = 2)
+
+
+# comparison of lme
+install.packages("arsenal")
+library(arsenal)
+
+summary(lme.df.merged.perf$expl.pow_RF.pred - df.merged.perf$expl.pow_RF.pred)
+summary(comparedf(lme.df.merged.perf, df.merged.perf))
+plot(lme.df.merged.perf$expl.pow_RF.pred - df.merged.perf$expl.pow_RF.pred)
+
 
 ## ---- PLOTS ----
 source("utilities.r")
@@ -802,7 +826,7 @@ if(CV | extrapol){
   # ECR: For ML analysis, if CV = T, take just the first split for trained models analysis (instead of running everything for CV=F, i.e. FIT, again)
   outputs <- outputs.cv[[1]]
   normalization.data.cv <- normalization.data
-  normalization.data <- normalization.data.cv[[1]]
+  normalization.data <- normalization.data[[1]]
 }
 
 # Individual Cond. Exp. ####
@@ -839,6 +863,21 @@ for (j in 1:length(select.taxa)) {
 # 10 samples - 200 steps - 5 taxa - 1 env fact --> take 2 minutes
 # 100 samples - 200 steps - 5 taxa - 1 env fact --> take 5 minutes
 
+# Recover/amalysis other metrics and information from ml outputs
+
+# Variable importance
+varImp(outputs[[6]][[select.taxa[1]]][["Trained model"]]) # use model specific method
+varImp(outputs[[7]][[select.taxa[1]]][["Trained model"]], useModel = FALSE) # use model agnostic method, with AUC metric
+
+# Other metrics (need to build dataframe with observation, predictions as levels and as probabilities)
+test_set <- data.frame(pred = as.factor(outputs[[7]][[select.taxa[1]]][["Prediction factors training set"]]), # prediction as factors (present and absent)
+                       obs = outputs[[7]][[select.taxa[1]]][["Observation training set"]][,select.taxa[1]], # observation as factors
+                       present = outputs[[7]][[select.taxa[1]]][["Prediction probabilities training set"]]["present"], # predicted probability class 1 (present)
+                       absent = outputs[[7]][[select.taxa[1]]][["Prediction probabilities training set"]]["absent"]) # predicted probability class 2 (absent)
+confusionMatrix(data = test_set$pred, reference = as.factor(test_set$obs)) # calculate confusion matrix, accuracy, sensitivity, specificity
+confusionMatrix(data = test_set$pred, reference = test_set$obs, mode = "prec_recall") # calculate precision, recall, F1
+twoClassSummary(test_set, lev = levels(test_set$obs)) # calculate AUC, sensitivity, specificity
+# bizarre
 
 # file.name <- "testICE.pdf"
 # pdf(paste0(dir.plots.output, info.file.name, file.name), paper = 'special', width = 20, # height = height,
@@ -950,5 +989,5 @@ dev.off()
 print("Producing PDF time:")
 print(proc.time()-ptm)
 
-# } # closing server braket
+} # closing server braket
 
