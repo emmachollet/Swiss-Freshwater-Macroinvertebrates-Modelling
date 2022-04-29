@@ -532,7 +532,8 @@ transfrom.stat.outputs <- function(stat.outputs, list.taxa, CV, extrapol){
             temp.list.st.dev[[j]] <- list("Prediction factors training set" = ifelse(prop.temp$Pred >= 0.5,"present","absent"),
                                           "Prediction probabilities training set" = data.frame("present" = prop.temp$Pred, "absent" = 1 - prop.temp$Pred),
                                           "Likelihood training set" = prop.temp$Likelihood.train,
-                                          "Performance training set" = dev.temp$Performance.train
+                                          "Performance training set" = dev.temp$Performance.train,
+                                          "Trained model" = models[[1]]
             )
           }
           names(temp.list.st.dev) <-  list.taxa
