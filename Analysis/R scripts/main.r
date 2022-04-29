@@ -674,7 +674,7 @@ if( exists("stat.outputs.transformed") & exists("ann.outputs.cv") ){
   # list.models <- c(list.algo,"hotpink" = "BRT", list.stat.mod, list.ann)
   # list.models <- list.algo
   vec1 <- names(outputs.cv$Split1)
-  vec2 <- c(list.algo, list.stat.mod, list.ann)
+  vec2 <- c(list.algo, list.ann)
   list.models <- vec2[match(vec1, vec2)]
 }
 print(list.models)
@@ -768,16 +768,16 @@ file.name <- paste0(info.file.name, "ModelsCompar_")
 # tab.model.comp.species <- make.table.species.rearranged.order(df.merged.perf = df.merged.perf, list.models = list.models)
 # gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTaxonperModel_OrderedbyDiff.html"), path =  dir.plots.output)
 
-# Reorder performance dataframe according to likelihood ratio of RF and select taxa with intermediate prevalence
-temp.df.merged <- df.merged.perf[,which(grepl("likelihood.ratio", colnames(df.merged.perf)))]
+# Reorder performance dataframe according to expl.pow of RF and select taxa with intermediate prevalence
+temp.df.merged <- df.merged.perf[,which(grepl("expl.pow_", colnames(df.merged.perf)) & grepl("pred", colnames(df.merged.perf)))]
 colnames(temp.df.merged) <- list.models
 temp.df.merged$Taxa <- df.merged.perf$Taxa
 temp.df.merged <- arrange(temp.df.merged, desc(RF))
 temp.df.merged <- temp.df.merged[which(temp.df.merged$Taxa %in% list.taxa.int),]
 select.taxa <- temp.df.merged$Taxa[1:5]
-select.taxa <- "Occurrence.Gammaridae"
+# select.taxa <- "Occurrence.Gammaridae"
 # select.taxa <- "Occurrence.Psychodidae"
-select.taxa <- c("Occurrence.Gammaridae", "Occurrence.Psychodidae")
+# select.taxa <- c("Occurrence.Gammaridae", "Occurrence.Psychodidae")
 
 # PDF file with colors
 if(CV){
@@ -804,7 +804,7 @@ if(CV){
 list.plots <- model.comparison(df.merged.perf = df.merged.perf, list.models = list.models, CV = CV, extrapol = extrapol, select.taxa = select.taxa)
 name <- "PredFitModelsCompar_Boxplots"
 file.name <- paste0(name, ".pdf")
-print.pdf.plots(list.plots = list.plots, width = 20, height = 6, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+print.pdf.plots(list.plots = list.plots, width = 15, height = 6, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # Performance training vs prediction
 
