@@ -607,7 +607,8 @@ transfrom.stat.outputs <- function(stat.outputs, list.taxa, CV, extrapol){
                                               "Prediction factors testing set" = ifelse(prop.temp.test$Pred >= 0.5,"present","absent"),
                                               "Prediction probabilities testing set" = data.frame("present" = prop.temp.test$Pred,"absent" = 1 - prop.temp.test$Pred),
                                               "Likelihood testing set" = prop.temp.test$Likelihood.test,
-                                              "Performance testing set" = dev.temp.test$Performance.test
+                                              "Performance testing set" = dev.temp.test$Performance.test,
+                                              "Trained model" = split[[1]]
                                               )
                 
                 
