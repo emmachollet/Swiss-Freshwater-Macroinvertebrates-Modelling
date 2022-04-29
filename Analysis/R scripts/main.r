@@ -32,7 +32,7 @@ file.prefix <- ifelse(BDM, "BDM_", "All_")
 d <- Sys.Date()    # e.g. 2021-12-17
 
 # Fit models to entire dataset or perform cross-validation (CV)
-CV <- F # Cross-Validation
+CV <- T # Cross-Validation
 extrapol <- ifelse(CV, FALSE, # If CV is TRUE, then no extrapolation
                   T # Set to TRUE for extrapolation
                   )
@@ -61,7 +61,7 @@ n.chain  <- 2 #2
 all.taxa <- T
 
 # Set analysis 
-server <- T # Run the script on the server (and then use 3 cores for running in parallel)
+server <- F # Run the script on the server (and then use 3 cores for running in parallel)
 run.ann <- T # Run ANN models or not (needs administrative rights)
 analysis.dl <- F
 analysis.ml <- F # Hyperparameter tuning (mainly for RF)
@@ -128,8 +128,11 @@ if ( !require("kernlab") ) { install.packages("kernlab"); library("kernlab") } #
 ## if ( !require("earth") ) { install.packages("earth"); library("earth") } # to run MARS ml algorithm
 if ( !require("randomForest") ) { install.packages("randomForest"); library("randomForest") } # to run random forest (RF)
 ## if ( !require("RRF") ) { install.packages("RRF"); library("RRF") } # to run RF and additional features
-if ( !require("xgboost") ) { install.packages("xgboost"); library("xgboost") } # to run Boosted Classification Trees
-if ( !require("ada") ) { install.packages("ada"); library("ada") } # to run Boosted Classification Trees
+
+if(!server){ # packages having problems on the server
+ if( !require("xgboost") ) { install.packages("xgboost"); library("xgboost") } # to run Boosted Classification Trees
+ if( !require("ada") ) { install.packages("ada"); library("ada") } # to run Boosted Classification Trees
+}
 if ( !require("caret") ) { install.packages("caret"); library("caret") } # comprehensive framework to build machine learning models
 
 
@@ -277,11 +280,11 @@ stat.outputs <- mclapply(comm.corr.options, mc.cores = n.cores.stat.models, func
   info.file.stat.name <- paste0("Stat_model_",
                                 file.prefix,
                                 no.taxa.full, "taxa_",
-                                ifelse(CV, "CV_",
-                                       ifelse(extrapol, paste(c("extrapol", extrapol.info, "_"), collapse = ""),
-                                               "FIT_")),
                                 sampsize,"iterations_",
                                 ifelse(comm.corr,"CF0_","UF0_"),
+                                ifelse(CV, "CV_",
+                                       ifelse(extrapol, paste(c("extrapol", extrapol.info, "_"), collapse = ""),
+                                              "FIT_")),
                                 ifelse(dl, "DL_", "no_DL_"),
                                 ifelse(lme.temp, "lme_temp",""))
 
