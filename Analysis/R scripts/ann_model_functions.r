@@ -75,7 +75,11 @@ build_and_train_model <- function (hyper.param = hyper.param,
     which.set <- c("training set", "testing set")
     Xtest <- as.matrix(split[[2]][ ,env.fact])
     Ytest <- as.matrix(split[[2]][ ,list.taxa])
-  } else { which.set <- c("training set") }
+  } else { 
+    which.set <- c("training set") 
+    Xtest <- as.matrix(split[[1]][ ,env.fact])
+    Ytest <- as.matrix(split[[1]][ ,list.taxa])
+  }
   out <- c("Observation", #1
            "Prediction factors", #2 
            "Prediction probabilities", #3 

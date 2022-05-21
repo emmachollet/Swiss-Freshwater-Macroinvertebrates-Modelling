@@ -529,7 +529,9 @@ transfrom.stat.outputs <- function(stat.outputs, list.taxa, CV, extrapol){
             
             prop.temp$Likelihood.train <- ifelse(prop.temp$Obs == 1, prop.temp$Pred, 1 - prop.temp$Pred)
             
-            temp.list.st.dev[[j]] <- list("Prediction factors training set" = ifelse(prop.temp$Pred >= 0.5,"present","absent"),
+            temp.list.st.dev[[j]] <- list("Trained model" = models[[1]],
+              
+                                          "Prediction factors training set" = ifelse(prop.temp$Pred >= 0.5,"present","absent"),
                                           "Prediction probabilities training set" = data.frame("present" = prop.temp$Pred, "absent" = 1 - prop.temp$Pred),
                                           "Likelihood training set" = prop.temp$Likelihood.train,
                                           "Performance training set" = dev.temp$Performance.train
@@ -599,7 +601,9 @@ transfrom.stat.outputs <- function(stat.outputs, list.taxa, CV, extrapol){
                 prop.temp.test$Likelihood.test <- ifelse(prop.temp.test$Obs == 1, prop.temp.test$Pred, 1 - prop.temp.test$Pred)
                 
                 
-                temp.list.st.dev[[j]] <- list("Prediction factors training set" = ifelse(prop.temp.train$Pred >= 0.5,"present","absent"),
+                temp.list.st.dev[[j]] <- list("Trained model" = split[[1]],
+
+                                              "Prediction factors training set" = ifelse(prop.temp.train$Pred >= 0.5,"present","absent"),
                                               "Prediction probabilities training set" = data.frame("present" = prop.temp.train$Pred, "absent" = 1 - prop.temp.train$Pred),
                                               "Likelihood training set" = prop.temp.train$Likelihood.train,
                                               "Performance training set" = dev.temp.train$Performance.train,
@@ -607,8 +611,7 @@ transfrom.stat.outputs <- function(stat.outputs, list.taxa, CV, extrapol){
                                               "Prediction factors testing set" = ifelse(prop.temp.test$Pred >= 0.5,"present","absent"),
                                               "Prediction probabilities testing set" = data.frame("present" = prop.temp.test$Pred,"absent" = 1 - prop.temp.test$Pred),
                                               "Likelihood testing set" = prop.temp.test$Likelihood.test,
-                                              "Performance testing set" = dev.temp.test$Performance.test,
-                                              "Trained model" = split[[1]]
+                                              "Performance testing set" = dev.temp.test$Performance.test
                                               )
                 
                 
@@ -1190,7 +1193,10 @@ make.table.species.rearranged.order <- function(df.merged.perf, list.models){
   return(tab3)
 }
 
-pred.stat.models <- function(model, env.fact.test, list.taxa, taxa){
+pred.stat.models <- function(model, taxon, env.fact.test, list.taxa){
+  
+  res.extracted   <- rstan::extract(model,permuted=TRUE,inc_warmup=FALSE)
+  
   # extract taxon and env variable names
   #output <- list("deviance" = tibble(), "probability" = tibble(), "parameters" = tibble()) #this is where the data is gathered in the end for the return
   #training.data <- data.splits[[1]]
@@ -1259,7 +1265,7 @@ pred.stat.models <- function(model, env.fact.test, list.taxa, taxa){
   #train.p <- gather(train.p, Taxon, Pred, -SiteId, -SampId)
   #train.p <- left_join(train.p, train.obs, by = c("SiteId", "SampId", "Taxon"))
   
-  return(train.p[, taxa])
+  return(train.p[, taxon])
 }
 
 
