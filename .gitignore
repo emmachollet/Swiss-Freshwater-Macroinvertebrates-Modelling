@@ -15,3 +15,4 @@ Analysis/R scripts/old/*
 *.jpg
 *.html
 Analysis/Intermediate results/All_5models_1taxa_extrapol0.8temperature_no_DL_TableResults.csv
+Analysis/Intermediate results/All_7models_59taxa_CV_no_DL_lme_tempTableResults.csv

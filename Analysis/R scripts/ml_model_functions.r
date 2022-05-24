@@ -26,7 +26,7 @@ lowest <- function (x, metric, maximize = F){
 }
 
 # Function to apply ML algorithms
-apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.metric = "StandardizedDeviance", CV = T, prev.inv, ...){
+apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.metric = "StandardizedDeviance", CV = T, extrapol, prev.inv, ...){
     
     env.fact.orig <- env.fact
     # splitted.data <- centered.data.factors[[1]]
@@ -58,7 +58,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
         
         # if testing data set exists, create outputs for results on training and testing data sets
         # else only list outputs for training data set
-        if(CV == T){which.set <- c("training set", "testing set")
+        if(CV == T | extrapol == T){which.set <- c("training set", "testing set")
         } else {which.set <- c("training set")}
         out <- c("Observation", #1
                  "Prediction factors", #2 
@@ -76,7 +76,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
             temp.train <- na.omit(data.train[, c("SiteId", "SampId",
                                                  "X", "Y", 
                                                  list.taxa[j], env.fact)]) # create a temporary training dataset with the taxon and env fact, to 
-            if(CV){temp.test <- na.omit(data.test[, c("SiteId", "SampId",
+            if(CV == T | extrapol == T){temp.test <- na.omit(data.test[, c("SiteId", "SampId",
                                                    "X", "Y", 
                                                    list.taxa[j], env.fact)])
                         temp.sets <- list(temp.train, temp.test)
@@ -166,7 +166,7 @@ apply.tuned.ml.model <- function(splitted.data, tune.grid = NULL, algorithm, lis
   
   # if testing data set exists, create outputs for results on training and testing data sets
   # else only list outputs for training data set
-  if(CV == T){which.set <- c("training set", "testing set")
+  if(CV == T | extrapol == T){which.set <- c("training set", "testing set")
   } else {which.set <- c("training set")}
   out <- c("Observation", #1
            "Prediction factors", #2 
@@ -184,7 +184,7 @@ apply.tuned.ml.model <- function(splitted.data, tune.grid = NULL, algorithm, lis
     temp.train <- na.omit(data.train[, c("SiteId", "SampId",
                                          "X", "Y", 
                                          list.taxa[j], env.fact)]) # create a temporary training dataset with the taxon and env fact, to 
-    if(CV == T){temp.test <- na.omit(data.test[, c("SiteId", "SampId",
+    if(CV == T | extrapol == T){temp.test <- na.omit(data.test[, c("SiteId", "SampId",
                                                    "X", "Y", 
                                                    list.taxa[j], env.fact)])
     temp.sets <- list(temp.train, temp.test)
