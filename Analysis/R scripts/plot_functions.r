@@ -875,6 +875,12 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
           env.fact.test <- env.fact.test[rep(seq_len(1), each = no.steps), ]
           env.fact.test[,k] <- range.test
 
+          # Recalculate temp2 or velocity2 for whole range
+          if( (k == "temperature" | k == "velocity") & grepl("GLM", l)){
+            env.fact.test[,paste0(k,2)] <- env.fact.test[,k]^2
+          }
+          
+          # Make predictions
           if(l == "ANN"){
             env.fact.test <- as.matrix(env.fact.test)
             pred.df[n,] <- predict(trained.mod, env.fact.test)[ , which(names(outputs[[l]]) == taxon)]

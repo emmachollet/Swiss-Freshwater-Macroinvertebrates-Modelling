@@ -68,7 +68,7 @@ analysis.ml <- F # Hyperparameter tuning (mainly for RF)
 analysis.ann <- F # Hyperparameter tuning
 analysis.training <- F
 
-lme.temp <- F # Select if you want to use the linear mixed effect temperature model or not
+lme.temp <- T # Select if you want to use the linear mixed effect temperature model or not
 
 # Load libraries ####
 
@@ -94,6 +94,7 @@ if ( !require("plot.matrix") ) { install.packages("plot.matrix"); library("plot.
 if ( !require("viridis")) {install.packages("viridis", repos="http://cloud.r-project.org"); library("viridis")} # to do even nicer plots
 if ( !require("scales") ) { install.packages("scales"); library("scales") } # to look at colors
 if ( !require("reshape2") ) { install.packages("reshape2"); library("reshape2") } # to reshape dataframes
+if ( !require("DiagrammeR")) { install.packages("DiagrammeR"); library("DiagrammeR") } # to plot trees of BCT
 
 if ( !require("gt") ) { install.packages("gt"); library("gt") } # to make tables
 
@@ -247,12 +248,13 @@ no.taxa <- length(list.taxa)
 # Already select the colors assigned to each algorithms for the plots
 list.algo <- c( 
   "deepskyblue4" = 'glm', # Generalized Linear Model
-  "deepskyblue" = 'gamLoess',
+  "deepskyblue" = 'gamLoess', # Generalized Additive Model
   "#7B1359" = 'svmRadial', # Support Vector Machine
-  # "darkmagenta" = 'RRF'#, # Regularized Random Forest
-  "hotpink3" = 'rf' # , # Random Forest
-  # "hotpink1" = "xgbTree" # Boosted Classification Tree
+  "hotpink1" = "ada" , # Boosted Classification Tree
+  "hotpink3" = 'rf'  # Random Forest
                 )
+# # "darkmagenta" = 'RRF'#, # Regularized Random Forest
+
 no.algo <- length(list.algo)
                                        
 ## ---- APPLY MODELS ----
@@ -568,8 +570,8 @@ print(list.algo)
 list.algo.temp <- c( "iGLM", # Generalized Linear Model
                    "GAM", # Generalized Additive Model
                    "SVM", # Support Vector Machine
-                   "RF"# , # Random Forest
-                   # "BCT" # Boosted Classification Tree
+                   "BCT", # Boosted Classification Tree
+                   "RF"   # Random Forest
                    )
 
 # list.algo <- list.stat.mod
@@ -796,11 +798,11 @@ if(CV|extrapol){
   temp.df.merged$Taxa <- df.merged.perf$Taxa
   temp.df.merged <- arrange(temp.df.merged, desc(RF))
   temp.df.merged <- temp.df.merged[which(temp.df.merged$Taxa %in% list.taxa.int),]
-  select.taxa <- temp.df.merged$Taxa[1:5]
+  select.taxa <- c(temp.df.merged$Taxa[1:3], "Occurrence.Psychodidae")
 } else {
   temp.df.fit <- arrange(df.fit.perf, desc(expl.pow_RF))
   temp.df.fit <- temp.df.fit[which(temp.df.fit$Taxa %in% list.taxa.int),]
-  select.taxa <- temp.df.fit$Taxa[1:5]
+  select.taxa <- c(temp.df.fit$Taxa[1:3], "Occurrence.Psychodidae")
 }
 
 cat("List of selected taxa:", sub("Occurrence.", "", select.taxa))
@@ -915,7 +917,7 @@ subselect <- 1
 
 data.orig <- data
 
-list.list.plots <- lapply(select.taxa, FUN= plot.ice.per.taxa, outputs = outputs, data = centered.data[[1]], list.models = list.models, env.fact = env.fact, select.env.fact = env.fact[1:2],
+list.list.plots <- lapply(select.taxa[1], FUN= plot.ice.per.taxa, outputs = outputs, data = centered.data[[1]], list.models = list.models, env.fact = env.fact, select.env.fact = env.fact[1],
                           normalization.data = normalization.data, extrapol = extrapol, no.samples = no.samples, no.steps = no.steps, subselect = subselect)
 
 for (j in 1:length(select.taxa)) {

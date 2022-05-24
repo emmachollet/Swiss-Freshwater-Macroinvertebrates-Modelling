@@ -213,7 +213,7 @@ center.data <- function(data, split, CV, extrapol, dl, mean.dl, sd.dl, env.fact.
       training.data[env] <- training.data[env] / sd.dl[env]
     }
     
-  }else{
+  } else {
     
     for(env in env.names){
       training.data[env] <- training.data[env] -  mean.env.cond[env]
@@ -224,6 +224,10 @@ center.data <- function(data, split, CV, extrapol, dl, mean.dl, sd.dl, env.fact.
     }
   }
 
+  # Re-calculate temp2 and velocity2 with scaled variables
+  training.data$temperature2 <- training.data$temperature^2
+  training.data$velocity2 <- training.data$velocity^2
+  
   if(CV == F & extrapol == F){
     return(list( "Entire dataset" = training.data))
   }else{
@@ -243,7 +247,7 @@ center.data <- function(data, split, CV, extrapol, dl, mean.dl, sd.dl, env.fact.
         testing.data[env] <- testing.data[env] / sd.dl[env]
       }
       
-    }else{
+    } else {
       
       for(env in env.names){
         testing.data[env] <- testing.data[env] -  mean.env.cond[env]
@@ -253,6 +257,11 @@ center.data <- function(data, split, CV, extrapol, dl, mean.dl, sd.dl, env.fact.
         testing.data[env] <- testing.data[env] / sd.env.cond[env]
       }
     }
+    
+    # Re-calculate temp2 and velocity2 with scaled variables
+    testing.data$temperature2 <- testing.data$temperature^2
+    testing.data$velocity2 <- testing.data$velocity^2
+    
     return(list("Training data" = training.data, "Testing data" = testing.data, "Mean" = mean.env.cond, "SD" = sd.env.cond))
   }
 }
