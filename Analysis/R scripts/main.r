@@ -383,7 +383,7 @@ if( file.exists(file.name) == T ){
                                    FUN = apply.ml.model, list.algo, list.taxa, env.fact, env.fact.full, prev.inv = prev.inv)
         } else {
             # Compute one split after the other
-            ml.outputs.cv <- lapply(centered.data.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, env.fact.full, CV, prev.inv = prev.inv)
+            ml.outputs.cv <- lapply(centered.data.factors, FUN = apply.ml.model, list.algo, list.taxa, env.fact, env.fact.full, CV, extrapol, prev.inv = prev.inv)
         }
 
         cat("Saving outputs of algorithms in", file.name)
