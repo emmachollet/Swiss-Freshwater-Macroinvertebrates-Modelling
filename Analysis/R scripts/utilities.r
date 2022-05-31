@@ -484,6 +484,7 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
     return(preprocessed.data)
 }
 
+
 # Apply NULL model
 apply.null.model <- function(data, list.taxa, prev.inv){
   
@@ -543,8 +544,7 @@ transfrom.stat.outputs <- function(stat.outputs, list.taxa, CV, extrapol){
                                           "Prediction factors training set" = ifelse(prop.temp$Pred >= 0.5,"present","absent"),
                                           "Prediction probabilities training set" = data.frame("present" = prop.temp$Pred, "absent" = 1 - prop.temp$Pred),
                                           "Likelihood training set" = prop.temp$Likelihood.train,
-                                          "Performance training set" = dev.temp$Performance.train,
-                                          "Trained model" = models[[1]]
+                                          "Performance training set" = dev.temp$Performance.train
             )
           }
           names(temp.list.st.dev) <-  list.taxa
@@ -1263,8 +1263,8 @@ pred.stat.models <- function(model, taxon, env.fact.test, list.taxa){
   
   ### Calibration results
   # Check if site effects AND latent variables are disabled
-  z <- matrix(rep(alpha.taxa.maxpost,nrow(x)),nrow=nrow(x),byrow=TRUE) + 
-    x%*%beta.taxa.maxpost
+  alpha.mat <- matrix(rep(alpha.taxa.maxpost,nrow(x)),nrow=nrow(x),byrow=TRUE)
+  z <- alpha.mat + x%*%beta.taxa.maxpost
   
   p.maxpost <- 1/(1+exp(-z))
   

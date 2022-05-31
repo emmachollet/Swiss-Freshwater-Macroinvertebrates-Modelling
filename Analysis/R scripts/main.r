@@ -369,9 +369,10 @@ cat(file.name)
 if( file.exists(file.name) == T ){
 
     cat("The file already exists. Reading it", file.name, "and uploading it in the environment.")
-    if(CV | extrapol){ ml.outputs.cv <- readRDS(file = file.name)
-    } else { ml.outputs <- readRDS(file = file.name) }
-
+    if(CV | extrapol){ 
+      ml.outputs.cv <- readRDS(file = file.name)
+    } else { 
+      ml.outputs <- readRDS(file = file.name) }
     } else {
 
     cat("No ML outputs exist yet, we produce it and save it in", file.name)
@@ -658,9 +659,6 @@ if(CV | extrapol){
 # outputs <- outputs[c("glm_lm_temp", "glm_lme_temp", "rf_lm_temp", "rf_lme_temp")]
 #saveRDS(outputs, file = paste0(dir.models.output,"temp_comp_2models.rds"), version = 2)
 
-
-# list.models <- names(outputs)
-# no.models <- length(list.models)
 # ECR: For analysis
 # To analyze ANN
 # list.ann <- c(names(ann.outputs.cv[[1]]), names(ann.outputs.cv2[[1]]))
@@ -713,7 +711,7 @@ info.file.name <- paste0(file.prefix,
                                 ifelse(extrapol, paste(c("extrapol", extrapol.info, "_"), collapse = ""),
                                        "FIT_")),
                          ifelse(dl, "DL_", "no_DL_"),
-                         ifelse(lme.temp, "lme_temp", ""),
+                         ifelse(lme.temp, "lme_temp_", ""),
                          "")
 cat(info.file.name)
 
@@ -726,7 +724,7 @@ if(CV | extrapol){
     # outputs <- make.final.outputs.cv(outputs.cv = outputs.cv, list.models = list.models, list.taxa = list.taxa)
 
     # Make final outputs as tables
-    df.cv <- make.df.outputs(outputs = CV.outputs.cv, 
+    df.cv <- make.df.outputs(outputs = outputs.cv, 
                              list.models = list.models,
                              list.taxa = list.taxa, list.splits = list.splits,
                              null.model = null.model, prev.inv = prev.inv, CV = CV, extrapol = extrapol)
@@ -751,9 +749,9 @@ if(CV | extrapol){
 # install.packages("arsenal")
 # library(arsenal)
 
-summary(lme.df.merged.perf$expl.pow_RF.pred - df.merged.perf$expl.pow_RF.pred)
-summary(comparedf(lme.df.merged.perf, df.merged.perf))
-plot(lme.df.merged.perf$expl.pow_RF.pred - df.merged.perf$expl.pow_RF.pred)
+# summary(lme.df.merged.perf$expl.pow_RF.pred - df.merged.perf$expl.pow_RF.pred)
+# summary(comparedf(lme.df.merged.perf, df.merged.perf))
+# plot(lme.df.merged.perf$expl.pow_RF.pred - df.merged.perf$expl.pow_RF.pred)
 
 
 ## ---- PLOTS ----
@@ -771,13 +769,14 @@ source("utilities.r") # JW: Why do we source the utilities all the time
 
 # Make csv file
 file.name <- paste(dir.workspace, info.file.name,"TableResults",".csv", sep="")
+cat(file.name)
 if(CV|extrapol){
   write.table(df.merged.perf, file.name, sep=";", row.names=F, col.names=TRUE)
 } else {
   write.table(df.fit.perf, file.name, sep=";", row.names=F, col.names=TRUE)
 }
-# HTML file with numbers
-file.name <- paste0(info.file.name, "ModelsCompar_")
+# # HTML file with numbers
+# file.name <- paste0(info.file.name, "ModelsCompar_")
 
 # tab.model.comp <- make.table(df.pred.perf = df.pred.perf, df.fit.perf = df.fit.perf, list.models = list.models)
 # gtsave(data = tab.model.comp, filename = paste0(file.name, "Table_forAll.html"), path =  dir.plots.output)
@@ -810,62 +809,61 @@ cat("List of selected taxa:", sub("Occurrence.", "", select.taxa))
 # select.taxa <- "Occurrence.Psychodidae"
 # select.taxa <- c("Occurrence.Gammaridae", "Occurrence.Psychodidae")
 
-# PDF file with colors
-if(CV){
-        # Tables prediction
-        list.plots1 <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
-        list.plots2 <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
-        list.plots3 <- plot.df.perf(df.perf = temp.df.merged, list.models = list.models, list.taxa = list.taxa, CV,
-                                   title = "Comparison likelihood ratio")
-
-        list.plots <- append(append(list.plots1, list.plots2), list.plots3)
-        name <- "VisualTablesResults"
-        file.name <- paste0(name, ".pdf")
-        print.pdf.plots(list.plots = list.plots, width = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-
-        # if(dl){
-        # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models)
-        # }
-    } else {
-        list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV)
-}
+# # PDF file with colors
+# if(CV){
+#         # Tables prediction
+#         list.plots1 <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
+#         list.plots2 <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
+#         list.plots3 <- plot.df.perf(df.perf = temp.df.merged, list.models = list.models, list.taxa = list.taxa, CV,
+#                                    title = "Comparison likelihood ratio")
+# 
+#         list.plots <- append(append(list.plots1, list.plots2), list.plots3)
+#         name <- "VisualTablesResults"
+#         file.name <- paste0(name, ".pdf")
+#         print.pdf.plots(list.plots = list.plots, width = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+# 
+#         # if(dl){
+#         # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models)
+#         # }
+#     } else {
+#         list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV)
+# }
 
 # ------------------------------------------------
 
 # Comparison of different application case (appcase), e.g. cross-validation and extrapolation/generalization
-
-names.appcase <- c("Cross-validation", "Generalization")
-
-list.df.merged.perf <- list(df.merged.perf.cv, df.merged.perf.extrapol)
-names(list.df.merged.perf) <- names.appcase
-
-# Boxplots standardized deviance
-
-list.plots <- plot.boxplots.compar.appcase(list.df.merged.perf = list.df.merged.perf, list.models = list.models)
-name <- "ModelCompar_Boxplots"
-file.name <- paste0(name, ".pdf")
-print.pdf.plots(list.plots = list.plots, width = 15, height = 8, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-
-# Print a jpeg file
-file.name <- paste0(name, ".png")
-png(paste0(dir.plots.output,info.file.name,file.name), width = 1280, height = 720) # size in pixels (common 16:9 --> 1920×1080 or 1280×720)
-print(list.plots[[1]])
-dev.off()
-
-# Standardized deviance vs prevalence
-
-list.plots <- plot.perfvsprev.compar.appcase(list.df.merged.perf = list.df.merged.perf, list.models = list.models, 
-                                             list.taxa = list.taxa, select.taxa = select.taxa)
-name <- "ModelCompar_PerfVSPrev"
-file.name <- paste0(name, ".pdf")
-print.pdf.plots(list.plots = list.plots, width = 15, height = 12, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-
-# Print a jpeg file
-file.name <- paste0(name, ".png")
-png(paste0(dir.plots.output,info.file.name,file.name), width = 1080, height = 864) # size in pixels (common 5:4 --> 1080×864 )
-print(list.plots[[1]])
-dev.off()
-
+# 
+# names.appcase <- c("Cross-validation", "Generalization")
+# 
+# list.df.merged.perf <- list(df.merged.perf.cv, df.merged.perf.extrapol)
+# names(list.df.merged.perf) <- names.appcase
+# 
+# # Boxplots standardized deviance
+# 
+# list.plots <- plot.boxplots.compar.appcase(list.df.merged.perf = list.df.merged.perf, list.models = list.models)
+# name <- "ModelCompar_Boxplots"
+# file.name <- paste0(name, ".pdf")
+# print.pdf.plots(list.plots = list.plots, width = 15, height = 8, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+# 
+# # Print a jpeg file
+# file.name <- paste0(name, ".png")
+# png(paste0(dir.plots.output,info.file.name,file.name), width = 1280, height = 720) # size in pixels (common 16:9 --> 1920×1080 or 1280×720)
+# print(list.plots[[1]])
+# dev.off()
+# 
+# # Standardized deviance vs prevalence
+# 
+# list.plots <- plot.perfvsprev.compar.appcase(list.df.merged.perf = list.df.merged.perf, list.models = list.models, 
+#                                              list.taxa = list.taxa, select.taxa = select.taxa)
+# name <- "ModelCompar_PerfVSPrev"
+# file.name <- paste0(name, ".pdf")
+# print.pdf.plots(list.plots = list.plots, width = 15, height = 12, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+# 
+# # Print a jpeg file
+# file.name <- paste0(name, ".png")
+# png(paste0(dir.plots.output,info.file.name,file.name), width = 1080, height = 864) # size in pixels (common 5:4 --> 1080×864 )
+# print(list.plots[[1]])
+# dev.off()
 
 # --------------------------------------------------
 
@@ -892,19 +890,21 @@ print.pdf.plots(list.plots = list.plots, width = 12, dir.output = dir.plots.outp
 
 # Plots specifically related to trained models (and not to CV)
 
-
 if(CV | extrapol){
   # ECR: For ML analysis, if CV = T, take just the first split for trained models analysis (instead of running everything for CV=F, i.e. FIT, again)
   outputs <- outputs.cv[[1]]
   normalization.data.cv <- normalization.data
-  
-  # check with centered data
-  
   # normalization.data.extrapol <- normalization.data
-  
   normalization.data <- normalization.data.cv[[1]]
   
 }
+
+temp.data <- centered.data[[1]][,env.fact.full]
+plot.data <- temp.data[!rowSums(temp.data>7),]
+
+p <- plot.boxplots.data(data = plot.data, columns = env.fact)
+p
+
 
 # Individual Cond. Exp. ####
 
@@ -917,12 +917,14 @@ subselect <- 1
 
 data.orig <- data
 
-list.list.plots <- lapply(select.taxa[1], FUN= plot.ice.per.taxa, outputs = outputs, data = centered.data[[1]], list.models = list.models, env.fact = env.fact, select.env.fact = env.fact[1],
+list.list.plots <- lapply(list.taxa.int[1], FUN= plot.ice.per.taxa, outputs = outputs, data = centered.data[[1]], list.models = list.models, env.fact = env.fact, select.env.fact = env.fact[c(1,2,5)],
                           normalization.data = normalization.data, extrapol = extrapol, no.samples = no.samples, no.steps = no.steps, subselect = subselect)
 
-for (j in 1:length(select.taxa)) {
-    taxon <- sub("Occurrence.", "", select.taxa[j])
-    file.name <- paste0("ICE_", no.samples, "samp", length(subselect),"res_", taxon, ".pdf")
+for (j in 1:no.taxa) {
+    # j = 1
+    taxon <- sub("Occurrence.", "", list.taxa.int[j])
+    file.name <- paste0("ICE_", no.samples, "samp_", taxon, ".pdf")
+    cat(file.name)
     print.pdf.plots(list.plots = list.list.plots[[j]], width = 8, height = 12, 
                     dir.output = paste0(dir.plots.output, "ICE/"), 
                     info.file.name = info.file.name, file.name = file.name)
@@ -930,11 +932,12 @@ for (j in 1:length(select.taxa)) {
 
 # Response shape ####
 
-list.list.plots <- lapply(select.taxa, FUN = plot.rs.taxa, outputs, list.models[4:7], env.fact, CV, extrapol)
+list.list.plots <- lapply(select.taxa[1], FUN = plot.rs.taxa.per.factor, outputs, list.models, env.fact, CV, extrapol)
 
 for (j in 1:length(select.taxa)) {
   taxon <- sub("Occurrence.", "", select.taxa[j])
   file.name <- paste0("RS_", taxon, ".pdf")
+  cat(file.name)
   print.pdf.plots(list.plots = list.list.plots[[j]], width = 10,
                   dir.output = paste0(dir.plots.output, "ICE/"),
                   info.file.name = info.file.name, file.name = file.name)
