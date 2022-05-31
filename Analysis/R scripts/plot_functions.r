@@ -1271,5 +1271,63 @@ map.ml.pred.taxa <- function(taxa, inputs, outputs, list.algo, CV){
 }
 
 
+map.env.fact.2 <- function(inputs, env.fact, data.env, dir.output, file.prefix){
+  
+  for (k in 1:length(env.fact)){
+    k = 1
+    variable <- env.fact[k]
+    temp.data.env <- data.env[, c("X","Y", env.fact[k])]
+    no.rows <- nrow(temp.data.env)
+    no.na <- sum(is.na(temp.data.env[,variable]))
+    #explanation <- env.explan[which(env.explan$column.name == variable), "explanation"]
+    
+    g <- ggplot()
+    g <- g + geom_sf(data = inputs$ch, fill="#E8E8E8", color="black")
+    g <- g + geom_sf(data = inputs$rivers.major, fill=NA, color="lightblue", show.legend = FALSE)
+    g <- g + geom_sf(data = inputs$lakes.major, fill="lightblue", color="lightblue", show.legend = FALSE)
+    g <- g + geom_point(data = temp.data.env, aes(x=X, y=Y, color= temp.data.env[, variable]), size= 3, alpha= 0.6)
+    
+    
+      # Set up scales
+      k.min <- round(min(temp.data.env[,variable], na.rm = T), 1)
+      k.max <- round(max(temp.data.env[,variable], na.rm = T), 1)
+      k.int <- (k.max - k.min)/5 # ; if.int <- round(if.int)
+      
+      g <- g + scale_colour_gradient2(name = variable, 
+                                      #low = "coral", # useless
+                                      high = "firebrick3",
+                                      space = "Lab", na.value = "grey20", guide = "colourbar")
+      # g <- g + guides(color = guide_bins(axis = T, show.limits = T, override.aes = list(alpha = 1)))
+    
+    
+    g <- g + theme_void(base_size = 18)
+    g <- g + theme(# plot.title = element_text(hjust = 0.5),
+      panel.grid.major = element_line(colour="transparent"),
+      plot.margin = unit(c(0.1,0.1,0.1,0.1), "lines"))
+    g <- g + labs(title = paste("Geographic distribution of",variable), 
+                  subtitle = paste0(no.na, " NAs out of ", no.rows, " samples \n"), colour = variable) + scale_fill_gradient2(midpoint = "value of midpoint", low = "blue", mid = "white", high = "blue", 
+                                                                                                                              limits = c(min,max))
+    
+    
+    print(g)
+    
+    p <- ggplot(data = temp.data.env, aes(temp.data.env[, variable]))
+    
+    
+      
+      q <- p + geom_histogram(col="grey20", fill="firebrick3", alpha = 0.2,
+                              binwidth = function(x) 2 * IQR(x) / (length(x)^(1/3)))
+      q <- q + labs(title=paste("Histogram for", variable), x=variable, y="Frequency")
+      
+      r <- p + geom_density(fill="firebrick3", alpha = 0.2)
+      r <- r + labs(x=variable, col="grey20", y="Density")
+      
+      p <- ggarrange(q,r, ncol = 2)
 
+    
+    print(p)
+    # print(ggarrange(g,p, nrow =2))
 
+  
+}
+}

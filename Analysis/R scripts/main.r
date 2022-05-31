@@ -46,8 +46,8 @@ dl <- F
 if(!CV){ dl <- F } # if it's only fitting, we don't need with or without dataleakage
 
 # Set number of cores for Stat and ML models
-n.cores.splits <-  1 # a core for each split, 3 in our case
-n.cores.stat.models <- 1 # a core for each stat model 2 in our case (UF0, and CF0)
+n.cores.splits <-  3 # a core for each split, 3 in our case
+n.cores.stat.models <- 2 # a core for each stat model 2 in our case (UF0, and CF0)
 
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
@@ -61,13 +61,13 @@ n.chain  <- 2 #2
 all.taxa <- T
 
 # Set analysis 
-server <- F # Run the script on the server (and then use 3 cores for running in parallel)
-run.ann <- T # Run ANN models or not (needs administrative rights)
+server <- T # Run the script on the server (and then use 3 cores for running in parallel)
+run.ann <- F # Run ANN models or not (needs administrative rights)
 analysis.dl <- F
 analysis.ml <- F # Hyperparameter tuning (mainly for RF)
 analysis.ann <- F # Hyperparameter tuning
 analysis.training <- F
-
+analysis.temp <- F
 lme.temp <- T # Select if you want to use the linear mixed effect temperature model or not
 
 # Load libraries ####
@@ -832,38 +832,39 @@ cat("List of selected taxa:", sub("Occurrence.", "", select.taxa))
 # ------------------------------------------------
 
 # Comparison of different application case (appcase), e.g. cross-validation and extrapolation/generalization
-# 
-# names.appcase <- c("Cross-validation", "Generalization")
-# 
-# list.df.merged.perf <- list(df.merged.perf.cv, df.merged.perf.extrapol)
-# names(list.df.merged.perf) <- names.appcase
-# 
-# # Boxplots standardized deviance
-# 
-# list.plots <- plot.boxplots.compar.appcase(list.df.merged.perf = list.df.merged.perf, list.models = list.models)
-# name <- "ModelCompar_Boxplots"
-# file.name <- paste0(name, ".pdf")
-# print.pdf.plots(list.plots = list.plots, width = 15, height = 8, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-# 
-# # Print a jpeg file
-# file.name <- paste0(name, ".png")
-# png(paste0(dir.plots.output,info.file.name,file.name), width = 1280, height = 720) # size in pixels (common 16:9 --> 1920×1080 or 1280×720)
-# print(list.plots[[1]])
-# dev.off()
-# 
-# # Standardized deviance vs prevalence
-# 
-# list.plots <- plot.perfvsprev.compar.appcase(list.df.merged.perf = list.df.merged.perf, list.models = list.models, 
-#                                              list.taxa = list.taxa, select.taxa = select.taxa)
-# name <- "ModelCompar_PerfVSPrev"
-# file.name <- paste0(name, ".pdf")
-# print.pdf.plots(list.plots = list.plots, width = 15, height = 12, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-# 
-# # Print a jpeg file
-# file.name <- paste0(name, ".png")
-# png(paste0(dir.plots.output,info.file.name,file.name), width = 1080, height = 864) # size in pixels (common 5:4 --> 1080×864 )
-# print(list.plots[[1]])
-# dev.off()
+
+names.appcase <- c("Cross-validation", "Generalization")
+
+list.df.merged.perf <- list(df.merged.perf.cv, df.merged.perf.extrapol)
+names(list.df.merged.perf) <- names.appcase
+
+# Boxplots standardized deviance
+
+list.plots <- plot.boxplots.compar.appcase(list.df.merged.perf = list.df.merged.perf, list.models = list.models)
+name <- "ModelCompar_Boxplots"
+file.name <- paste0(name, ".pdf")
+print.pdf.plots(list.plots = list.plots, width = 15, height = 8, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+# Print a jpeg file
+file.name <- paste0(name, ".png")
+png(paste0(dir.plots.output,info.file.name,file.name), width = 1280, height = 720) # size in pixels (common 16:9 --> 1920ï¿½1080 or 1280ï¿½720)
+print(list.plots[[1]])
+dev.off()
+
+# Standardized deviance vs prevalence
+
+list.plots <- plot.perfvsprev.compar.appcase(list.df.merged.perf = list.df.merged.perf, list.models = list.models, 
+                                             list.taxa = list.taxa, select.taxa = select.taxa)
+name <- "ModelCompar_PerfVSPrev"
+file.name <- paste0(name, ".pdf")
+print.pdf.plots(list.plots = list.plots, width = 15, height = 12, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+
+# Print a jpeg file
+file.name <- paste0(name, ".png")
+png(paste0(dir.plots.output,info.file.name,file.name), width = 1080, height = 864) # size in pixels (common 5:4 --> 1080ï¿½864 )
+print(list.plots[[1]])
+dev.off()
+
 
 # --------------------------------------------------
 
@@ -1071,6 +1072,67 @@ print(list.plots[[1]])
 dev.off()
 print("Producing PDF time:")
 print(proc.time()-ptm)
+
+
+# Comparison temp models
+if(analysis.temp & lme.temp){
+  data.env.lme <- data
+
+  # load dataset based on lm temperature model
+  
+  data.env          <- read.delim(paste0(dir.env.data, file.prefix, file.env.data),header=T,sep="\t", stringsAsFactors=T)
+  
+  data.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.inv.data),header=T,sep="\t", stringsAsFactors=F)
+  prev.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.prev),header=T,sep="\t", stringsAsFactors=F)
+  
+  ## ---- DATA WRANGLING  ----
+  
+  # Select env. factors ####
+  env.fact <- c("temperature",     # Temp
+                "velocity",          # FV
+                "A10m",              # A10m
+                "cow.density",       # LUD
+                "IAR",               # IAR
+                "urban.area",        # Urban
+                "FRI",               # FRI
+                "bFRI",              # bFRI
+                "width.variability") # WV
+  
+  env.fact.full <- c(env.fact,
+                     "temperature2",
+                     "velocity2")
+  
+  
+  # env.fact <- env.fact.full
+  no.env.fact <- length(env.fact)
+  
+  
+  # Preprocess data ####
+  
+  # Remove NAs, normalize data, split data for CV or extrapolation
+  prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv, prev.inv = prev.inv,
+                                 env.fact.full = env.fact.full, dir.workspace = dir.workspace, 
+                                 BDM = BDM, dl = dl, CV = CV, extrapol = extrapol, extrapol.info = extrapol.info, lme.temp = lme.temp)
+  data.env.lm <- prepro.data$data
+  
+  inputs1 <- map.inputs(dir.env.data = dir.env.data, data.env = data.env.lm)
+  
+  inputs2 <- map.inputs(dir.env.data = dir.env.data, data.env = data.env.lme)
+  
+  
+  
+  map.env.fact.2(inputs1, env.fact, data.env.lm)
+  map.env.fact.2(inputs2, env.fact, data.env.lme)
+  data.diff <- data.env.lm[1:15]
+  data.diff[5:15] <- data.env.lm[5:15] - data.env.lme[5:15]
+  
+  inputs3 <- map.inputs(dir.env.data = dir.env.data, data.env = data.diff)
+  
+  
+  map.env.fact.2(inputs3, env.fact, data.diff)
+  
+}
+
 
 } # closing server braket
 
