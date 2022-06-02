@@ -34,7 +34,7 @@ d <- Sys.Date()    # e.g. 2021-12-17
 # Fit models to entire dataset or perform cross-validation (CV)
 CV <- F # Cross-Validation
 extrapol <- ifelse(CV, FALSE, # If CV is TRUE, then no extrapolation
-                  F # Set to TRUE for extrapolation
+                  T # Set to TRUE for extrapolation
                   )
 extrapol.info <- c(training.ratio = 0.8, 
                    variable = "temperature")
@@ -46,8 +46,8 @@ dl <- F
 if(!CV){ dl <- F } # if it's only fitting, we don't need with or without dataleakage
 
 # Set number of cores for Stat and ML models
-n.cores.splits <-  3 # a core for each split, 3 in our case
-n.cores.stat.models <- 2 # a core for each stat model 2 in our case (UF0, and CF0)
+n.cores.splits <-  1 # a core for each split, 3 in our case
+n.cores.stat.models <- 1 # a core for each stat model 2 in our case (UF0, and CF0)
 
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
@@ -61,13 +61,13 @@ n.chain  <- 2 #2
 all.taxa <- T
 
 # Set analysis 
-server <- T # Run the script on the server (and then use 3 cores for running in parallel)
-run.ann <- F # Run ANN models or not (needs administrative rights)
+server <- F # Run the script on the server (and then use 3 cores for running in parallel)
+run.ann <- T # Run ANN models or not (needs administrative rights)
 analysis.dl <- F
 analysis.ml <- F # Hyperparameter tuning (mainly for RF)
 analysis.ann <- F # Hyperparameter tuning
 analysis.training <- F
-analysis.temp <- F
+
 lme.temp <- T # Select if you want to use the linear mixed effect temperature model or not
 
 # Load libraries ####
@@ -95,6 +95,8 @@ if ( !require("viridis")) {install.packages("viridis", repos="http://cloud.r-pro
 if ( !require("scales") ) { install.packages("scales"); library("scales") } # to look at colors
 if ( !require("reshape2") ) { install.packages("reshape2"); library("reshape2") } # to reshape dataframes
 if ( !require("DiagrammeR")) { install.packages("DiagrammeR"); library("DiagrammeR") } # to plot trees of BCT
+if ( !require("skimr") ) { install.packages("skimr"); library("skimr") } # to show key descriptive stats
+
 
 if ( !require("gt") ) { install.packages("gt"); library("gt") } # to make tables
 
@@ -341,10 +343,6 @@ stat.outputs.transformed <- stat.outputs.transformed[2:1]
 names(stat.outputs.transformed) <- c("hGLM", "chGLM")
 list.stat.mod <- names(stat.outputs.transformed)
 names(list.stat.mod) <- c("#256801", "#59AB2D")
-
-
-# res2 <- stat.outputs[[1]][[1]]
-# res.extracted   <- rstan::extract(res2,permuted=TRUE,inc_warmup=FALSE)
 
 # Machine Learning models ####
 
@@ -832,39 +830,38 @@ cat("List of selected taxa:", sub("Occurrence.", "", select.taxa))
 # ------------------------------------------------
 
 # Comparison of different application case (appcase), e.g. cross-validation and extrapolation/generalization
-
-names.appcase <- c("Cross-validation", "Generalization")
-
-list.df.merged.perf <- list(df.merged.perf.cv, df.merged.perf.extrapol)
-names(list.df.merged.perf) <- names.appcase
-
-# Boxplots standardized deviance
-
-list.plots <- plot.boxplots.compar.appcase(list.df.merged.perf = list.df.merged.perf, list.models = list.models)
-name <- "ModelCompar_Boxplots"
-file.name <- paste0(name, ".pdf")
-print.pdf.plots(list.plots = list.plots, width = 15, height = 8, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-
-# Print a jpeg file
-file.name <- paste0(name, ".png")
-png(paste0(dir.plots.output,info.file.name,file.name), width = 1280, height = 720) # size in pixels (common 16:9 --> 1920ï¿½1080 or 1280ï¿½720)
-print(list.plots[[1]])
-dev.off()
-
-# Standardized deviance vs prevalence
-
-list.plots <- plot.perfvsprev.compar.appcase(list.df.merged.perf = list.df.merged.perf, list.models = list.models, 
-                                             list.taxa = list.taxa, select.taxa = select.taxa)
-name <- "ModelCompar_PerfVSPrev"
-file.name <- paste0(name, ".pdf")
-print.pdf.plots(list.plots = list.plots, width = 15, height = 12, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-
-# Print a jpeg file
-file.name <- paste0(name, ".png")
-png(paste0(dir.plots.output,info.file.name,file.name), width = 1080, height = 864) # size in pixels (common 5:4 --> 1080ï¿½864 )
-print(list.plots[[1]])
-dev.off()
-
+# 
+# names.appcase <- c("Cross-validation", "Generalization")
+# 
+# list.df.merged.perf <- list(df.merged.perf.cv, df.merged.perf.extrapol)
+# names(list.df.merged.perf) <- names.appcase
+# 
+# # Boxplots standardized deviance
+# 
+# list.plots <- plot.boxplots.compar.appcase(list.df.merged.perf = list.df.merged.perf, list.models = list.models)
+# name <- "ModelCompar_Boxplots"
+# file.name <- paste0(name, ".pdf")
+# print.pdf.plots(list.plots = list.plots, width = 15, height = 8, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+# 
+# # Print a jpeg file
+# file.name <- paste0(name, ".png")
+# png(paste0(dir.plots.output,info.file.name,file.name), width = 1280, height = 720) # size in pixels (common 16:9 --> 1920×1080 or 1280×720)
+# print(list.plots[[1]])
+# dev.off()
+# 
+# # Standardized deviance vs prevalence
+# 
+# list.plots <- plot.perfvsprev.compar.appcase(list.df.merged.perf = list.df.merged.perf, list.models = list.models, 
+#                                              list.taxa = list.taxa, select.taxa = select.taxa)
+# name <- "ModelCompar_PerfVSPrev"
+# file.name <- paste0(name, ".pdf")
+# print.pdf.plots(list.plots = list.plots, width = 15, height = 12, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+# 
+# # Print a jpeg file
+# file.name <- paste0(name, ".png")
+# png(paste0(dir.plots.output,info.file.name,file.name), width = 1080, height = 864) # size in pixels (common 5:4 --> 1080×864 )
+# print(list.plots[[1]])
+# dev.off()
 
 # --------------------------------------------------
 
@@ -900,12 +897,16 @@ if(CV | extrapol){
   
 }
 
-temp.data <- centered.data[[1]][,env.fact.full]
-plot.data <- temp.data[!rowSums(temp.data>7),]
 
-p <- plot.boxplots.data(data = plot.data, columns = env.fact)
-p
+# produce table with main infos
+df.summaries <- skim(data[,env.fact]) # produce dataframe containing descriptive statistics for each column
+View(df.summaries)
 
+mosaicplot(table(data$temperature, data$velocity),
+           color = TRUE,
+           xlab = "Species", # label for x-axis
+           ylab = "Size" # label for y-axis
+)
 
 # Individual Cond. Exp. ####
 
@@ -918,14 +919,15 @@ subselect <- 1
 
 data.orig <- data
 
-list.list.plots <- lapply(list.taxa.int[1], FUN= plot.ice.per.taxa, outputs = outputs, data = centered.data[[1]], list.models = list.models, env.fact = env.fact, select.env.fact = env.fact[c(1,2,5)],
+
+
+
+list.list.plots <- lapply(list.taxa.int, FUN= plot.ice.per.taxa, outputs = outputs, data = centered.data[[1]], list.models = list.models, env.fact = env.fact, select.env.fact = env.fact[c(1,2,5)],
                           normalization.data = normalization.data, extrapol = extrapol, no.samples = no.samples, no.steps = no.steps, subselect = subselect)
 
-for (j in 1:no.taxa) {
-    # j = 1
+for (j in 1:no.taxa.int) {
     taxon <- sub("Occurrence.", "", list.taxa.int[j])
     file.name <- paste0("ICE_", no.samples, "samp_", taxon, ".pdf")
-    cat(file.name)
     print.pdf.plots(list.plots = list.list.plots[[j]], width = 8, height = 12, 
                     dir.output = paste0(dir.plots.output, "ICE/"), 
                     info.file.name = info.file.name, file.name = file.name)
@@ -933,13 +935,14 @@ for (j in 1:no.taxa) {
 
 # Response shape ####
 
-list.list.plots <- lapply(select.taxa[1], FUN = plot.rs.taxa.per.factor, outputs, list.models, env.fact, CV, extrapol)
+# list.list.plots <- lapply(select.taxa[1], FUN = plot.rs.taxa.per.factor, outputs, list.models, env.fact, CV, extrapol)
+list.list.plots <- lapply(select.taxa[1], FUN = plot.rs.taxa.per.model, outputs, list.models, env.fact, CV, extrapol)
 
-for (j in 1:length(select.taxa)) {
+
+for (j in 1:length(select.taxa[1])) {
   taxon <- sub("Occurrence.", "", select.taxa[j])
   file.name <- paste0("RS_", taxon, ".pdf")
-  cat(file.name)
-  print.pdf.plots(list.plots = list.list.plots[[j]], width = 10,
+  print.pdf.plots(list.plots = list.list.plots[[j]], width = 8, height = 12,
                   dir.output = paste0(dir.plots.output, "ICE/"),
                   info.file.name = info.file.name, file.name = file.name)
 }
@@ -1072,67 +1075,6 @@ print(list.plots[[1]])
 dev.off()
 print("Producing PDF time:")
 print(proc.time()-ptm)
-
-
-# Comparison temp models
-if(analysis.temp & lme.temp){
-  data.env.lme <- data
-
-  # load dataset based on lm temperature model
-  
-  data.env          <- read.delim(paste0(dir.env.data, file.prefix, file.env.data),header=T,sep="\t", stringsAsFactors=T)
-  
-  data.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.inv.data),header=T,sep="\t", stringsAsFactors=F)
-  prev.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.prev),header=T,sep="\t", stringsAsFactors=F)
-  
-  ## ---- DATA WRANGLING  ----
-  
-  # Select env. factors ####
-  env.fact <- c("temperature",     # Temp
-                "velocity",          # FV
-                "A10m",              # A10m
-                "cow.density",       # LUD
-                "IAR",               # IAR
-                "urban.area",        # Urban
-                "FRI",               # FRI
-                "bFRI",              # bFRI
-                "width.variability") # WV
-  
-  env.fact.full <- c(env.fact,
-                     "temperature2",
-                     "velocity2")
-  
-  
-  # env.fact <- env.fact.full
-  no.env.fact <- length(env.fact)
-  
-  
-  # Preprocess data ####
-  
-  # Remove NAs, normalize data, split data for CV or extrapolation
-  prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv, prev.inv = prev.inv,
-                                 env.fact.full = env.fact.full, dir.workspace = dir.workspace, 
-                                 BDM = BDM, dl = dl, CV = CV, extrapol = extrapol, extrapol.info = extrapol.info, lme.temp = lme.temp)
-  data.env.lm <- prepro.data$data
-  
-  inputs1 <- map.inputs(dir.env.data = dir.env.data, data.env = data.env.lm)
-  
-  inputs2 <- map.inputs(dir.env.data = dir.env.data, data.env = data.env.lme)
-  
-  
-  
-  map.env.fact.2(inputs1, env.fact, data.env.lm)
-  map.env.fact.2(inputs2, env.fact, data.env.lme)
-  data.diff <- data.env.lm[1:15]
-  data.diff[5:15] <- data.env.lm[5:15] - data.env.lme[5:15]
-  
-  inputs3 <- map.inputs(dir.env.data = dir.env.data, data.env = data.diff)
-  
-  
-  map.env.fact.2(inputs3, env.fact, data.diff)
-  
-}
-
 
 } # closing server braket
 

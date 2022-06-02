@@ -1090,17 +1090,21 @@ plot.rs.taxa.per.factor <- function(taxa, outputs, list.models, env.fact, CV, ex
 
 plot.rs.taxa.per.model <- function(taxa, outputs, list.models, env.fact, CV, extrapol){
   
+  # taxa <- select.taxa[1]
   taxon <- sub("Occurrence.", "", taxa)
   cat("Constructing ggplot for:", taxon, "\n")
   
-  temp.list.models <- c("Observations", list.models)
+  # temp.list.models <- c("Observations", list.models)
+  temp.list.models <- list.models
   
-  # Make list of plots per model to be returned at the end
-  list.plots <- vector(mode = 'list', length = length(temp.list.models))
-  names(list.plots) <- temp.list.models
+  # Make list of plots per fact to be returned at the end
+  list.plots <- vector(mode = 'list', length = length(env.fact))
+  names(list.plots) <- env.fact
+  
+  plot.data0 <- data.frame()
   
   for (l in temp.list.models) {
-    # l <- temp.list.models[1]
+    # l <- temp.list.models[2]
     cat("For model", l, "\n")
     m <- "training set"
     
@@ -1115,7 +1119,7 @@ plot.rs.taxa.per.model <- function(taxa, outputs, list.models, env.fact, CV, ext
       plot.data1$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities", m)]][,"present"]
     }
     plot.data1[,env.fact] <- as.data.frame(sweep(sweep(plot.data1[,env.fact], 2, normalization.data$SD[env.fact], FUN="*"), 2, normalization.data$Mean[env.fact], FUN = "+"))
-    plot.data1 <- gather(plot.data1, key = factors, value = value, -SiteId, -SampId, -X, -Y, -taxa, -pred)
+    plot.data1 <- gather(plot.data1, key = factor, value = value, -SiteId, -SampId, -X, -Y, -taxa, -pred)
     
     if(CV | extrapol){
       plot.data1$set <- "Training"
@@ -1132,11 +1136,22 @@ plot.rs.taxa.per.model <- function(taxa, outputs, list.models, env.fact, CV, ext
         plot.data2$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities", m)]][,"present"]
       }
       plot.data2[,env.fact] <- as.data.frame(sweep(sweep(plot.data2[,env.fact], 2, normalization.data$SD[env.fact], FUN="*"), 2, normalization.data$Mean[env.fact], FUN = "+"))
-      plot.data2 <- gather(plot.data2, key = factors, value = value, -SiteId, -SampId, -X, -Y, -taxa, -pred)
+      plot.data2 <- gather(plot.data2, key = factor, value = value, -SiteId, -SampId, -X, -Y, -taxa, -pred)
       plot.data2$set <- "Testing"
       
-      plot.data <- bind_rows(plot.data1, plot.data2)
+      plot.data3 <- bind_rows(plot.data1, plot.data2)
+    } else {
+      plot.data3 <- plot.data1
     }
+    plot.data3$model <- l
+    
+    plot.data0 <- bind_rows(plot.data0, plot.data3)
+  }
+  
+  for (k in env.fact) {
+    # k <- env.fact[1]
+    plot.data <- filter(plot.data0, factor == k)
+    plot.data$model <- as.factor(plot.data$model)
     
     g <- ggplot(data = plot.data, aes_string(x = "value", y = "pred", color = taxa))
     if(CV | extrapol){
@@ -1147,27 +1162,33 @@ plot.rs.taxa.per.model <- function(taxa, outputs, list.models, env.fact, CV, ext
       g <- g + geom_point(alpha = 0.35)
     }
     g <- g + theme_bw(base_size=15)
-    g <- g + facet_wrap( ~ factors, scales = "free_x", 
+    g <- g + facet_wrap( ~ model, scales = "free_x", 
                          #labeller=label_parsed, 
-                         strip.position="bottom")
-    
+                         strip.position="top",
+                         ncol = 2)
+    if(extrapol & k == "temperature"){
+      split.value <- max(plot.data[which(plot.data[,"set"] == "Training"),"value"])
+      g <- g + geom_hline(yintercept = split.value, linetype='dashed', col = 'grey30')
+    }
+    g <- g + theme(strip.background = element_rect(fill = "white"))
     g <- g + scale_color_manual(name = "Observation", values=c(absent = "#c2141b", present = "#007139"), labels = c("Absence", "Presence"))
     g <- g + labs(title = paste("Probability of occurrence vs explanatory variables"),
-                  subtitle = paste(l, "-",paste(taxon)),
-                  x = "Explanatory variable",
+                  subtitle = paste(k, "-",paste(taxon)),
+                  x = "Model",
                   y = "Predicted probability of occurrence",
                   color = "Observation")
     g <- g + theme(strip.background = element_blank(),
                    strip.placement = "outside"# ,
                    # plot.title = element_text(size=10)
-                   )
+    )
     g <- g + ylim(0,1)
     g <- g + guides(colour = guide_legend(override.aes = list(size=6)))
-  
-    list.plots[[l]] <- g
+    
+    list.plots[[k]] <- g
   }
   
   return(list.plots)
+  
 }
 
 # Plot multiple predictors PDP
