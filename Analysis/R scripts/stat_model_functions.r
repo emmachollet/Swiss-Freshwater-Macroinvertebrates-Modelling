@@ -1,4 +1,4 @@
-stat_mod_cv <- function (data.splits, CV, extrapol, comm.corr, sampsize, n.chain){
+stat_mod_cv <- function (data.splits, CV, ODG, comm.corr, sampsize, n.chain){
     
     ##To test
     #comm.corr <- T
@@ -612,7 +612,7 @@ stat_mod_cv <- function (data.splits, CV, extrapol, comm.corr, sampsize, n.chain
         x%*%beta.taxa.maxpost
     
     p.maxpost <- 1/(1+exp(-z))
-    if (CV == T | extrapol == T){
+    if (CV == T | ODG == T){
         train.y <- occur.taxa
         train.n.present <- apply(train.y, 2, sum, na.rm = TRUE)
         train.n.samples <- apply(train.y, 2, function(j){sum(!is.na(j))})

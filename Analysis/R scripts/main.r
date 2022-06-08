@@ -31,23 +31,24 @@ file.prefix <- ifelse(BDM, "BDM_", "All_")
 # Set date for file names
 d <- Sys.Date()    # e.g. 2021-12-17
 
-# Fit models to entire dataset or perform cross-validation (CV)
-CV <- T # Cross-Validation
-extrapol <- ifelse(CV, FALSE, # If CV is TRUE, then no extrapolation
-                  F # Set to TRUE for extrapolation
+
+# Fit models to entire dataset or perform cross-validation (CV) or out-of-domain generalization (ODG)
+CV <- F # Cross-Validation
+ODG <- ifelse(CV, FALSE, # If CV is TRUE, then no extrapolation
+                  T # Set to TRUE for extrapolation
                   )
-extrapol.info <- c(training.ratio = 0.8, 
+ODG.info <- c(training.ratio = 0.8, 
                    variable = "temperature")
                    # variable = "IAR")
 
-#extrapol = T
+#ODG = T
 # Set if we allow data leakage (changes the way data is normalized)
 dl <- F
 if(!CV){ dl <- F } # if it's only fitting, we don't need with or without dataleakage
 
 # Set number of cores for Stat and ML models
-n.cores.splits <-  3 # a core for each split, 3 in our case
-n.cores.stat.models <- 2 # a core for each stat model 2 in our case (UF0, and CF0)
+n.cores.splits <-  1 # a core for each split, 3 in our case
+n.cores.stat.models <- 1 # a core for each stat model 2 in our case (UF0, and CF0)
 
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
@@ -61,13 +62,13 @@ n.chain  <- 2 #2
 all.taxa <- T
 
 # Set analysis 
-server <- T # Run the script on the server (and then use 3 cores for running in parallel)
-run.ann <- F # Run ANN models or not (needs administrative rights)
+server <- F # Run the script on the server (and then use 3 cores for running in parallel)
+run.ann <- T # Run ANN models or not (needs administrative rights)
 analysis.dl <- F
 analysis.ml <- F # Hyperparameter tuning (mainly for RF)
 analysis.ann <- F # Hyperparameter tuning
 analysis.training <- F
-analysis.temp <- F
+
 lme.temp <- T # Select if you want to use the linear mixed effect temperature model or not
 
 # Load libraries ####
@@ -83,6 +84,8 @@ if ( !require("parallel") ) { install.packages("parallel"); library("parallel") 
 if ( !require("dplyr") ) { install.packages("dplyr"); library("dplyr") } # to sort, join, merge data
 if ( !require("tidyr") ) { install.packages("tidyr"); library("tidyr") } # to sort, join, merge data
 if ( !require("splitTools") ) { install.packages("splitTools"); library("splitTools") } # to split the data
+if ( !require("vtable") ) { install.packages("vtable"); library("vtable") } # to make table with summary statistics
+
 
 # Plots
 if ( !require("ggplot2") ) { install.packages("ggplot2"); library("ggplot2") } # to do nice plots
@@ -95,6 +98,8 @@ if ( !require("viridis")) {install.packages("viridis", repos="http://cloud.r-pro
 if ( !require("scales") ) { install.packages("scales"); library("scales") } # to look at colors
 if ( !require("reshape2") ) { install.packages("reshape2"); library("reshape2") } # to reshape dataframes
 if ( !require("DiagrammeR")) { install.packages("DiagrammeR"); library("DiagrammeR") } # to plot trees of BCT
+if ( !require("skimr") ) { install.packages("skimr"); library("skimr") } # to show key descriptive stats
+
 
 if ( !require("gt") ) { install.packages("gt"); library("gt") } # to make tables
 
@@ -198,9 +203,9 @@ no.env.fact <- length(env.fact)
 # Remove NAs, normalize data, split data for CV or extrapolation
 prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv, prev.inv = prev.inv,
                                  env.fact.full = env.fact.full, dir.workspace = dir.workspace, 
-                                 BDM = BDM, dl = dl, CV = CV, extrapol = extrapol, extrapol.info = extrapol.info, lme.temp = lme.temp)
+                                 BDM = BDM, dl = dl, CV = CV, ODG = ODG, ODG.info = ODG.info, lme.temp = lme.temp)
 data <- prepro.data$data
-if(CV | extrapol){ splits <- prepro.data$splits
+if(CV | ODG){ splits <- prepro.data$splits
   # rem.taxa <- prepro.data$rem.taxa # if we want to check if same taxa in each split
   list.splits <- names(splits)
   no.splits <- length(list.splits)
@@ -285,7 +290,7 @@ stat.outputs <- mclapply(comm.corr.options, mc.cores = n.cores.stat.models, func
                                 sampsize,"iterations_",
                                 ifelse(comm.corr,"CF0_","UF0_"),
                                 ifelse(CV, "CV_",
-                                       ifelse(extrapol, paste(c("extrapol", extrapol.info, "_"), collapse = ""),
+                                       ifelse(ODG, paste(c("ODG", paste(c(ODG.info,"_"), collapse = "")), collapse = "_"),
                                               "FIT_")),
                                 ifelse(dl, "DL_", "no_DL_"),
                                 ifelse(lme.temp, "lme_temp",""))
@@ -308,9 +313,9 @@ stat.outputs <- mclapply(comm.corr.options, mc.cores = n.cores.stat.models, func
 
       cat("\nNo statistical model output exist yet, we produce it and save it in", file.name)
 
-      if(CV == T | extrapol == T){
+      if(CV == T | ODG == T){
 
-        stat.output <- mclapply(centered.data, mc.cores = n.cores.splits, FUN = stat_mod_cv, CV, extrapol, comm.corr, sampsize, n.chain)
+        stat.output <- mclapply(centered.data, mc.cores = n.cores.splits, FUN = stat_mod_cv, CV, ODG, comm.corr, sampsize, n.chain)
 
         cat("\nSaving output of statistical models in", file.name)
         saveRDS(stat.output, file = file.name, version = 2) #version two here is to ensure compatibility across R versions
@@ -318,7 +323,7 @@ stat.outputs <- mclapply(comm.corr.options, mc.cores = n.cores.stat.models, func
       } else {
         # apply temporary on training data of Split1, later take whole dataset centered etc
 
-        stat.output <- stat_mod_cv(centered.data, CV, extrapol, comm.corr, sampsize, n.chain = n.chain)
+        stat.output <- stat_mod_cv(centered.data, CV, ODG, comm.corr, sampsize, n.chain = n.chain)
         cat("\nSaving output of statistical models in", file.name)
         saveRDS(stat.output, file = file.name, version = 2)
         }
@@ -331,20 +336,16 @@ print(paste("Simulation time of statistical model "))
 print(proc.time()-ptm)
 
 
-if(!server){
+# if(!server){
 
 # Process output from stat models to fit structure of ml models (makes plotting easier)
-stat.outputs.transformed <- transfrom.stat.outputs(stat.outputs = stat.outputs, list.taxa = list.taxa, CV = CV, extrapol = extrapol)
+stat.outputs.transformed <- transfrom.stat.outputs(stat.outputs = stat.outputs, list.taxa = list.taxa, CV = CV, ODG = ODG)
 stat.outputs.transformed <- stat.outputs.transformed[2:1]
 
 # Make vector statistical models
 names(stat.outputs.transformed) <- c("hGLM", "chGLM")
 list.stat.mod <- names(stat.outputs.transformed)
 names(list.stat.mod) <- c("#256801", "#59AB2D")
-
-
-# res2 <- stat.outputs[[1]][[1]]
-# res.extracted   <- rstan::extract(res2,permuted=TRUE,inc_warmup=FALSE)
 
 # Machine Learning models ####
 
@@ -408,36 +409,74 @@ for (n in 1:length(temp.list.algo)) {
   }
 }
 
+
+# Check if we have problem with some ml performance (>1.5)
+if(CV|ODG){check.outputs.perf(outputs.cv = ml.outputs.cv, list.taxa = list.taxa, CV = CV, ODG = ODG)}
+
 print(paste("Simulation time of different models ", info.file.ml.name))
 print(proc.time()-ptm)
 
+source("ml_model_functions.r")
+
 if(analysis.ml){
-  if(CV){
-    # Try to regularize RF ####
+  if(CV|ODG){
+    # # Try to regularize RF
+    # 
+    # # mtry.vect <- c(1,2,3,4,8)
+    # # mtry.vect <- c(1)
+    # # names(mtry.vect) <- paste("rf_", mtry.vect, "mtry", sep = "")
+    # 
+    # list.tuned.grid <- list()
+    # tuned.grid <- expand.grid(mtry = c(1,2), coefReg = c(1), coefImp = c(0, 0.5))
+    # for (n in 1:nrow(tuned.grid)) {
+    #   list.tuned.grid[[n]] <- tuned.grid[n,]
+    #   names(list.tuned.grid)[[n]] <- paste(c("RRF_", paste(tuned.grid[n,], colnames(tuned.grid), sep="")), collapse = "")
+    # }
+    # list.tuned.algo <- names(list.tuned.grid)
+    # no.tuned.algo <- length(list.tuned.algo)
+    # names(list.tuned.algo) <- rainbow(no.tuned.algo)
+    # print(list.tuned.algo)
+    # 
+    # tuned.ml.outputs.cv <- lapply(centered.data.factors, function(split){
+    #   # split <- centered.data.factors[[1]]
+    #   lapply(list.tuned.grid, FUN = apply.tuned.ml.model, splitted.data = split, algorithm = "RRF", list.taxa = list.taxa,
+    #          env.fact = env.fact, CV = CV, prev.inv = prev.inv)})
 
-    # mtry.vect <- c(1,2,3,4,8)
-    # mtry.vect <- c(1)
-    # names(mtry.vect) <- paste("rf_", mtry.vect, "mtry", sep = "")
-
-    list.tuned.grid <- list()
-    tuned.grid <- expand.grid(mtry = c(1,2), coefReg = c(1), coefImp = c(0, 0.5))
-    for (n in 1:nrow(tuned.grid)) {
-      list.tuned.grid[[n]] <- tuned.grid[n,]
-      names(list.tuned.grid)[[n]] <- paste(c("RRF_", paste(tuned.grid[n,], colnames(tuned.grid), sep="")), collapse = "")
+    # Check randomness of BCT and RF
+    temp.list.algo <- c(
+                        "ada" , # Boosted Classification Tree
+                        "rf"  # Random Forest
+                        )
+    seeds <- c(
+               # 2020, 
+               # 2021, 
+               # 2022, 
+               2023, 
+               2024)
+    
+    grid.algo.seeds <- expand.grid("algorithm" = temp.list.algo, "seed" = seeds)
+    grid.algo.seeds$algorithm <- as.character(grid.algo.seeds$algorithm)
+    grid.algo.seeds$seed <- as.integer(grid.algo.seeds$seed)
+    no.algo.seeds <- nrow(grid.algo.seeds)
+    list.algo.seeds <- vector("list", no.algo.seeds)
+    for (n in 1:no.algo.seeds) {
+      list.algo.seeds[[n]] <- grid.algo.seeds[n,]
+      names(list.algo.seeds)[n] <- paste(grid.algo.seeds[n,], collapse = "")
     }
-    list.tuned.algo <- names(list.tuned.grid)
-    no.tuned.algo <- length(list.tuned.algo)
-    names(list.tuned.algo) <- rainbow(no.tuned.algo)
-    print(list.tuned.algo)
-
-    tuned.ml.outputs.cv <- lapply(centered.data.factors, function(split){
+    
+    seeds.ml.outputs.cv <- lapply(centered.data.factors, function(split){
       # split <- centered.data.factors[[1]]
-      lapply(list.tuned.grid, FUN = apply.tuned.ml.model, splitted.data = split, algorithm = "RRF", list.taxa = list.taxa,
-             env.fact = env.fact, CV = CV, prev.inv = prev.inv)})
-
+      lapply(list.algo.seeds, function(algo.seed){apply.tuned.ml.model(splitted.data = split, algorithm = algo.seed[,"algorithm"], list.taxa = list.taxa[c(6,7)],
+                                                                 env.fact = env.fact, CV = CV, ODG = ODG, prev.inv = prev.inv, seed = algo.seed[,"seed"])
+      })
+    })
+    
+    
+    
     info.file.ml.name <-  paste0("ML_model_",
                                  file.prefix,
-                                 no.tuned.algo, "tunedRRF_",
+                                 no.algo.seeds, "AlgSeed",
+                                 # no.tuned.algo, "tunedRRF_",
                                  no.taxa, "taxa_",
                                  ifelse(CV, "CV_", "FIT_"),
                                  ifelse(dl, "DL_", "no_DL_"),
@@ -516,7 +555,7 @@ info.file.ann.name <-  paste0("ANN_model_",
                               ifelse(analysis.ann, "RandAnalysis_", ""),
                               no.taxa, "taxa_",
                               ifelse(CV, "CV_",
-                                     ifelse(extrapol, paste(c("extrapol", extrapol.info, "_"), collapse = ""),
+                                     ifelse(ODG, paste(c("ODG", paste(c(ODG.info,"_"), collapse = "")), collapse = "_"),
                                             "FIT_")),
                               ifelse(dl, "DL_", "no_DL_"),
                               ifelse(lme.temp, "lme_temp", ""))
@@ -526,7 +565,7 @@ cat(file.name)
 
 if( file.exists(file.name) == T ){
   cat("The file already exists. Reading it", file.name)
-  if(CV | extrapol){
+  if(CV | ODG){
     ann.outputs.cv <- readRDS(file = file.name)
   } else {
     ann.outputs <- readRDS(file = file.name)
@@ -535,7 +574,7 @@ if( file.exists(file.name) == T ){
     if(run.ann){
 
     cat("This ANN output doesn't exist yet, we produce it and save it in", file.name)
-    if(CV | extrapol){
+    if(CV | ODG){
       ann.outputs.cv <- lapply(centered.data, function(split){
         lapply(list.hyper.param, FUN = build_and_train_model, split = split,
                env.fact = env.fact,
@@ -543,7 +582,7 @@ if( file.exists(file.name) == T ){
                learning.rate = learning.rate,
                batch.size = batch.size,
                CV = CV,
-               extrapol = extrapol)
+               ODG = ODG)
       })
       saveRDS(ann.outputs.cv, file = file.name)
 
@@ -554,7 +593,7 @@ if( file.exists(file.name) == T ){
                             learning.rate = learning.rate,
                             batch.size = batch.size,
                             CV = CV,
-                            extrapol = extrapol)
+                            ODG = ODG)
       saveRDS(ann.outputs, file = file.name)
     }
     } else {
@@ -586,7 +625,7 @@ print(list.algo)
 if(length(list.algo) != no.algo){ cat("The new list of ML algo dosen't match with the original one.") }
 no.algo <- length(list.algo)
 
-if(CV | extrapol){
+if(CV | ODG){
   # Merge all CV outputs in one
   outputs.cv <- vector(mode = "list", length = no.splits)
   names(outputs.cv) <- list.splits
@@ -669,9 +708,6 @@ remove(temp.outputs)
 # outputs <- outputs[c("glm_lm_temp", "glm_lme_temp", "rf_lm_temp", "rf_lme_temp")]
 #saveRDS(outputs, file = paste0(dir.models.output,"temp_comp_2models.rds"), version = 2)
 
-
-# list.models <- names(outputs)
-# no.models <- length(list.models)
 # ECR: For analysis
 # To analyze ANN
 # list.ann <- c(names(ann.outputs.cv[[1]]), names(ann.outputs.cv2[[1]]))
@@ -682,7 +718,7 @@ remove(temp.outputs)
 # list.models <- c(list.algo, list.tuned.algo)
 
 # Make final list of models
-if(CV|extrapol){
+if(CV|ODG){
   if( exists("stat.outputs.transformed") & exists("ann.outputs.cv") ){
     if(all(names(outputs.cv$Split1) %in% c(list.algo, list.stat.mod, list.ann))){
       vec1 <- names(outputs.cv$Split1)
@@ -721,10 +757,10 @@ info.file.name <- paste0(file.prefix,
                          no.taxa, "taxa_",
                          # no.env.fact, "envfact_",
                          ifelse(CV, "CV_",
-                                ifelse(extrapol, paste(c("extrapol", extrapol.info, "_"), collapse = ""),
+                                ifelse(ODG, paste(c("ODG", paste(c(ODG.info,"_"), collapse = "")), collapse = "_"),
                                        "FIT_")),
                          ifelse(dl, "DL_", "no_DL_"),
-                         ifelse(lme.temp, "lme_temp", ""),
+                         ifelse(lme.temp, "lme_temp_", ""),
                          "")
 cat(info.file.name)
 
@@ -732,39 +768,39 @@ source("utilities.r")
 
 # Produce final outputs with mean performance across splits
 # ECR: I will fix CF0 soon ####
-if(CV | extrapol){
+if(CV | ODG){
     # Make final outputs as list
     # outputs <- make.final.outputs.cv(outputs.cv = outputs.cv, list.models = list.models, list.taxa = list.taxa)
 
     # Make final outputs as tables
-    df.cv <- make.df.outputs(outputs = CV.outputs.cv, 
+    df.cv <- make.df.outputs(outputs = outputs.cv, 
                              list.models = list.models,
                              list.taxa = list.taxa, list.splits = list.splits,
-                             null.model = null.model, prev.inv = prev.inv, CV = CV, extrapol = extrapol)
+                             null.model = null.model, prev.inv = prev.inv, CV = CV, ODG = ODG)
     df.pred.perf.cv <- df.cv$`Table predictive performance CV`
     df.pred.perf <- df.cv$`Table predictive performance`
     df.fit.perf.cv <- df.cv$`Table fit performance CV`
     df.fit.perf <- df.cv$`Table fit performance`
-    df.merged.perf <- df.cv$`Table merged`
+    df.perf <- df.cv$`Table merged`
     remove(df.cv)
 } else {
     # Make final outputs as tables
-    df.fit.perf <- make.df.outputs(outputs = outputs, list.models = list.models,
+    df.perf <- make.df.outputs(outputs = outputs, list.models = list.models,
                              list.taxa = list.taxa, list.splits = list.splits,
-                             null.model = null.model, prev.inv = prev.inv, CV = CV, extrapol = extrapol)
+                             null.model = null.model, prev.inv = prev.inv, CV = CV, ODG = ODG)
 }
-#saveRDS(df.fit.perf, file = paste0(dir.models.output,"rf_glm_lm.rds"), version = 2)
+#saveRDS(df.perf, file = paste0(dir.models.output,"rf_glm_lm.rds"), version = 2)
 
-# df.merged.perf.extrapol <- df.merged.perf
-# df.merged.perf.cv <- df.merged.perf
+# df.perf.ODG <- df.perf
+# df.perf.cv <- df.perf
 
 # # comparison of lme
 # install.packages("arsenal")
 # library(arsenal)
 
-summary(lme.df.merged.perf$expl.pow_RF.pred - df.merged.perf$expl.pow_RF.pred)
-summary(comparedf(lme.df.merged.perf, df.merged.perf))
-plot(lme.df.merged.perf$expl.pow_RF.pred - df.merged.perf$expl.pow_RF.pred)
+# summary(lme.df.perf$expl.pow_RF.pred - df.perf$expl.pow_RF.pred)
+# summary(comparedf(lme.df.perf, df.perf))
+# plot(lme.df.perf$expl.pow_RF.pred - df.perf$expl.pow_RF.pred)
 
 
 ## ---- PLOTS ----
@@ -776,96 +812,132 @@ source("plot_functions.r")
 
 # Models comparison ####
 
-source("utilities.r") # JW: Why do we source the utilities all the time
 
 # Table with performance
 
-# Make csv file
-file.name <- paste(dir.workspace, info.file.name,"TableResults",".csv", sep="")
-if(CV|extrapol){
-  write.table(df.merged.perf, file.name, sep=";", row.names=F, col.names=TRUE)
-} else {
-  write.table(df.fit.perf, file.name, sep=";", row.names=F, col.names=TRUE)
-}
-# HTML file with numbers
-file.name <- paste0(info.file.name, "ModelsCompar_")
+# Make csv file with performance table
+file.name <- paste(dir.workspace, info.file.name, "TableResults", ".csv", sep="")
+cat(file.name)
+write.table(df.perf, file.name, sep=";", row.names=F, col.names=TRUE)
 
-# tab.model.comp <- make.table(df.pred.perf = df.pred.perf, df.fit.perf = df.fit.perf, list.models = list.models)
+# Make csv file with summary statistics
+file.name <- paste(dir.workspace, info.file.name, "TableSummaryStat", ".csv", sep="")
+cat(file.name)
+df.summary <- sumtable(df.perf, out='return')
+write.table(df.summary, file.name, sep=";", row.names=F, col.names=TRUE)
+
+sumtable(df.perf, file = file.name, out = "csv")
+
+# Read in other result table to plot comparison
+
+if(CV){
+  df.perf.cv <- df.perf
+} else if(ODG){
+  df.perf.ODG <- df.perf
+}
+
+CV <- !CV
+ODG <- !ODG
+
+temp.info.file.name <- paste0(file.prefix,
+                         no.models, "models_",
+                         # no.models, "tunedRRF_",
+                         ifelse(analysis.ann, "AnalysisANN_", ""),
+                         ifelse(analysis.ml, "AnalysisML_", ""),
+                         no.taxa, "taxa_",
+                         # no.env.fact, "envfact_",
+                         ifelse(CV, "CV_",
+                                ifelse(ODG, paste(c("ODG", paste(c(ODG.info,"_"), collapse = "")), collapse = "_"),
+                                       "FIT_")),
+                         ifelse(dl, "DL_", "no_DL_"),
+                         ifelse(lme.temp, "lme_temp_", ""),
+                         "")
+cat(temp.info.file.name)
+
+if(CV){
+  df.perf.cv <- read.csv(paste(dir.workspace, temp.info.file.name, "TableResults", ".csv", sep=""), header=TRUE, sep=";", stringsAsFactors=FALSE)
+} else if(ODG){
+  df.perf.ODG <- read.csv(paste(dir.workspace, temp.info.file.name, "TableResults", ".csv", sep=""), header=TRUE, sep=";", stringsAsFactors=FALSE)
+}
+
+CV <- !CV
+ODG <- !ODG
+
+# # HTML file with numbers
+# file.name <- paste0(info.file.name, "ModelsCompar_")
+
+# tab.model.comp <- make.table(df.pred.perf = df.pred.perf, df.perf = df.perf, list.models = list.models)
 # gtsave(data = tab.model.comp, filename = paste0(file.name, "Table_forAll.html"), path =  dir.plots.output)
 
-# tab.model.comp.species <- make.table.species(df.merged.perf = df.merged.perf, list.models = list.models)
+# tab.model.comp.species <- make.table.species(df.perf = df.perf, list.models = list.models)
 # gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTaxonforAll.html"), path =  dir.plots.output)
 
-# tab.model.comp.species <- make.table.species.rearranged(df.merged.perf = df.merged.perf, list.models = list.models)
+# tab.model.comp.species <- make.table.species.rearranged(df.perf = df.perf, list.models = list.models)
 # gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTaxonperModel.html"), path =  dir.plots.output)
 #
-# tab.model.comp.species <- make.table.species.rearranged.order(df.merged.perf = df.merged.perf, list.models = list.models)
+# tab.model.comp.species <- make.table.species.rearranged.order(df.perf = df.perf, list.models = list.models)
 # gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTaxonperModel_OrderedbyDiff.html"), path =  dir.plots.output)
 
 # Reorder performance dataframe according to expl.pow of RF and select taxa with intermediate prevalence
-if(CV|extrapol){
-  temp.df.merged <- df.merged.perf[,which(grepl("expl.pow_", colnames(df.merged.perf)) & grepl("pred", colnames(df.merged.perf)))]
-  colnames(temp.df.merged) <- list.models
-  temp.df.merged$Taxa <- df.merged.perf$Taxa
-  temp.df.merged <- arrange(temp.df.merged, desc(RF))
-  temp.df.merged <- temp.df.merged[which(temp.df.merged$Taxa %in% list.taxa.int),]
-  select.taxa <- c(temp.df.merged$Taxa[1:3], "Occurrence.Psychodidae")
-} else {
-  temp.df.fit <- arrange(df.fit.perf, desc(expl.pow_RF))
-  temp.df.fit <- temp.df.fit[which(temp.df.fit$Taxa %in% list.taxa.int),]
-  select.taxa <- c(temp.df.fit$Taxa[1:3], "Occurrence.Psychodidae")
-}
-
+temp.df <- df.perf[,which(grepl("expl.pow_", colnames(df.perf)) & grepl("pred", colnames(df.perf)))]
+colnames(temp.df) <- list.models
+temp.df$Taxa <- df.perf$Taxa
+temp.df <- arrange(temp.df, desc(RF))
+temp.df <- temp.df[which(temp.df$Taxa %in% list.taxa.int),]
+select.taxa <- c(temp.df$Taxa[1:3], "Occurrence.Psychodidae")
 cat("List of selected taxa:", sub("Occurrence.", "", select.taxa))
 # select.taxa <- "Occurrence.Gammaridae"
 # select.taxa <- "Occurrence.Psychodidae"
 # select.taxa <- c("Occurrence.Gammaridae", "Occurrence.Psychodidae")
 
-# PDF file with colors
-if(CV){
-        # Tables prediction
-        list.plots1 <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
-        list.plots2 <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
-        list.plots3 <- plot.df.perf(df.perf = temp.df.merged, list.models = list.models, list.taxa = list.taxa, CV,
-                                   title = "Comparison likelihood ratio")
-
-        list.plots <- append(append(list.plots1, list.plots2), list.plots3)
-        name <- "VisualTablesResults"
-        file.name <- paste0(name, ".pdf")
-        print.pdf.plots(list.plots = list.plots, width = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
-
-        # if(dl){
-        # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models)
-        # }
-    } else {
-        list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV)
-}
+# # PDF file with colors
+# if(CV){
+#         # Tables prediction
+#         list.plots1 <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
+#         list.plots2 <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
+#         list.plots3 <- plot.df.perf(df.perf = temp.df.merged, list.models = list.models, list.taxa = list.taxa, CV,
+#                                    title = "Comparison likelihood ratio")
+# 
+#         list.plots <- append(append(list.plots1, list.plots2), list.plots3)
+#         name <- "VisualTablesResults"
+#         file.name <- paste0(name, ".pdf")
+#         print.pdf.plots(list.plots = list.plots, width = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+# 
+#         # if(dl){
+#         # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models)
+#         # }
+#     } else {
+#         list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV)
+# }
 
 # ------------------------------------------------
+
+source("plot_functions.r")
+
 
 # Comparison of different application case (appcase), e.g. cross-validation and extrapolation/generalization
 
 names.appcase <- c("Cross-validation", "Generalization")
 
-list.df.merged.perf <- list(df.merged.perf.cv, df.merged.perf.extrapol)
-names(list.df.merged.perf) <- names.appcase
+list.df.perf <- list(df.perf.cv, df.perf.ODG)
+names(list.df.perf) <- names.appcase
 
 # Boxplots standardized deviance
 
-list.plots <- plot.boxplots.compar.appcase(list.df.merged.perf = list.df.merged.perf, list.models = list.models)
+list.plots <- plot.boxplots.compar.appcase(list.df.perf = list.df.perf, list.models = list.models)
 name <- "ModelCompar_Boxplots"
 file.name <- paste0(name, ".pdf")
 print.pdf.plots(list.plots = list.plots, width = 15, height = 8, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
 
 # Print a jpeg file
 file.name <- paste0(name, ".png")
-png(paste0(dir.plots.output,info.file.name,file.name), width = 1280, height = 720) # size in pixels (common 16:9 --> 1920ï¿½1080 or 1280ï¿½720)
+png(paste0(dir.plots.output,info.file.name,file.name), width = 1280, height = 720) # size in pixels (common 16:9 --> 1920×1080 or 1280×720)
 print(list.plots[[1]])
 dev.off()
 
 # Standardized deviance vs prevalence
 
-list.plots <- plot.perfvsprev.compar.appcase(list.df.merged.perf = list.df.merged.perf, list.models = list.models, 
+list.plots <- plot.perfvsprev.compar.appcase(list.df.perf = list.df.perf, list.models = list.models,
                                              list.taxa = list.taxa, select.taxa = select.taxa)
 name <- "ModelCompar_PerfVSPrev"
 file.name <- paste0(name, ".pdf")
@@ -873,17 +945,16 @@ print.pdf.plots(list.plots = list.plots, width = 15, height = 12, dir.output = d
 
 # Print a jpeg file
 file.name <- paste0(name, ".png")
-png(paste0(dir.plots.output,info.file.name,file.name), width = 1080, height = 864) # size in pixels (common 5:4 --> 1080ï¿½864 )
+png(paste0(dir.plots.output,info.file.name,file.name), width = 1080, height = 864) # size in pixels (common 5:4 --> 1080×864 )
 print(list.plots[[1]])
 dev.off()
-
 
 # --------------------------------------------------
 
 
 # Performance against prevalence and boxplots
 
-list.plots <- model.comparison(df.merged.perf = df.merged.perf, list.models = list.models, CV = CV, extrapol = extrapol, select.taxa = select.taxa)
+list.plots <- model.comparison(df.perf = df.perf, list.models = list.models, CV = CV, ODG = ODG, select.taxa = select.taxa)
 name <- "PredFitModelsCompar_Boxplots"
 file.name <- paste0(name, ".pdf")
 print.pdf.plots(list.plots = list.plots, width = 15, height = 6, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
@@ -903,19 +974,25 @@ print.pdf.plots(list.plots = list.plots, width = 12, dir.output = dir.plots.outp
 
 # Plots specifically related to trained models (and not to CV)
 
-
-if(CV | extrapol){
+if(CV | ODG){
   # ECR: For ML analysis, if CV = T, take just the first split for trained models analysis (instead of running everything for CV=F, i.e. FIT, again)
   outputs <- outputs.cv[[1]]
   normalization.data.cv <- normalization.data
-  
-  # check with centered data
-  
-  # normalization.data.extrapol <- normalization.data
-  
+  # normalization.data.ODG <- normalization.data
   normalization.data <- normalization.data.cv[[1]]
   
 }
+
+
+# produce table with main infos
+df.summaries <- skim(data[,env.fact]) # produce dataframe containing descriptive statistics for each column
+View(df.summaries)
+
+mosaicplot(table(data$temperature, data$velocity),
+           color = TRUE,
+           xlab = "Species", # label for x-axis
+           ylab = "Size" # label for y-axis
+)
 
 # Individual Cond. Exp. ####
 
@@ -928,12 +1005,13 @@ subselect <- 1
 
 data.orig <- data
 
-list.list.plots <- lapply(select.taxa[1], FUN= plot.ice.per.taxa, outputs = outputs, data = centered.data[[1]], list.models = list.models, env.fact = env.fact, select.env.fact = env.fact[1],
-                          normalization.data = normalization.data, extrapol = extrapol, no.samples = no.samples, no.steps = no.steps, subselect = subselect)
 
-for (j in 1:length(select.taxa)) {
-    taxon <- sub("Occurrence.", "", select.taxa[j])
-    file.name <- paste0("ICE_", no.samples, "samp", length(subselect),"res_", taxon, ".pdf")
+list.list.plots <- lapply(list.taxa.int, FUN= plot.ice.per.taxa, outputs = outputs, data = centered.data[[1]], list.models = list.models, env.fact = env.fact, select.env.fact = env.fact[c(1,2,5)],
+                          normalization.data = normalization.data, ODG = ODG, no.samples = no.samples, no.steps = no.steps, subselect = subselect)
+
+for (j in 1:no.taxa.int) {
+    taxon <- sub("Occurrence.", "", list.taxa.int[j])
+    file.name <- paste0("ICE_", no.samples, "samp_", taxon, ".pdf")
     print.pdf.plots(list.plots = list.list.plots[[j]], width = 8, height = 12, 
                     dir.output = paste0(dir.plots.output, "ICE/"), 
                     info.file.name = info.file.name, file.name = file.name)
@@ -941,12 +1019,14 @@ for (j in 1:length(select.taxa)) {
 
 # Response shape ####
 
-list.list.plots <- lapply(select.taxa, FUN = plot.rs.taxa, outputs, list.models[4:7], env.fact, CV, extrapol)
+# list.list.plots <- lapply(select.taxa[1], FUN = plot.rs.taxa.per.factor, outputs, list.models, env.fact, CV, ODG)
+list.list.plots <- lapply(select.taxa[1], FUN = plot.rs.taxa.per.model, outputs, list.models, env.fact, CV, ODG)
 
-for (j in 1:length(select.taxa)) {
+
+for (j in 1:length(select.taxa[1])) {
   taxon <- sub("Occurrence.", "", select.taxa[j])
   file.name <- paste0("RS_", taxon, ".pdf")
-  print.pdf.plots(list.plots = list.list.plots[[j]], width = 10,
+  print.pdf.plots(list.plots = list.list.plots[[j]], width = 8, height = 12,
                   dir.output = paste0(dir.plots.output, "ICE/"),
                   info.file.name = info.file.name, file.name = file.name)
 }
@@ -1080,66 +1160,5 @@ dev.off()
 print("Producing PDF time:")
 print(proc.time()-ptm)
 
-
-# Comparison temp models
-if(analysis.temp & lme.temp){
-  data.env.lme <- data
-
-  # load dataset based on lm temperature model
-  
-  data.env          <- read.delim(paste0(dir.env.data, file.prefix, file.env.data),header=T,sep="\t", stringsAsFactors=T)
-  
-  data.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.inv.data),header=T,sep="\t", stringsAsFactors=F)
-  prev.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.prev),header=T,sep="\t", stringsAsFactors=F)
-  
-  ## ---- DATA WRANGLING  ----
-  
-  # Select env. factors ####
-  env.fact <- c("temperature",     # Temp
-                "velocity",          # FV
-                "A10m",              # A10m
-                "cow.density",       # LUD
-                "IAR",               # IAR
-                "urban.area",        # Urban
-                "FRI",               # FRI
-                "bFRI",              # bFRI
-                "width.variability") # WV
-  
-  env.fact.full <- c(env.fact,
-                     "temperature2",
-                     "velocity2")
-  
-  
-  # env.fact <- env.fact.full
-  no.env.fact <- length(env.fact)
-  
-  
-  # Preprocess data ####
-  
-  # Remove NAs, normalize data, split data for CV or extrapolation
-  prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv, prev.inv = prev.inv,
-                                 env.fact.full = env.fact.full, dir.workspace = dir.workspace, 
-                                 BDM = BDM, dl = dl, CV = CV, extrapol = extrapol, extrapol.info = extrapol.info, lme.temp = lme.temp)
-  data.env.lm <- prepro.data$data
-  
-  inputs1 <- map.inputs(dir.env.data = dir.env.data, data.env = data.env.lm)
-  
-  inputs2 <- map.inputs(dir.env.data = dir.env.data, data.env = data.env.lme)
-  
-  
-  
-  map.env.fact.2(inputs1, env.fact, data.env.lm)
-  map.env.fact.2(inputs2, env.fact, data.env.lme)
-  data.diff <- data.env.lm[1:15]
-  data.diff[5:15] <- data.env.lm[5:15] - data.env.lme[5:15]
-  
-  inputs3 <- map.inputs(dir.env.data = dir.env.data, data.env = data.diff)
-  
-  
-  map.env.fact.2(inputs3, env.fact, data.diff)
-  
-}
-
-
-} # closing server braket
+# } # closing server braket
 

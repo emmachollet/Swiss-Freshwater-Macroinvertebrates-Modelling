@@ -26,7 +26,7 @@ lowest <- function (x, metric, maximize = F){
 }
 
 # Function to apply ML algorithms
-apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.metric = "StandardizedDeviance", CV = T, extrapol, prev.inv, ...){
+apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.metric = "StandardizedDeviance", CV = T, ODG, prev.inv, seed = 2021,...){
     
     env.fact.orig <- env.fact
     # splitted.data <- centered.data.factors[[1]]
@@ -47,7 +47,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
         algorithm = list.algo[k]
         
         if(algorithm == "glm"){
-          env.fact <- env.fact.full # add squared terms for glms
+          env.fact <- c(env.fact.orig, "temperature2", "velocity2") # add squared terms for glms
         }else{
           env.fact <- env.fact.orig
         }
@@ -58,7 +58,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
         
         # if testing data set exists, create outputs for results on training and testing data sets
         # else only list outputs for training data set
-        if(CV == T | extrapol == T){which.set <- c("training set", "testing set")
+        if(CV == T | ODG == T){which.set <- c("training set", "testing set")
         } else {which.set <- c("training set")}
         out <- c("Observation", #1
                  "Prediction factors", #2 
@@ -76,7 +76,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
             temp.train <- na.omit(data.train[, c("SiteId", "SampId",
                                                  "X", "Y", 
                                                  list.taxa[j], env.fact)]) # create a temporary training dataset with the taxon and env fact, to 
-            if(CV == T | extrapol == T){temp.test <- na.omit(data.test[, c("SiteId", "SampId",
+            if(CV == T | ODG == T){temp.test <- na.omit(data.test[, c("SiteId", "SampId",
                                                    "X", "Y", 
                                                    list.taxa[j], env.fact)])
                         temp.sets <- list(temp.train, temp.test)
@@ -91,7 +91,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
             # 3. Choose the optimal model based on a given evaluation metric
             # 4. Preprocess the predictors (what we did so far using preProcess())
             
-            set.seed(2021) # for reproducibility of the folds
+            set.seed(seed) # for reproducibility of the folds
             folds <- groupKFold(temp.train$SiteId, 3) # create 3 folds, grouped by SiteId
                 
             cat(paste("\nApplying", algorithm, "to", j, list.taxa[j], "\n"))
@@ -149,7 +149,7 @@ apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.
 }
 
 # Function to apply ML algorithms
-apply.tuned.ml.model <- function(splitted.data, tune.grid = NULL, algorithm, list.taxa, env.fact, selec.metric = "StandardizedDeviance", CV = T, prev.inv, ...){
+apply.tuned.ml.model <- function(splitted.data, tune.grid = NULL, algorithm, list.taxa, env.fact, selec.metric = "StandardizedDeviance", CV = T, ODG, prev.inv, seed = 2021,...){
   
   data.train <- splitted.data[["Training data"]]
   data.test <- splitted.data[["Testing data"]]
@@ -166,7 +166,7 @@ apply.tuned.ml.model <- function(splitted.data, tune.grid = NULL, algorithm, lis
   
   # if testing data set exists, create outputs for results on training and testing data sets
   # else only list outputs for training data set
-  if(CV == T | extrapol == T){which.set <- c("training set", "testing set")
+  if(CV == T | ODG == T){which.set <- c("training set", "testing set")
   } else {which.set <- c("training set")}
   out <- c("Observation", #1
            "Prediction factors", #2 
@@ -184,7 +184,7 @@ apply.tuned.ml.model <- function(splitted.data, tune.grid = NULL, algorithm, lis
     temp.train <- na.omit(data.train[, c("SiteId", "SampId",
                                          "X", "Y", 
                                          list.taxa[j], env.fact)]) # create a temporary training dataset with the taxon and env fact, to 
-    if(CV == T | extrapol == T){temp.test <- na.omit(data.test[, c("SiteId", "SampId",
+    if(CV == T | ODG == T){temp.test <- na.omit(data.test[, c("SiteId", "SampId",
                                                    "X", "Y", 
                                                    list.taxa[j], env.fact)])
     temp.sets <- list(temp.train, temp.test)
@@ -192,7 +192,7 @@ apply.tuned.ml.model <- function(splitted.data, tune.grid = NULL, algorithm, lis
     
     f <- reformulate(env.fact, list.taxa[j]) # write formula (target variable ~ explanatory variables) to apply the model
     
-    set.seed(2021) # for reproducibility of the folds
+    set.seed(seed) # for reproducibility of the folds
     folds <- groupKFold(temp.train$SiteId, 3) # create 3 folds, grouped by SiteId
     
     cat(paste("\nApplying", algorithm, "to", j, list.taxa[j], "\n"))

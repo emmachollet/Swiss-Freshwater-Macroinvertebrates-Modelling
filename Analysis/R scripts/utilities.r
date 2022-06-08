@@ -1,6 +1,6 @@
 
 
-# Split data in training and testing datasets for extrapolation
+# Split data in training and testing datasets for ODGation
 split.data.ml <- function(data, training.ratio, variable = "random", bottom = T){
   
   # add an argument in the fct, eg splitcol, which would be here SiteId
@@ -170,7 +170,7 @@ center.data.old <- function(split, CV){
     
 }
 
-center.data <- function(data, split, CV, extrapol, dl, mean.dl, sd.dl, env.fact.full){
+center.data <- function(data, split, CV, ODG, dl, mean.dl, sd.dl, env.fact.full){
   
   training.data <- split[[1]]
   
@@ -228,7 +228,7 @@ center.data <- function(data, split, CV, extrapol, dl, mean.dl, sd.dl, env.fact.
   training.data$temperature2 <- training.data$temperature^2
   training.data$velocity2 <- training.data$velocity^2
   
-  if(CV == F & extrapol == F){
+  if(CV == F & ODG == F){
     return(list( "Entire dataset" = training.data))
   }else{
     
@@ -267,7 +267,7 @@ center.data <- function(data, split, CV, extrapol, dl, mean.dl, sd.dl, env.fact.
 }
 
 
-preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.workspace, BDM, dl, CV, extrapol, extrapol.info = c(), lme.temp = lme.temp){
+preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.workspace, BDM, dl, CV, ODG, ODG.info = c(), lme.temp = lme.temp){
     
     # Merge data sets
     cind.taxa <- which(grepl("Occurrence.", colnames(data.inv)))
@@ -338,19 +338,19 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
             splits <- split.data(data)
             saveRDS(splits, file = file.name)
         }
-    } else if (extrapol) {
+    } else if (ODG) {
       
-      training.ratio <- as.numeric(extrapol.info["training.ratio"])
-      variable <- extrapol.info["variable"]
+      training.ratio <- as.numeric(ODG.info["training.ratio"])
+      variable <- ODG.info["variable"]
       
-      # Split for extrapolation
-      file.name <- paste0(dir.workspace, prefix, "SplitForExtrapolation_", training.ratio, variable, ".rds")
+      # Split for ODGation
+      file.name <- paste0(dir.workspace, prefix, "SplitForODGation_", training.ratio, variable, ".rds")
       
       # If the file with the three different splits already exist, just read it
       if (file.exists(file.name) == T ){
         
         if(exists("splits") == F){ splits <- readRDS(file = file.name)
-        cat("\nFile with data splitted for extrapolation already exists, we read it from", file.name, "and save it in object 'splits'.\n")}
+        cat("\nFile with data splitted for ODGation already exists, we read it from", file.name, "and save it in object 'splits'.\n")}
         else{
           cat("\nList with data splits already exists as object 'splits' in this environment.\n")
         }
@@ -375,10 +375,10 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
     })
     
     # Normalize the data (each folds for CV and whole data set else)
-    if(CV == T | extrapol == T){
+    if(CV == T | ODG == T){
         
         # Center the splits
-        centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, extrapol = extrapol, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full = env.fact.full)
+        centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, ODG = ODG, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full = env.fact.full)
         
         # To control if the splits have the same taxa
         # # Splits don't have same taxa columns, should be harmonized
@@ -423,7 +423,7 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
 
     } else {
         
-        centered.data <- center.data(split = splits, CV = CV, extrapol = extrapol, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full = env.fact.full)
+        centered.data <- center.data(split = splits, CV = CV, ODG = ODG, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full = env.fact.full)
         normalization.data <- list("Mean" = mean.dl, "SD" = sd.dl)
         centered.data.factors <- centered.data
         
@@ -484,6 +484,7 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
     return(preprocessed.data)
 }
 
+
 # Apply NULL model
 apply.null.model <- function(data, list.taxa, prev.inv){
   
@@ -514,13 +515,13 @@ apply.null.model <- function(data, list.taxa, prev.inv){
 
 ## ---- Process output from stat models to fit structure of ml models (makes plotting easier)
 #JW: THE CODE IS QUITE UGLY AND DUPLICATE ATM BUT AT LEAST IT WORKS
-transfrom.stat.outputs <- function(stat.outputs, list.taxa, CV, extrapol){
+transfrom.stat.outputs <- function(stat.outputs, list.taxa, CV, ODG){
     # CV = F
     # stat.outputs = stat.outputs
     
     # stat.output.list <- vector(mode = "list", length = length(stat.outputs))
     
-    if ( CV == F & extrapol == F ){ # Model performance (FIT)
+    if ( CV == F & ODG == F ){ # Model performance (FIT)
         stat.fit.res <- lapply(stat.outputs, function(models){
           #models <- stat.outputs[[1]]
           temp.list.st.dev <- vector(mode = "list", length = length(list.taxa))
@@ -543,8 +544,7 @@ transfrom.stat.outputs <- function(stat.outputs, list.taxa, CV, extrapol){
                                           "Prediction factors training set" = ifelse(prop.temp$Pred >= 0.5,"present","absent"),
                                           "Prediction probabilities training set" = data.frame("present" = prop.temp$Pred, "absent" = 1 - prop.temp$Pred),
                                           "Likelihood training set" = prop.temp$Likelihood.train,
-                                          "Performance training set" = dev.temp$Performance.train,
-                                          "Trained model" = models[[1]]
+                                          "Performance training set" = dev.temp$Performance.train
             )
           }
           names(temp.list.st.dev) <-  list.taxa
@@ -582,7 +582,7 @@ transfrom.stat.outputs <- function(stat.outputs, list.taxa, CV, extrapol){
         # names(stat.output.list) <- names(stat.outputs)
         # return(stat.output.list)
         return(stat.fit.res) # this return statments are not really needed
-    } else { # Prediction (CV or extrapol)
+    } else { # Prediction (CV or ODG)
         stat.cv.res <- lapply(stat.outputs, function(models){
             #models <- stat.outputs[[2]]
             
@@ -703,14 +703,14 @@ transfrom.stat.outputs <- function(stat.outputs, list.taxa, CV, extrapol){
     }
 }
 
-check.outputs.perf <- function(outputs.cv, list.taxa, CV, extrapol){
+check.outputs.perf <- function(outputs.cv, list.taxa, CV, ODG){
     
     list.splits <- names(ml.outputs.cv)
     list.algo <- names(ml.outputs.cv$Split1)
     no.taxa <- length(list.taxa)
     
     # Check if we have problem with some ml performance, which would suggest that the model didn't converge
-    if(CV | extrapol){
+    if(CV | ODG){
         cat("Check if performance > 1.5 in\n")
         for (s in list.splits) {
             for (l in list.algo) {
@@ -809,9 +809,9 @@ make.final.outputs.cv <- function(outputs.cv, list.models, list.taxa){
 }
 
 make.df.outputs <- function(outputs, list.models, list.taxa, 
-                            list.splits = c("Split1", "Split2", "Split3"), null.model, prev.inv, CV, extrapol){
+                            list.splits = c("Split1", "Split2", "Split3"), null.model, prev.inv, CV, ODG){
     
-    if(CV | extrapol){
+    if(CV | ODG){
         outputs.cv <- outputs
         no.splits <- length(list.splits)
         no.taxa <- length(list.taxa)
@@ -857,7 +857,7 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
         df.pred.perf[rind.taxa, "Null_model"] <- null.model[[j]][["Performance"]]
         df.fit.perf[rind.taxa, "Null_model"] <- null.model[[j]][["Performance"]]
         for(l in list.models){
-            if(CV | extrapol){
+            if(CV | ODG){
                 splits.model <- apply(expand.grid(list.splits,l), 1, paste, collapse="_")
                 # For testing/prediction
                 mean.temp <- mean(as.matrix(df.pred.perf.cv[rind.taxa, splits.model]), na.rm = T)
@@ -883,7 +883,7 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
     }
     
     # Make one df with performance during training AND testing AND expl.pow
-    if(CV | extrapol){
+    if(CV | ODG){
       # Merge dataframes for comparison
       common.vect <- c("Taxa", "Prevalence", "Taxonomic level", "Null_model")
       merged.df <- left_join(df.fit.perf[,unique(c(common.vect, list.models, all_of(expl.pow)))], df.pred.perf[,unique(c(common.vect, list.models, all_of(expl.pow)))], 
@@ -911,12 +911,11 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
         merged.df[which(merged.df$Taxa == j), "Big.model.diff"] <- paste(model.max, model.min, sep = "-")
         merged.df[which(merged.df$Taxa == j), "Big.pred.expl.pow.diff"] <- max - min
         
-        if(grepl("chGLM", colnames(temp.df)) == T){
-            # Compare with chGLM
-            expl.pow.chGLM <- temp.df[which(temp.df$Taxa == j), which(grepl("chGLM", colnames(temp.df)))]
-            merged.df[which(merged.df$Taxa == j), "chGLM.model.diff"] <- paste(model.max, "chGLM", sep = "-")
-            merged.df[which(merged.df$Taxa == j), "chGLM.pred.expl.pow.diff"] <- max - expl.pow.chGLM
-        }
+        # Compare with chGLM
+        expl.pow.chGLM <- temp.df[which(temp.df$Taxa == j), which(grepl("chGLM", colnames(temp.df)))]
+        merged.df[which(merged.df$Taxa == j), "chGLM.model.diff"] <- paste(model.max, "chGLM", sep = "-")
+        merged.df[which(merged.df$Taxa == j), "chGLM.pred.expl.pow.diff"] <- max - expl.pow.chGLM
+    
         # Compute likelihood ratio
         for (l in list.models) {
           pred <- merged.df[which(merged.df$Taxa == j), paste0(l, ".pred")]
@@ -927,7 +926,7 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
     }
     
     
-    if(CV | extrapol){
+    if(CV | ODG){
         result <- list("Table predictive performance CV" = df.pred.perf.cv, "Table predictive performance" = df.pred.perf,
                        "Table fit performance CV" = df.fit.perf.cv, "Table fit performance" = df.fit.perf, "Table merged" = merged.df)
     } else {
@@ -1263,8 +1262,8 @@ pred.stat.models <- function(model, taxon, env.fact.test, list.taxa){
   
   ### Calibration results
   # Check if site effects AND latent variables are disabled
-  z <- matrix(rep(alpha.taxa.maxpost,nrow(x)),nrow=nrow(x),byrow=TRUE) + 
-    x%*%beta.taxa.maxpost
+  alpha.mat <- matrix(rep(alpha.taxa.maxpost,nrow(x)),nrow=nrow(x),byrow=TRUE)
+  z <- alpha.mat + x%*%beta.taxa.maxpost
   
   p.maxpost <- 1/(1+exp(-z))
   

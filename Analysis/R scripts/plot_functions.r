@@ -157,6 +157,14 @@ plot.data.envvstax <- function(data, env.fact, list.taxa){
   
 }
 
+plot.boxplots.data <- function(data, columns){
+    plot.data <- gather(data[,columns])
+    p <- ggplot(plot.data) +
+                aes(x = key, y = value) +
+                geom_boxplot()
+    return(p)
+}
+
 
 ## ---- Models analysis plots ----
 
@@ -213,9 +221,9 @@ plot.df.perf <- function(df.perf, list.models, list.taxa, CV, title = c()){
 }
 
 
-plot.boxplots.compar.appcase <- function(list.df.merged.perf, list.models){
+plot.boxplots.compar.appcase <- function(list.df.perf, list.models){
   
-  names.appcase <- names(list.df.merged.perf)
+  names.appcase <- names(list.df.perf)
   
   list.models.temp <- list.models
   list.models <- c("#000000" = "Null_model", list.models)
@@ -224,15 +232,15 @@ plot.boxplots.compar.appcase <- function(list.df.merged.perf, list.models){
   col.vect <- names(list.models)
   names(col.vect) <- list.models
   
-  # list.plot.data <- vector(mode = "list", length = length(list.df.merged.perf))
+  # list.plot.data <- vector(mode = "list", length = length(list.df.perf))
   # names(list.plot.data) <- names.appcase
   
   plot.data <- data.frame()
 
-  for(n in 1:length(list.df.merged.perf)){  
+  for(n in 1:length(list.df.perf)){  
     # n = 1
     
-    plot.data0 <- list.df.merged.perf[[n]]
+    plot.data0 <- list.df.perf[[n]]
     
     col.fit <- c(paste0(list.models.temp , ".fit"), "Null_model")
     col.pred <- c(paste0(list.models.temp , ".pred"), "Null_model")
@@ -240,13 +248,17 @@ plot.boxplots.compar.appcase <- function(list.df.merged.perf, list.models){
     plot.data1 <- gather(plot.data0, key = model, value = performance.fit, all_of(col.fit))
     plot.data2 <- gather(plot.data0, key = model, value = performance.pred, all_of(col.pred))
     plot.data1$model <- sub(".fit", "", plot.data1$model)
-    plot.data1 <- plot.data1[,c("Taxa", "Prevalence", "Taxonomic level", "model", "performance.fit")]
+    plot.data1 <- plot.data1[,c("Taxa", "Prevalence", # "Taxonomic level", 
+                                "model", "performance.fit")]
     plot.data2$model <- sub(".pred", "", plot.data2$model)
-    plot.data2 <- plot.data2[,c("Taxa", "Prevalence", "Taxonomic level", "model", "performance.pred")]
+    plot.data2 <- plot.data2[,c("Taxa", "Prevalence", # "Taxonomic level", 
+                                "model", "performance.pred")]
     
-    plot.data0 <- left_join(plot.data1, plot.data2, by = c("Taxa", "Prevalence", "Taxonomic level", "model"))
+    plot.data0 <- left_join(plot.data1, plot.data2, by = c("Taxa", "Prevalence", # "Taxonomic level", 
+                                                           "model"))
     
-    plot.data3 <- gather(plot.data0, key = dataset, value = performance, -c("Taxa", "Prevalence", "Taxonomic level", "model") )
+    plot.data3 <- gather(plot.data0, key = dataset, value = performance, -c("Taxa", "Prevalence", # "Taxonomic level", 
+                                                                            "model") )
     plot.data3$dataset <- sub("performance.fit", "Calibration", plot.data3$dataset)
     plot.data3$dataset <- sub("performance.pred", "Prediction", plot.data3$dataset)
     plot.data3$appcase <- names.appcase[n]
@@ -285,9 +297,9 @@ plot.boxplots.compar.appcase <- function(list.df.merged.perf, list.models){
 }
 
 
-plot.perfvsprev.compar.appcase <- function(list.df.merged.perf, list.models, list.taxa, select.taxa){
+plot.perfvsprev.compar.appcase <- function(list.df.perf, list.models, list.taxa, select.taxa){
   
-  names.appcase <- names(list.df.merged.perf)
+  names.appcase <- names(list.df.perf)
   
   list.models.temp <- list.models
   list.models <- c("#000000" = "Null_model", list.models)
@@ -300,10 +312,10 @@ plot.perfvsprev.compar.appcase <- function(list.df.merged.perf, list.models, lis
   
   plot.data <- data.frame()
   
-  for(n in 1:length(list.df.merged.perf)){  
+  for(n in 1:length(list.df.perf)){  
     # n = 1
     
-    plot.data0 <- list.df.merged.perf[[n]]
+    plot.data0 <- list.df.perf[[n]]
     
     col.fit <- c(paste0(list.models.temp , ".fit"), "Null_model")
     col.pred <- c(paste0(list.models.temp , ".pred"), "Null_model")
@@ -311,13 +323,17 @@ plot.perfvsprev.compar.appcase <- function(list.df.merged.perf, list.models, lis
     plot.data1 <- gather(plot.data0, key = model, value = performance.fit, all_of(col.fit))
     plot.data2 <- gather(plot.data0, key = model, value = performance.pred, all_of(col.pred))
     plot.data1$model <- sub(".fit", "", plot.data1$model)
-    plot.data1 <- plot.data1[,c("Taxa", "Prevalence", "Taxonomic level", "model", "performance.fit")]
+    plot.data1 <- plot.data1[,c("Taxa", "Prevalence", # "Taxonomic level", 
+                                "model", "performance.fit")]
     plot.data2$model <- sub(".pred", "", plot.data2$model)
-    plot.data2 <- plot.data2[,c("Taxa", "Prevalence", "Taxonomic level", "model", "performance.pred")]
+    plot.data2 <- plot.data2[,c("Taxa", "Prevalence", # "Taxonomic level", 
+                                "model", "performance.pred")]
     
-    plot.data0 <- left_join(plot.data1, plot.data2, by = c("Taxa", "Prevalence", "Taxonomic level", "model"))
+    plot.data0 <- left_join(plot.data1, plot.data2, by = c("Taxa", "Prevalence", # "Taxonomic level", 
+                                                           "model"))
     
-    plot.data3 <- gather(plot.data0, key = dataset, value = performance, -c("Taxa", "Prevalence", "Taxonomic level", "model") )
+    plot.data3 <- gather(plot.data0, key = dataset, value = performance, -c("Taxa", "Prevalence", # "Taxonomic level", 
+                                                                            "model") )
     plot.data3$dataset <- sub("performance.fit", "Calibration", plot.data3$dataset)
     plot.data3$dataset <- sub("performance.pred", "Prediction", plot.data3$dataset)
     plot.data3$appcase <- names.appcase[n]
@@ -330,7 +346,7 @@ plot.perfvsprev.compar.appcase <- function(list.df.merged.perf, list.models, lis
   # Prevalence vs stand dev
   p <- ggplot()
   p <- p  + geom_point(data = plot.data, aes_string(x = "Prevalence", y = "performance", 
-                                                      colour = "model"), # alpha = 0.4,
+                                                      colour = "model"), alpha = 0.8,
                        size = 3)
   p <- p + xlim(4.5, 95.5)
   p <- p + ylim(0, 1.5) # ECR: only because perf problems
@@ -343,7 +359,7 @@ plot.perfvsprev.compar.appcase <- function(list.df.merged.perf, list.models, lis
                  strip.background = element_rect(fill="white"))
   p <- p + labs(y = "Standardized deviance",
                  x = "Prevalence (%)",
-                 shape = "Taxonomic level",
+                 # shape = "Taxonomic level",
                  color = "Model",
                  title = "")
   p <- p + scale_colour_manual(values=col.vect)
@@ -356,7 +372,7 @@ plot.perfvsprev.compar.appcase <- function(list.df.merged.perf, list.models, lis
 }
 
 # Compare models
-model.comparison <- function(df.merged.perf, list.models, CV, extrapol, select.taxa){
+model.comparison <- function(df.perf, list.models, CV, ODG, select.taxa){
     
     list.models.temp <- list.models
     list.models <- c("#000000" = "Null_model", list.models)
@@ -365,11 +381,11 @@ model.comparison <- function(df.merged.perf, list.models, CV, extrapol, select.t
     col.vect <- names(list.models)
     names(col.vect) <- list.models
     
-    no.taxa <- nrow(df.merged.perf)
+    no.taxa <- nrow(df.perf)
     
     title <- c("Models performance during calibration", "Models performance during prediction")
     
-    if(!CV & !extrapol){
+    if(!CV & !ODG){
         title <- title[1]
     }
     
@@ -377,9 +393,9 @@ model.comparison <- function(df.merged.perf, list.models, CV, extrapol, select.t
     
     # ECR: To be completed if CV = F #### 
     
-    if(CV | extrapol){  
+    if(CV | ODG){  
       
-      plot.data <- df.merged.perf
+      plot.data <- df.perf
 
       col.fit <- c(paste0(list.models.temp , ".fit"), "Null_model")
       col.pred <- c(paste0(list.models.temp , ".pred"), "Null_model")
@@ -488,7 +504,7 @@ model.comparison <- function(df.merged.perf, list.models, CV, extrapol, select.t
       list.plots.temp[[n]][[4]] <- p3
     }
     
-    if(CV | extrapol){
+    if(CV | ODG){
       list.plots <- vector(mode = "list", length = 4)
       
       for (n in 1:length(list.plots)) {
@@ -501,7 +517,7 @@ model.comparison <- function(df.merged.perf, list.models, CV, extrapol, select.t
       p4 <- ggplot(plot.data3, aes(x = model, y = performance, fill = dataset))
       p4 <- p4 + geom_boxplot()
       p4 <- p4 + scale_x_discrete(limits = lev)
-      p4 <- p4 + ylim(0,ifelse(extrapol, 2.5, 1.5)) # ECR: only because perf problems
+      p4 <- p4 + ylim(0,ifelse(ODG, 2.5, 1.5)) # ECR: only because perf problems
       p4 <- p4 + scale_fill_manual(values=c(Calibration = "#f1a340", Prediction = "#998ec3"))
       p4 <- p4 + theme_bw(base_size = 20)
       p4 <- p4 + labs(x="Models",
@@ -793,8 +809,9 @@ plot.varimp <- function(outputs, list.algo, list.taxa, env.fact){
 
 # Plot ICE 
 
-plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, select.env.fact, normalization.data, extrapol, no.samples, no.steps, subselect){
+plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, select.env.fact, normalization.data, ODG, no.samples, no.steps, subselect){
     
+    # taxon <- select.taxa[1]
     cat("\nProducing ICE plot for taxa", taxon)
     
     no.models <- length(list.models)
@@ -805,7 +822,7 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
     list.plots <- list()
     
     for(k in select.env.fact){
-      # k <- select.env.fact[1]
+      # k <- select.env.fact[2]
       cat("\nFor env. fact.", k)
     
       # # Make temporary list of ICE plots for env.fact k for each algorithm
@@ -824,7 +841,8 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
         # Extract trained model
         #trained.mod <- ann.outputs.cv$Split1$ANN$Occurrence.Gammaridae$`Trained model`
         trained.mod <- outputs[[l]][[taxon]][["Trained model"]]
-
+        trained.mod <- stat.outputs.transformed$hGLM$Occurrence.Gammaridae$`Trained model`
+        
         if(grepl("GLM", l) & !("temperature2" %in% env.fact)){
           env.fact <- c(env.fact, "temperature2", "velocity2")
         } else if(!grepl("GLM", l)) {
@@ -832,7 +850,7 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
         }
         
         # # Extract environmental dataframe of each sample
-        # if(CV | extrapol){
+        # if(CV | ODG){
         #   env.df <- outputs[[l]][[taxon]][["Observation training set"]][, env.fact]
         #   all.env.df <- bind_rows(outputs[[l]][[taxon]][["Observation training set"]][, env.fact],
         #                       outputs[[l]][[taxon]][["Observation testing set"]][, env.fact])
@@ -842,7 +860,7 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
         # 
         # # Make range of values to test for env. fact. k
         # # no.steps <- 200
-        # if(extrapol){
+        # if(ODG){
         #   m <- min(all.env.df[,k])
         #   M <- max(all.env.df[,k])
         # } else {
@@ -859,7 +877,7 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
         # !! Might mathematically false 
         m2 <- (m * normalization.data$SD[k]) + normalization.data$Mean[k]
         M2 <- (M * normalization.data$SD[k]) + normalization.data$Mean[k]
-        range.orig.fact <- round(seq(m2, M2, length.out = no.steps), digits = 1)
+        range.orig.fact <- round(seq(m2, M2, length.out = no.steps), digits = 4)
         
         # Subselect a number of samples/observations to plot
         # no.samples <- 3
@@ -878,6 +896,7 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
           # Recalculate temp2 or velocity2 for whole range
           if( (k == "temperature" | k == "velocity") & grepl("GLM", l)){
             env.fact.test[,paste0(k,2)] <- env.fact.test[,k]^2
+            # env.fact.test[13,paste0(k,2)] <- env.fact.test[13,k]^2
           }
           
           # Make predictions
@@ -903,7 +922,7 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
         temp.plot.data <- gather(temp.pred.df, key = variable, value = value, -observation)
         temp.plot.data$observation <- as.factor(temp.plot.data$observation)
         temp.plot.data$Model <- as.factor(l)
-        temp.plot.data[, c("variable")] <- as.numeric(temp.plot.data[, c("variable")])
+        temp.plot.data[, "variable"] <- as.numeric(temp.plot.data[, "variable"])
         
         plot.data <- bind_rows(plot.data, temp.plot.data)
         
@@ -994,8 +1013,9 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
 
 # Response shape plot
 
-plot.rs.taxa <- function(taxa, outputs, list.models, env.fact, CV, extrapol){
+plot.rs.taxa.per.factor <- function(taxa, outputs, list.models, env.fact, CV, ODG){
   
+    # taxa <- select.taxa[1]
   taxon <- sub("Occurrence.", "", taxa)
   cat("Constructing ggplot for:", taxon, "\n")
   
@@ -1013,6 +1033,9 @@ plot.rs.taxa <- function(taxa, outputs, list.models, env.fact, CV, extrapol){
     if(l == "Observations"){
       plot.data1 <- outputs[["iGLM"]][[taxa]][[paste("Observation", m)]]
       plot.data1$pred <- ifelse(plot.data1[,taxa] == "present", 1, 0)
+    } else if(l == "hGLM" | l == "chGLM") { 
+      plot.data1 <- outputs[["iGLM"]][[taxa]][[paste("Observation",m)]]
+      plot.data1$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities", m)]][,"present"]
     } else { 
       plot.data1 <- outputs[[l]][[taxa]][[paste("Observation",m)]]
       plot.data1$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities", m)]][,"present"]
@@ -1020,13 +1043,16 @@ plot.rs.taxa <- function(taxa, outputs, list.models, env.fact, CV, extrapol){
     plot.data1[,env.fact] <- as.data.frame(sweep(sweep(plot.data1[,env.fact], 2, normalization.data$SD[env.fact], FUN="*"), 2, normalization.data$Mean[env.fact], FUN = "+"))
     plot.data1 <- gather(plot.data1, key = factors, value = value, -SiteId, -SampId, -X, -Y, -taxa, -pred)
     
-    if(CV | extrapol){
+    if(CV | ODG){
       plot.data1$set <- "Training"
       
       m <- "testing set"
       if(l == "Observations"){
         plot.data2 <- outputs[["iGLM"]][[taxa]][[paste("Observation", m)]]
         plot.data2$pred <- ifelse(plot.data2[,taxa] == "present", 1, 0)
+      } else if(l == "hGLM" | l == "chGLM") { 
+        plot.data2 <- outputs[["iGLM"]][[taxa]][[paste("Observation",m)]]
+        plot.data2$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities", m)]][,"present"]
       } else { 
         plot.data2 <- outputs[[l]][[taxa]][[paste("Observation", m)]]
         plot.data2$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities", m)]][,"present"]
@@ -1036,10 +1062,12 @@ plot.rs.taxa <- function(taxa, outputs, list.models, env.fact, CV, extrapol){
       plot.data2$set <- "Testing"
       
       plot.data <- bind_rows(plot.data1, plot.data2)
+    } else {
+        plot.data <- plot.data1
     }
     
     g <- ggplot(data = plot.data, aes_string(x = "value", y = "pred", color = taxa))
-    if(CV | extrapol){
+    if(CV | ODG){
       g <- g + geom_point(aes_string(shape = "set"), alpha = 0.35)
       g <- g + labs(shape = "")
       g <- g + guides(shape = guide_legend(override.aes = list(size=3)))
@@ -1050,7 +1078,6 @@ plot.rs.taxa <- function(taxa, outputs, list.models, env.fact, CV, extrapol){
     g <- g + facet_wrap( ~ factors, scales = "free_x", 
                          #labeller=label_parsed, 
                          strip.position="bottom")
-    
     g <- g + scale_color_manual(name = "Observation", values=c(absent = "#c2141b", present = "#007139"), labels = c("Absence", "Presence"))
     g <- g + labs(title = paste("Probability of occurrence vs explanatory variables"),
                   subtitle = paste(l, "-",paste(taxon)),
@@ -1060,14 +1087,117 @@ plot.rs.taxa <- function(taxa, outputs, list.models, env.fact, CV, extrapol){
     g <- g + theme(strip.background = element_blank(),
                    strip.placement = "outside"# ,
                    # plot.title = element_text(size=10)
-                   )
+    )
     g <- g + ylim(0,1)
     g <- g + guides(colour = guide_legend(override.aes = list(size=6)))
-  
+    
     list.plots[[l]] <- g
   }
   
   return(list.plots)
+}
+
+plot.rs.taxa.per.model <- function(taxa, outputs, list.models, env.fact, CV, ODG){
+  
+  # taxa <- select.taxa[1]
+  taxon <- sub("Occurrence.", "", taxa)
+  cat("Constructing ggplot for:", taxon, "\n")
+  
+  # temp.list.models <- c("Observations", list.models)
+  temp.list.models <- list.models
+  
+  # Make list of plots per fact to be returned at the end
+  list.plots <- vector(mode = 'list', length = length(env.fact))
+  names(list.plots) <- env.fact
+  
+  plot.data0 <- data.frame()
+  
+  for (l in temp.list.models) {
+    # l <- temp.list.models[2]
+    cat("For model", l, "\n")
+    m <- "training set"
+    
+    if(l == "Observations"){
+      plot.data1 <- outputs[["iGLM"]][[taxa]][[paste("Observation", m)]]
+      plot.data1$pred <- ifelse(plot.data1[,taxa] == "present", 1, 0)
+    } else if(l == "hGLM" | l == "chGLM") { 
+      plot.data1 <- outputs[["iGLM"]][[taxa]][[paste("Observation",m)]]
+      plot.data1$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities", m)]][,"present"]
+    } else { 
+      plot.data1 <- outputs[[l]][[taxa]][[paste("Observation",m)]]
+      plot.data1$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities", m)]][,"present"]
+    }
+    plot.data1[,env.fact] <- as.data.frame(sweep(sweep(plot.data1[,env.fact], 2, normalization.data$SD[env.fact], FUN="*"), 2, normalization.data$Mean[env.fact], FUN = "+"))
+    plot.data1 <- gather(plot.data1, key = factor, value = value, -SiteId, -SampId, -X, -Y, -taxa, -pred)
+    
+    if(CV | ODG){
+      plot.data1$set <- "Training"
+      
+      m <- "testing set"
+      if(l == "Observations"){
+        plot.data2 <- outputs[["iGLM"]][[taxa]][[paste("Observation", m)]]
+        plot.data2$pred <- ifelse(plot.data2[,taxa] == "present", 1, 0)
+      } else if(l == "hGLM" | l == "chGLM") { 
+        plot.data2 <- outputs[["iGLM"]][[taxa]][[paste("Observation",m)]]
+        plot.data2$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities", m)]][,"present"]
+      } else { 
+        plot.data2 <- outputs[[l]][[taxa]][[paste("Observation", m)]]
+        plot.data2$pred <- outputs[[l]][[taxa]][[paste("Prediction probabilities", m)]][,"present"]
+      }
+      plot.data2[,env.fact] <- as.data.frame(sweep(sweep(plot.data2[,env.fact], 2, normalization.data$SD[env.fact], FUN="*"), 2, normalization.data$Mean[env.fact], FUN = "+"))
+      plot.data2 <- gather(plot.data2, key = factor, value = value, -SiteId, -SampId, -X, -Y, -taxa, -pred)
+      plot.data2$set <- "Testing"
+      
+      plot.data3 <- bind_rows(plot.data1, plot.data2)
+    } else {
+      plot.data3 <- plot.data1
+    }
+    plot.data3$model <- l
+    
+    plot.data0 <- bind_rows(plot.data0, plot.data3)
+  }
+  
+  for (k in env.fact) {
+    # k <- env.fact[1]
+    plot.data <- filter(plot.data0, factor == k)
+    plot.data$model <- as.factor(plot.data$model)
+    
+    g <- ggplot(data = plot.data, aes_string(x = "value", y = "pred", color = taxa))
+    if(CV | ODG){
+      g <- g + geom_point(aes_string(shape = "set"), alpha = 0.35)
+      g <- g + labs(shape = "")
+      g <- g + guides(shape = guide_legend(override.aes = list(size=3)))
+    } else {
+      g <- g + geom_point(alpha = 0.35)
+    }
+    g <- g + theme_bw(base_size=15)
+    g <- g + facet_wrap( ~ model, scales = "free_x", 
+                         #labeller=label_parsed, 
+                         strip.position="top",
+                         ncol = 2)
+    if(ODG & k == "temperature"){
+      split.value <- max(plot.data[which(plot.data[,"set"] == "Training"),"value"])
+      g <- g + geom_hline(yintercept = split.value, linetype='dashed', col = 'grey30')
+    }
+    g <- g + theme(strip.background = element_rect(fill = "white"))
+    g <- g + scale_color_manual(name = "Observation", values=c(absent = "#c2141b", present = "#007139"), labels = c("Absence", "Presence"))
+    g <- g + labs(title = paste("Probability of occurrence vs explanatory variables"),
+                  subtitle = paste(k, "-",paste(taxon)),
+                  x = "Model",
+                  y = "Predicted probability of occurrence",
+                  color = "Observation")
+    g <- g + theme(strip.background = element_blank(),
+                   strip.placement = "outside"# ,
+                   # plot.title = element_text(size=10)
+    )
+    g <- g + ylim(0,1)
+    g <- g + guides(colour = guide_legend(override.aes = list(size=6)))
+    
+    list.plots[[k]] <- g
+  }
+  
+  return(list.plots)
+  
 }
 
 # Plot multiple predictors PDP
