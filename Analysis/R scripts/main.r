@@ -463,11 +463,13 @@ if(analysis.ml){
       })
     })
     
-    
+    list.models <- names(list.algo.seeds)
+    names(list.models) <- rainbow(no.algo.seeds)
+    outputs.cv <- seeds.ml.outputs.cv
     
     info.file.ml.name <-  paste0("ML_model_",
                                  file.prefix,
-                                 no.algo.seeds, "AlgSeed"
+                                 no.algo.seeds, "AlgSeed",
                                  # no.tuned.algo, "tunedRRF_",
                                  no.taxa, "taxa_",
                                  ifelse(CV, "CV_", "FIT_"),
@@ -476,7 +478,7 @@ if(analysis.ml){
 
     file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
     cat(file.name)
-    saveRDS(tuned.ml.outputs.cv, file = file.name, version = 2)
+    saveRDS(seeds.ml.outputs.cv, file = file.name, version = 2)
   }
 }
 
@@ -738,7 +740,7 @@ info.file.name <- paste0(file.prefix,
                          no.models, "models_",
                          # no.models, "tunedRRF_",
                          ifelse(analysis.ann, "AnalysisANN_", ""),
-                         ifelse(analysis.ml, "AnalysisML_", ""),
+                         ifelse(analysis.ml, "AnalysisSeedsRF_", ""),
                          no.taxa, "taxa_",
                          # no.env.fact, "envfact_",
                          ifelse(CV, "CV_",
