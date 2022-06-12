@@ -53,7 +53,7 @@ n.cores.stat.models <- 1 # a core for each stat model 2 in our case (UF0, and CF
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
 # also make sure the cross-validation (CV) flag is set correctly
-sampsize <- 4000 #10000 # This needs to be an even number for some reason (stan error)
+sampsize <- 10 #10000 # This needs to be an even number for some reason (stan error)
 n.chain  <- 2 #2
 
 # Select taxa
@@ -70,6 +70,7 @@ analysis.ann <- F # Hyperparameter tuning
 analysis.training <- F
 comparison.cv.odg <- F
 comparison.lm.lme <- F
+analysis.temp <- T
 
 lme.temp <- T # Select if you want to use the linear mixed effect temperature model or not
 
@@ -1190,6 +1191,71 @@ print(list.plots[[1]])
 dev.off()
 print("Producing PDF time:")
 print(proc.time()-ptm)
+
+source("plot_functions.r")
+
+# Comparison temp models
+if(analysis.temp & lme.temp){
+  data.env.lme <- data
+  
+  # load dataset based on lm temperature model
+  
+  data.env          <- read.delim(paste0(dir.env.data, file.prefix, file.env.data),header=T,sep="\t", stringsAsFactors=T)
+  
+  data.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.inv.data),header=T,sep="\t", stringsAsFactors=F)
+  prev.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.prev),header=T,sep="\t", stringsAsFactors=F)
+  
+  ## ---- DATA WRANGLING  ----
+  
+  # Select env. factors ####
+  env.fact <- c("temperature",     # Temp
+                "velocity",          # FV
+                "A10m",              # A10m
+                "cow.density",       # LUD
+                "IAR",               # IAR
+                "urban.area",        # Urban
+                "FRI",               # FRI
+                "bFRI",              # bFRI
+                "width.variability") # WV
+  
+  env.fact.full <- c(env.fact,
+                     "temperature2",
+                     "velocity2")
+  
+  
+  # env.fact <- env.fact.full
+  no.env.fact <- length(env.fact)
+  
+  
+  # Preprocess data ####
+  
+  # Remove NAs, normalize data, split data for CV or extrapolation
+  
+  
+  prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv, prev.inv = prev.inv,
+                                 env.fact.full = env.fact.full, dir.workspace = dir.workspace, 
+                                 BDM = BDM, dl = dl, CV = CV, ODG = ODG, ODG.info = ODG.info, lme.temp = lme.temp)
+  
+  data.env.lm <- prepro.data$data
+  
+  inputs1 <- map.inputs(dir.env.data = dir.env.data, data.env = data.env.lm)
+  
+  inputs2 <- map.inputs(dir.env.data = dir.env.data, data.env = data.env.lme)
+  
+  
+  
+  map.env.fact.2(inputs1, env.fact, data.env.lm)
+  map.env.fact.2(inputs2, env.fact, data.env.lme)
+  data.diff <- data.env.lm[1:15]
+  data.diff[5:15] <- data.env.lm[5:15] - data.env.lme[5:15]
+  
+  inputs3 <- map.inputs(dir.env.data = dir.env.data, data.env = data.diff)
+  
+  
+  map.env.fact.2(inputs3, env.fact, data.diff)
+  
+}
+
 
 # } # closing server braket
 
