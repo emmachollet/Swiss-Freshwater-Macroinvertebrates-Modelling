@@ -53,7 +53,7 @@ n.cores.stat.models <- 1 # a core for each stat model 2 in our case (UF0, and CF
 # Settings Stat models 
 # Set iterations (sampsize), number of chains (n.chain), and correlation flag (comm.corr) for stan models,
 # also make sure the cross-validation (CV) flag is set correctly
-sampsize <- 10 #10000 # This needs to be an even number for some reason (stan error)
+sampsize <- 4000 #10000 # This needs to be an even number for some reason (stan error)
 n.chain  <- 2 #2
 
 # Select taxa
@@ -366,7 +366,7 @@ for (n in 1:length(temp.list.algo)) {
                                # ifelse(analysis.ml, "RFanalysis_", ""),
                                no.taxa, "taxa_",
                                ifelse(CV, "CV_",
-                                      ifelse(extrapol, paste(c("extrapol", extrapol.info, "_"), collapse = ""),
+                                      ifelse(ODG, paste(c("ODG", ODG.info, "_"), collapse = ""),
                                              "FIT_")),
                                ifelse(dl, "DL_", "no_DL_"),
                                ifelse(lme.temp, "lme_temp", "")
@@ -379,13 +379,13 @@ for (n in 1:length(temp.list.algo)) {
   if( file.exists(file.name) == T ){
   
       cat("The file already exists. Reading it", file.name, "and uploading it in the environment.")
-      if(CV | extrapol){ temp.outputs[[n]] <- readRDS(file = file.name)
+      if(CV | ODG){ temp.outputs[[n]] <- readRDS(file = file.name)
       } else { temp.outputs[[n]] <- readRDS(file = file.name) }
   
       } else {
   
       cat("No ML outputs exist yet, we produce it and save it in", file.name)
-      if(CV == T | extrapol == T){
+      if(CV == T | ODG == T){
   
           if(server == T){
               # Compute three splits in paralel (should be run on the server)
@@ -393,7 +393,7 @@ for (n in 1:length(temp.list.algo)) {
                                      FUN = apply.ml.model, temp.list.algo[[n]], list.taxa, env.fact, env.fact.full, prev.inv = prev.inv)
           } else {
               # Compute one split after the other
-            temp.outputs[[n]] <- lapply(centered.data.factors, FUN = apply.ml.model, temp.list.algo[[n]], list.taxa, env.fact, env.fact.full, CV, extrapol, prev.inv = prev.inv)
+            temp.outputs[[n]] <- lapply(centered.data.factors, FUN = apply.ml.model, temp.list.algo[[n]], list.taxa, env.fact, env.fact.full, CV, ODG, prev.inv = prev.inv)
           }
   
           cat("Saving outputs of algorithms in", file.name)
@@ -697,7 +697,7 @@ if(CV | ODG){
 }
 
 # Check if we have problem with some ml performance (>1.5)
-if(CV|extrapol){check.outputs.perf(outputs.cv = ml.outputs.cv, list.taxa = list.taxa, CV = CV, extrapol = extrapol)}
+if(CV|ODG){check.outputs.perf(outputs.cv = ml.outputs.cv, list.taxa = list.taxa, CV = CV, ODG = ODG)}
 
 remove(temp.outputs)
 # JW analyis for different temp models, need to move somewhere else
