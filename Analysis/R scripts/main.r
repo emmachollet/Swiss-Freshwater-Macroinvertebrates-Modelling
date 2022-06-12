@@ -58,24 +58,26 @@ n.chain  <- 2 #2
 
 # Select taxa
 # TRUE: taxa with 5% < prev < 95%
-# FALSE: taxa with intermediate prev (default 25% < prev < 75%, but can be changed)
+# FALSE:  with intermediate prev (default 25% < prev < 75%, but can be changed)
 all.taxa <- T
 
 # Set analysis 
 server <- F # Run the script on the server (and then use 3 cores for running in parallel)
 run.ann <- T # Run ANN models or not (needs administrative rights)
 analysis.dl <- F
-analysis.ml <- F # Hyperparameter tuning (mainly for RF)
+analysis.ml <- F # Hyperparameter tuning or check randomness (mainly for RF) 
 analysis.ann <- F # Hyperparameter tuning
 analysis.training <- F
+comparison.cv.odg <- F
+comparison.lm.lme <- F
 
 lme.temp <- T # Select if you want to use the linear mixed effect temperature model or not
 
 # Load libraries ####
 
 # Set a checkpoint to use same library versions, which makes the code repeatable over time
-#if ( !require("checkpoint") ) { install.packages("checkpoint"); library("checkpoint") }
-#checkpoint("2022-01-01") # replace with desired date
+if ( !require("checkpoint") ) { install.packages("checkpoint"); library("checkpoint") }
+checkpoint("2022-01-01") # replace with desired date
 # checkpoint("2020-01-01", r_version="3.6.2") # replace with desired date and R version
 
 if ( !require("parallel") ) { install.packages("parallel"); library("parallel") } # need to run things in parallel
@@ -448,9 +450,9 @@ if(analysis.ml){
                         "rf"  # Random Forest
                         )
     seeds <- c(
-               # 2020, 
-               # 2021, 
-               # 2022, 
+               2020,
+               2021,
+               2022,
                2023, 
                2024)
     
@@ -466,11 +468,10 @@ if(analysis.ml){
     
     seeds.ml.outputs.cv <- lapply(centered.data.factors, function(split){
       # split <- centered.data.factors[[1]]
-      lapply(list.algo.seeds, function(algo.seed){apply.tuned.ml.model(splitted.data = split, algorithm = algo.seed[,"algorithm"], list.taxa = list.taxa[c(6,7)],
+      lapply(list.algo.seeds, function(algo.seed){apply.tuned.ml.model(splitted.data = split, algorithm = algo.seed[,"algorithm"], list.taxa = list.taxa,
                                                                  env.fact = env.fact, CV = CV, ODG = ODG, prev.inv = prev.inv, seed = algo.seed[,"seed"])
       })
     })
-    
     
     
     info.file.ml.name <-  paste0("ML_model_",
@@ -482,6 +483,16 @@ if(analysis.ml){
                                  ifelse(dl, "DL_", "no_DL_"),
                                  ifelse(lme.temp, "lme_temp", ""))
 
+    # list.models <- names(list.algo.seeds)
+    # no.models <- length(list.models)
+    # names(list.models) <- rainbow(no.algo.seeds)
+    # outputs.cv <- seeds.ml.outputs.cv
+    list.algo <- names(list.algo.seeds)
+    no.algo <- length(list.algo)
+    names(list.algo)[which(grepl("ada", list.algo))] <- colorRampPalette(c("blue", "cadetblue1"))(5)
+    names(list.algo)[which(grepl("rf", list.algo))] <- colorRampPalette(c("blueviolet", "hotpink3"))(5)
+    ml.outputs.cv <- seeds.ml.outputs.cv
+    
     file.name <- paste0(dir.models.output, info.file.ml.name, ".rds")
     cat(file.name)
     saveRDS(tuned.ml.outputs.cv, file = file.name, version = 2)
@@ -753,7 +764,7 @@ info.file.name <- paste0(file.prefix,
                          no.models, "models_",
                          # no.models, "tunedRRF_",
                          ifelse(analysis.ann, "AnalysisANN_", ""),
-                         ifelse(analysis.ml, "AnalysisML_", ""),
+                         ifelse(analysis.ml, "AnalysisRandomness_", ""),
                          no.taxa, "taxa_",
                          # no.env.fact, "envfact_",
                          ifelse(CV, "CV_",
@@ -791,8 +802,8 @@ if(CV | ODG){
 }
 #saveRDS(df.perf, file = paste0(dir.models.output,"rf_glm_lm.rds"), version = 2)
 
-# df.perf.ODG <- df.perf
-# df.perf.cv <- df.perf
+# df.perf2 <- df.perf
+# df.perf1 <- df.perf
 
 # # comparison of lme
 # install.packages("arsenal")
@@ -826,26 +837,35 @@ cat(file.name)
 df.summary <- sumtable(df.perf, out='return')
 write.table(df.summary, file.name, sep=";", row.names=F, col.names=TRUE)
 
-sumtable(df.perf, file = file.name, out = "csv")
 
-# Read in other result table to plot comparison
+# Comparison analysis ####
 
-if(CV){
-  df.perf.cv <- df.perf
-} else if(ODG){
-  df.perf.ODG <- df.perf
+
+# CV vs ODG comparison
+if(comparison.cv.odg){
+  
+  if(CV){
+    df.perf1 <- df.perf
+  } else if(ODG){
+    df.perf2 <- df.perf
+  }
+  
+  CV <- !CV
+  ODG <- !ODG
+  
+} else if(comparison.lm.lme){
+  
+  df.perf1 <- df.perf
+  lme.temp <- !lme.temp
+  
 }
-
-CV <- !CV
-ODG <- !ODG
 
 temp.info.file.name <- paste0(file.prefix,
                          no.models, "models_",
                          # no.models, "tunedRRF_",
                          ifelse(analysis.ann, "AnalysisANN_", ""),
-                         ifelse(analysis.ml, "AnalysisML_", ""),
+                         ifelse(analysis.ml, "AnalysisRandomness_", ""),
                          no.taxa, "taxa_",
-                         # no.env.fact, "envfact_",
                          ifelse(CV, "CV_",
                                 ifelse(ODG, paste(c("ODG", paste(c(ODG.info,"_"), collapse = "")), collapse = "_"),
                                        "FIT_")),
@@ -854,15 +874,24 @@ temp.info.file.name <- paste0(file.prefix,
                          "")
 cat(temp.info.file.name)
 
-if(CV){
-  df.perf.cv <- read.csv(paste(dir.workspace, temp.info.file.name, "TableResults", ".csv", sep=""), header=TRUE, sep=";", stringsAsFactors=FALSE)
-} else if(ODG){
-  df.perf.ODG <- read.csv(paste(dir.workspace, temp.info.file.name, "TableResults", ".csv", sep=""), header=TRUE, sep=";", stringsAsFactors=FALSE)
+if(comparison.cv.odg){
+  
+  if(CV){
+    df.perf1 <- read.csv(paste(dir.workspace, temp.info.file.name, "TableResults", ".csv", sep=""), header=TRUE, sep=";", stringsAsFactors=FALSE)
+  } else if(ODG){
+    df.perf2 <- read.csv(paste(dir.workspace, temp.info.file.name, "TableResults", ".csv", sep=""), header=TRUE, sep=";", stringsAsFactors=FALSE)
+  }
+  
+  CV <- !CV
+  ODG <- !ODG
+  
+} else if(comparison.lm.lme) {
+  df.perf2 <- read.csv(paste(dir.workspace, temp.info.file.name, "TableResults", ".csv", sep=""), header=TRUE, sep=";", stringsAsFactors=FALSE)
+  lme.temp <- !lme.temp
 }
 
-CV <- !CV
-ODG <- !ODG
 
+# df.perf2 <- df.perf2[,-which(grepl("GLM", colnames(df.perf2)) | grepl("ANN", colnames(df.perf2)))]
 # # HTML file with numbers
 # file.name <- paste0(info.file.name, "ModelsCompar_")
 
@@ -882,7 +911,7 @@ ODG <- !ODG
 temp.df <- df.perf[,which(grepl("expl.pow_", colnames(df.perf)) & grepl("pred", colnames(df.perf)))]
 colnames(temp.df) <- list.models
 temp.df$Taxa <- df.perf$Taxa
-temp.df <- arrange(temp.df, desc(RF))
+temp.df <- arrange(temp.df, desc(rf2021))
 temp.df <- temp.df[which(temp.df$Taxa %in% list.taxa.int),]
 select.taxa <- c(temp.df$Taxa[1:3], "Occurrence.Psychodidae")
 cat("List of selected taxa:", sub("Occurrence.", "", select.taxa))
@@ -916,10 +945,12 @@ source("plot_functions.r")
 
 
 # Comparison of different application case (appcase), e.g. cross-validation and extrapolation/generalization
-
-names.appcase <- c("Cross-validation", "Generalization")
-
-list.df.perf <- list(df.perf.cv, df.perf.ODG)
+if(comparison.cv.odg){
+  names.appcase <- c("Cross-validation", "Generalization")
+} else if(comparison.lm.lme){
+  names.appcase <- c("lm", "lme")
+}
+list.df.perf <- list(df.perf1, df.perf2)
 names(list.df.perf) <- names.appcase
 
 # Boxplots standardized deviance

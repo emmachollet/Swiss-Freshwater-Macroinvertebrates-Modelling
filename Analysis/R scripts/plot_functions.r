@@ -350,6 +350,7 @@ plot.perfvsprev.compar.appcase <- function(list.df.perf, list.models, list.taxa,
                        size = 3)
   p <- p + xlim(4.5, 95.5)
   p <- p + ylim(0, 1.5) # ECR: only because perf problems
+  p <- p + geom_hline(yintercept = plot.data[select.taxa[1], "Prevalence"], linetype='dashed', col = 'grey30')
   p <- p + stat_function(fun=function(x) -2*(x/100*log(x/100) + (1-x/100)*log(1-x/100))) # to plot null model as function line
   p <- p + theme_bw(base_size = 20)
   p <- p + facet_grid(appcase ~ dataset # , scales = "free"
