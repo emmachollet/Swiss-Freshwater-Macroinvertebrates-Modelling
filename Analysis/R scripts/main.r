@@ -16,7 +16,6 @@
 
 # Check and set working directory
 getwd() # show working directory
-# setwd("Q:/Abteilungsprojekte/siam/Emma Chollet/Data processing/Swiss Freshwater Macroinvertebrates Modelling/Analysis/R scripts") # set the working directory to this folder
 
 # Free workspace
 rm(list=ls())
@@ -32,15 +31,14 @@ file.prefix <- ifelse(BDM, "BDM_", "All_")
 d <- Sys.Date()    # e.g. 2021-12-17
 
 # Fit models to entire dataset or perform cross-validation (CV) or out-of-domain generalization (ODG)
-CV <- F # Cross-Validation
+CV <- T # Cross-Validation
 ODG <- ifelse(CV, FALSE, # If CV is TRUE, then no extrapolation
-                  T # Set to TRUE for extrapolation
+                  T # Set to TRUE for out-of-domain generalization
                   )
 ODG.info <- c(training.ratio = 0.8, 
                    variable = "temperature")
                    # variable = "IAR")
 
-#ODG = T
 # Set if we allow data leakage (changes the way data is normalized)
 dl <- F
 if(!CV){ dl <- F } # if it's only fitting, we don't need with or without dataleakage
@@ -192,10 +190,7 @@ env.fact.full <- c(env.fact,
               "temperature2",
               "velocity2")
 
-
-# env.fact <- env.fact.full
 no.env.fact <- length(env.fact)
-
 
 # Preprocess data ####
 
@@ -604,7 +599,7 @@ if( file.exists(file.name) == T ){
 
 # Change names of algorithms but keeping colors selected at the beginning
 print(list.algo)
-list.algo.temp <- c( "iGLM", # Generalized Linear Model
+list.algo.temp <- c("iGLM", # Generalized Linear Model
                    "GAM", # Generalized Additive Model
                    "SVM", # Support Vector Machine
                    "BCT", # Boosted Classification Tree
