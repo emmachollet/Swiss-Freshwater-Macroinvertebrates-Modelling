@@ -912,10 +912,12 @@ make.df.outputs <- function(outputs, list.models, list.taxa,
         merged.df[which(merged.df$Taxa == j), "Big.pred.expl.pow.diff"] <- max - min
         
         # Compare with chGLM
-        expl.pow.chGLM <- temp.df[which(temp.df$Taxa == j), which(grepl("chGLM", colnames(temp.df)))]
-        merged.df[which(merged.df$Taxa == j), "chGLM.model.diff"] <- paste(model.max, "chGLM", sep = "-")
-        merged.df[which(merged.df$Taxa == j), "chGLM.pred.expl.pow.diff"] <- max - expl.pow.chGLM
-    
+        if("chGLM" %in% colnames(temp.df)){
+          expl.pow.chGLM <- temp.df[which(temp.df$Taxa == j), which(grepl("chGLM", colnames(temp.df)))]
+          merged.df[which(merged.df$Taxa == j), "chGLM.model.diff"] <- paste(model.max, "chGLM", sep = "-")
+          merged.df[which(merged.df$Taxa == j), "chGLM.pred.expl.pow.diff"] <- max - expl.pow.chGLM
+        }
+        
         # Compute likelihood ratio
         for (l in list.models) {
           pred <- merged.df[which(merged.df$Taxa == j), paste0(l, ".pred")]

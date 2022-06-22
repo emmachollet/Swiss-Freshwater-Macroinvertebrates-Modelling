@@ -350,6 +350,7 @@ plot.perfvsprev.compar.appcase <- function(list.df.perf, list.models, list.taxa,
                        size = 3)
   p <- p + xlim(4.5, 95.5)
   p <- p + ylim(0, 1.5) # ECR: only because perf problems
+  p <- p + geom_hline(yintercept = plot.data[select.taxa[1], "Prevalence"], linetype='dashed', col = 'grey30')
   p <- p + stat_function(fun=function(x) -2*(x/100*log(x/100) + (1-x/100)*log(1-x/100))) # to plot null model as function line
   p <- p + theme_bw(base_size = 20)
   p <- p + facet_grid(appcase ~ dataset # , scales = "free"
@@ -1303,7 +1304,12 @@ map.ml.pred.taxa <- function(taxa, inputs, outputs, list.algo, CV){
 
 map.env.fact.2 <- function(inputs, env.fact, data.env, dir.output, file.prefix){
   
-  for (k in 1:length(env.fact)){
+    # inputs <- inputs1
+    # env.fact <- env.fact
+    # data.env <- data.env.lm
+    # dir.output <- dir.plots.output
+  
+  
     k = 1
     variable <- env.fact[k]
     temp.data.env <- data.env[, c("X","Y", env.fact[k])]
@@ -1335,29 +1341,29 @@ map.env.fact.2 <- function(inputs, env.fact, data.env, dir.output, file.prefix){
       panel.grid.major = element_line(colour="transparent"),
       plot.margin = unit(c(0.1,0.1,0.1,0.1), "lines"))
     g <- g + labs(title = paste("Geographic distribution of",variable), 
-                  subtitle = paste0(no.na, " NAs out of ", no.rows, " samples \n"), colour = variable) + scale_fill_gradient2(midpoint = "value of midpoint", low = "blue", mid = "white", high = "blue", 
-                                                                                                                              limits = c(min,max))
+                   subtitle = paste0(no.na, " NAs out of ", no.rows, " samples \n"), colour = variable) + 
+      scale_fill_gradient2(midpoint = 0, low = "blue", mid = "white", high = "red", aesthetics = "colour")
     
     
     print(g)
-    
-    p <- ggplot(data = temp.data.env, aes(temp.data.env[, variable]))
-    
-    
-      
-      q <- p + geom_histogram(col="grey20", fill="firebrick3", alpha = 0.2,
-                              binwidth = function(x) 2 * IQR(x) / (length(x)^(1/3)))
-      q <- q + labs(title=paste("Histogram for", variable), x=variable, y="Frequency")
-      
-      r <- p + geom_density(fill="firebrick3", alpha = 0.2)
-      r <- r + labs(x=variable, col="grey20", y="Density")
-      
-      p <- ggarrange(q,r, ncol = 2)
-
-    
-    print(p)
-    # print(ggarrange(g,p, nrow =2))
+    # 
+    # p <- ggplot(data = temp.data.env, aes(temp.data.env[, variable]))
+    # 
+    # 
+    #   
+    #   q <- p + geom_histogram(col="grey20", fill="firebrick3", alpha = 0.2,
+    #                           binwidth = function(x) 2 * IQR(x) / (length(x)^(1/3)))
+    #   q <- q + labs(title=paste("Histogram for", variable), x=variable, y="Frequency")
+    #   
+    #   r <- p + geom_density(fill="firebrick3", alpha = 0.2)
+    #   r <- r + labs(x=variable, col="grey20", y="Density")
+    #   
+    #   p <- ggarrange(q,r, ncol = 2)
+    # 
+    # 
+    # print(p)
+    # # print(ggarrange(g,p, nrow =2))
 
   
-}
+
 }
