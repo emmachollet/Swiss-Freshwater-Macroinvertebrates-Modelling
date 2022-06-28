@@ -59,7 +59,8 @@ file.temp.lme     <- "lme_temperature_model.rds"
 # Rosi`s compiled dataset
 data.environment        <- read.delim(paste(dir.GIS.data,file.environment,sep=""), na = c("<Null>", " ", "NA"), # directly replace problems by Na
                                       header=TRUE, sep="\t", stringsAsFactors=FALSE)
-
+# data.fluss <- read.csv(paste(dir.GIS.data,"emma_Fluss.csv",sep=""), # na = c("<Null>", " ", "NA"), # directly replace problems by Na
+#                             header=TRUE, sep=",", stringsAsFactors=FALSE)
 # Substrate data extracted by Nele
 data.sub             <- read.delim(paste(dir.env.data,file.sub.bdm,sep=""),header=TRUE,sep="\t", stringsAsFactors=FALSE)
 data.sub.fract       <- read.delim(paste(dir.env.data,file.sub.bdm.fract,sep=""),header=TRUE,sep="\t", stringsAsFactors=FALSE)
@@ -113,6 +114,11 @@ data.environment <- data.environment[,-which(colnames(data.environment)=="SiteId
 data <- data.inv[,c("SiteId", "SampId")]
 data <- left_join(data, data.environment, by=c("SampId"))   #xxx nis: changed 7.4.21
 dim(data)
+
+# data.env.bis <- left_join(data.environment, data.fluss.bis, by=c("SiteId", "SampId"))
+# filename <- paste(dir.GIS.data,file.environment,sep="")
+# write.table(data.env.bis, filename,sep="\t",row.names=F,col.names=TRUE)
+# 
 
 ## <  add substrate data ##############################################################################
 
@@ -529,6 +535,13 @@ to.remove <- c("Site_ID",   "Note",    "rid" ,            "fmeas",            "t
 dim(data)
 data <- data[,-which(colnames(data) %in% to.remove)]
 dim(data)
+
+# make column Plateau and Alps
+alps <- c("Alpennordflanke", "Alpensüdflanke", "Zentralalpen")
+plateau <- c("Jura", "Mittelland")
+data$Region <- NA
+data[which(data$BIOGEO %in% alps), "Region"] <- "Alps"
+data[which(data$BIOGEO %in% plateau), "Region"] <- "Plateau"
 
 # move morphology columns together
 CH_ind <- which(grepl("CH_",colnames(data)))

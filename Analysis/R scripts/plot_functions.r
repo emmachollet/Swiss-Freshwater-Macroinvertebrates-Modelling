@@ -165,6 +165,72 @@ plot.boxplots.data <- function(data, columns){
     return(p)
 }
 
+explore.splits <- function(inputs, splits, env.fact){
+  
+  no.splits <- length( splits)
+  plot.data <- data.frame()
+  list.plots <- list()
+  
+  if(no.splits == 1){
+    plot.data <- bind_rows(splits[[1]][["Training data"]], splits[[1]][["Testing data"]], .id = "Split")
+  } else {
+    for (n in 1:no.splits) {
+      # n=1
+      temp.plot.data <- splits[[n]][["Testing data"]]
+      temp.plot.data$Split <- paste0("Split",n)
+      plot.data <- bind_rows(plot.data, temp.plot.data)
+      
+    }
+  }
+  plot.data$Split <- as.factor(plot.data$Split)
+  
+  g <- ggplot()
+  g <- g + geom_sf(data = inputs$ch, fill="#E8E8E8", color="black")
+  g <- g + geom_sf(data = inputs$rivers.major, fill=NA, color="lightblue", show.legend = FALSE)
+  g <- g + geom_sf(data = inputs$lakes.major, fill="lightblue", color="lightblue", show.legend = FALSE)
+  g <- g + geom_point(data = plot.data, aes(x=X, y=Y, color= Split, shape = Region), size= 3, alpha= 0.6)
+  g <- g + theme_void(base_size = 18)
+  g <- g + theme(# plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_line(colour="transparent"),
+    plot.margin = unit(c(0.1,0.1,0.1,0.1), "lines"))
+  g <- g + labs(title = "Geographic distribution of the samples across the splits")
+  
+  list.plots <- append(list.plots, list(g))
+  
+  p <- ggplot(data = plot.data, aes(x=Region)) 
+  p <- p + geom_histogram(aes(fill = Split), stat="count", position = "dodge")
+  p <- p + theme_bw(base_size = 18)
+  p <- p + labs(y = "Number of samples",
+                title = "Distribution of the samples in the splits across regions")
+  
+  list.plots <- append(list.plots, list(p))
+  
+  p1 <- ggplot(data = plot.data, aes(x=RiverBasin)) 
+  p1 <- p1 + geom_histogram(aes(fill = Split), stat="count", position = "dodge")
+  p1 <- p1 + theme_bw(base_size = 18)
+  p1 <- p1 + labs(y = "Number of samples",
+                title = "Distribution of the samples in the splits across main catchments")
+  
+  list.plots <- append(list.plots, list(p1))
+  
+  plot.data1 <- gather(plot.data[,c("Split", "Region", env.fact)], key = factor, value = value, -c("Split", "Region"))
+  q <- ggplot(data = plot.data1, aes(x=value)) 
+  q <- q + geom_density(aes(colour = Split), alpha = 0.3)
+  q <- q + theme_bw(base_size = 18)
+  q <- q + facet_wrap(~factor, scales = "free",
+                      # labeller=label_parsed, 
+                      strip.position="top")
+  q <- q + theme(legend.text = element_text(size=22),
+                 strip.background = element_rect(fill = "white"))
+  q <- q + labs(x = "Values of environmental factor",
+                y = "Density",
+                title = "Distribution of the environmental factors in splits")
+  
+  list.plots <- append(list.plots, list(q))
+  
+  return(list.plots)
+}
+
 
 ## ---- Models analysis plots ----
 

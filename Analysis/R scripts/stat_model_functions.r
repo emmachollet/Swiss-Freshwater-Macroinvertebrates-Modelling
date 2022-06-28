@@ -26,7 +26,7 @@ stat_mod_cv <- function (data.splits, CV, ODG, comm.corr, sampsize, n.chain){
     
     # data.splits <- centered.splits[[1]] # to test
     # data.splits <- splits[[1]] # to test
-    # data.splits <- centered.data[[1]]
+    # data.splits <- standardized.data[[1]]
     output <- list("deviance" = tibble(), "probability" = tibble(), "parameters" = tibble()) #this is where the data is gathered in the end for the return
     training.data <- data.splits[[1]]
     

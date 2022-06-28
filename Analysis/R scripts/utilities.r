@@ -1,7 +1,36 @@
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+##
+##               Various functions used in all the scripts
+##
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+## ---- Data wrangling ----
+
+# Split the data in 3 three-folds for cross-validation
+split.data.cv <- function(data){
+  
+  set.seed(2021)  
+  
+  folds <- groupKFold(data$SiteId, 3) # Keep same sites in same split to avoid data leakage
+  
+  train1 <- data[folds$Fold1,]
+  test1 <- data[-folds$Fold1,]
+  
+  train2 <- data[folds$Fold2,]
+  test2 <- data[-folds$Fold2,]
+  
+  train3 <- data[folds$Fold3,]
+  test3 <- data[-folds$Fold3,]
+  
+  return(list("Split1" = list("Training data" = train1, "Testing data" = test1), 
+              "Split2" = list("Training data" = train2, "Testing data" = test2), 
+              "Split3" = list("Training data" = train3, "Testing data" = test3)))
+}
 
 
 # Split data in training and testing datasets for ODGation
-split.data.ml <- function(data, training.ratio, variable = "random", bottom = T){
+split.data.odg <- function(data, training.ratio, variable = "random", bottom = T){
   
   # add an argument in the fct, eg splitcol, which would be here SiteId
   # first split by this argument, then select rows (aka samples) according to their SiteId
@@ -28,149 +57,8 @@ split.data.ml <- function(data, training.ratio, variable = "random", bottom = T)
   return(splitted.data)
 }
 
-# Split the data in 3 training and testing data sets for CV
-split.data <- function(data){
-  
-      set.seed(2021)  
-    
-      folds <- groupKFold(data$SiteId, 3)
-      
-      train1 <- data[folds$Fold1,]
-      test1 <- data[-folds$Fold1,]
-    
-      train2 <- data[folds$Fold2,]
-      test2 <- data[-folds$Fold2,]
-    
-      train3 <- data[folds$Fold3,]
-      test3 <- data[-folds$Fold3,]
-      
-  return(list("Split1" = list("Training data" = train1, "Testing data" = test1), 
-              "Split2" = list("Training data" = train2, "Testing data" = test2), 
-              "Split3" = list("Training data" = train3, "Testing data" = test3)))
-}
-
-# Old splitting function from Jonas
-split.data.manual <- function(data,sd){
-    repeat{
-        inv.data <- data[sample(nrow(data)),]
-       
-        folds <- groupKFold(inv.data$SiteId, 3) 
-        
-        #Group by SiteId to not avoid data leakage and then assign randomly to folds 1-3 
-        inv.data.fold <- as.data.frame(inv.data %>% group_by(SiteId) %>% summarize(folds = sample(seq(3),1)))
-        inv.data <- left_join(inv.data, inv.data.fold, by = "SiteId") 
-        
-        fold1 <- inv.data[which(inv.data$fold == 1),]
-        fold2 <- inv.data[which(inv.data$fold == 2),]
-        fold3 <- inv.data[which(inv.data$fold == 3),]
-        
-        #remove fold information
-        fold1 <- subset(fold1, select=-c(folds))
-        fold2 <- subset(fold2, select=-c(folds))
-        fold3 <- subset(fold3, select=-c(folds))
-        
-        
-        # Combine the folds manually for the joint model
-        train1 <- bind_rows(fold1, fold2)
-        test1 <- fold3
-        message(dim(test1)[1])
-        
-        train2 <- bind_rows(fold2, fold3)
-        test2 <- fold1
-        message(dim(test2)[1])
-        
-        train3 <- bind_rows(fold1, fold3)
-        test3 <- fold2
-        message(dim(test3)[1])
-        
-        if(sd(c(dim(fold1)[1],dim(fold2)[1],dim(fold3)[1])) < sd){
-            break
-        }
-    }
-    
-    
-    return(list("Split1" = list("Training data" = train1, "Testing data" = test1), 
-                "Split2" = list("Training data" = train2, "Testing data" = test2), 
-                "Split3" = list("Training data" = train3, "Testing data" = test3)))
-}
-
-# function to center data. If there is only one split i.e. the whole occ data, it needs to be inputed as a list with the data as the only element (i.e. list(inv.occ))
-# split <-- list, with one of the three splits done by split.data
-# cv <-- boolean, T if we have 3 splits for CV, F if we don't do CV
-center.data.old <- function(split, CV){
-  
-    #split <- list(inv.occ)
-    #split <- splits[[1]]
-    training.data <- split[[1]]
-    
-    #extract column names to access predictors and invertebrate data seperately
-    inv.names <- colnames(select(training.data, contains("Occurrence.group."), contains("Occurrence.")))
-    env.names <- colnames(select(training.data, - all_of(inv.names)))
-    
-    
-    #Here I convert to numeric to count observations across sites
-    inv.data <- as.data.frame(apply(training.data[, inv.names],2,as.numeric))
-    
-    # drop TAXA without observations or only presence at the selected sites:
-    ind <- apply(inv.data,2,sum, na.rm = T) <= 0
-    inv.data <- inv.data[, !ind]
-    n.taxa <- ncol(inv.data)
-    
-    ind <-  apply(inv.data,2,sum, na.rm = T) == ncol(inv.data)
-    inv.data <- inv.data[, !ind]
-    n.taxa <- ncol(inv.data)
-    
-    names.selected <- colnames(inv.data)
-    training.data <- cbind(training.data[,env.names],training.data[,names.selected])
- 
-    #if center is true substract the mean of each predictor, check if its divded by sd, I added the division by sd
-    mean.env.cond <- apply(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")), 2, function(k){
-        #mean.env.cond <- apply(env.cond[, !(colnames(env.cond) %in% c("SiteId", "SampId"))], 2, function(k){
-        mean(k, na.rm = TRUE)
-    })
-    sd.env.cond <- apply(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")), 2, function(k){
-        sd(k, na.rm = TRUE)
-    })
-    for(i in 1:length(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
-        #i = 6
-        #message(i)
-        #Bit ugly good, check that the indices are right (i.e. the ones for the env data)
-        training.data[i+4] <- as.matrix(training.data[i+4]) - mean.env.cond[i]
-    }
-    for(i in 1:length(select(training.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
-        #i = 6
-        training.data[i+4] <- as.matrix(training.data[i+4]) / sd.env.cond[i]
-    }
-    
-    if(CV == F){
-        return(list( "Entire dataset" = training.data))
-    }else{
-        
-        testing.data <- split[[2]]
-        
-        #Here I make sure that the same species are dropped from the training and testing set.
-        testing.data <- cbind(testing.data[,env.names],testing.data[,names.selected])
-        
-        # join the environmental conditions to the occurrence data
-        #test.predictors <- left_join(testing.data[, c("SiteId", "SampId")], env.cond.orig, by = c("SiteId", "SampId")
-        
-        for(i in 1:length(select(testing.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
-            #i = 6
-            #message(i)
-            #Bit ugly good, check that the indices are right (i.e. the ones for the env data)
-            testing.data[i+4] <- as.matrix(testing.data[i+4]) - mean.env.cond[i]
-        }
-        for(i in 1:length(select(testing.data, all_of(env.names), - c("SiteId", "SampId","X", "Y")))){
-            #i = 6
-            testing.data[i+4] <- as.matrix(testing.data[i+4]) / sd.env.cond[i]
-        }
-        
-        return(list("Training data" = training.data, "Testing data" = testing.data, "Mean" = mean.env.cond, "SD" = sd.env.cond))
-    }
-    
-}
-
-center.data <- function(data, split, CV, ODG, dl, mean.dl, sd.dl, env.fact.full){
+# 
+standardize.data <- function(data, split, CV, ODG, dl, mean.dl, sd.dl, env.fact.full){
   
   training.data <- split[[1]]
   
@@ -181,15 +69,6 @@ center.data <- function(data, split, CV, ODG, dl, mean.dl, sd.dl, env.fact.full)
   
   # convert to numeric to count observations across sites
   inv.data <- as.data.frame(apply(training.data[, inv.names],2,as.numeric))
-  
-  # WAS ADDED TO PRE-PROCESSING COULD BE REMOVED
-  # drop taxa without observations or only presence at the selected sites
-  ind <- apply(inv.data,2,sum, na.rm = T) <= 0
-  inv.data <- inv.data[, !ind]
-  n.taxa <- ncol(inv.data)
-  
-  ind <-  apply(inv.data,2,sum, na.rm = T) == ncol(inv.data)
-  inv.data <- inv.data[, !ind]
   n.taxa <- ncol(inv.data)
   
   names.selected <- colnames(inv.data)
@@ -267,65 +146,88 @@ center.data <- function(data, split, CV, ODG, dl, mean.dl, sd.dl, env.fact.full)
 }
 
 
-preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.workspace, BDM, dl, CV, ODG, ODG.info = c(), lme.temp = lme.temp){
+preprocess.data <- function(data.env, data.inv, prev.inv, remove.na.env.fact = T, remove.na.taxa = T, prev.restrict, env.fact.full, dir.workspace, BDM, dl, CV, ODG, ODG.info = c(), lme.temp = lme.temp){
     
-    # Merge data sets
-    cind.taxa <- which(grepl("Occurrence.", colnames(data.inv)))
-    list.taxa <- colnames(data.inv)[cind.taxa]
-    data <- data.env[, c("SiteId", "SampId", "X", "Y", env.fact.full)] %>%
-        left_join(data.inv[, c(1, 2, cind.taxa)], by = c("SiteId", "SampId"))
-    dim(data)
+  # Print information
+  cind.taxa <- which(grepl("Occurrence.", colnames(data.inv)))
+  list.taxa <- colnames(data.inv)[cind.taxa]
+  cat("\nSummary information of original datasets before preprocessing:\n",
+      length(unique(data.inv$SampId)), "samples,\n",
+      length(unique(data.inv$SiteId)), "sites,\n",
+      length(list.taxa), "taxa (including missing values) with taxonomic level:\n")
+  
+  print(summary(as.factor(prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Taxonomic.level"])))
+  
+  if(remove.na.env.fact){
     
-    # Print information
-    cat("\nSummary information of original datasets before preprocessing:\n",
-        length(unique(data$SampId)), "samples,\n",
-        length(unique(data$SiteId)), "sites,\n",
-        length(list.taxa), "taxa (including missing values) with taxonomic level:\n")
+    # Drop rows with incomplete influence factors
+    rind <- !apply(is.na(data.env[,env.fact.full]), 1, FUN=any)
+    rind <- ifelse(is.na(rind), FALSE, rind)
+    cat(paste("\n", sum(!rind),"sites/samples excluded because of incomplete environmental factor.\n"))
+    data.env <- data.env[rind,]
+    dim(data.env)
     
-    print(summary(as.factor(prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Taxonomic.level"])))
+  }
+  
+  data.inv <- data.inv[data.inv$SampId %in% data.env$SampId, ]
+  
+  
+  if(remove.na.taxa){
     
     # Drop taxa with too many NAs
-    cind.taxa <- which(grepl("Occurrence.", colnames(data)))
     too.many.na <- c()
     threshold <- ifelse(BDM, 100, 200)
     for(i in cind.taxa){
-      if(sum(is.na(data[,i])) > threshold){ too.many.na <- c(too.many.na, i)}
+      if(sum(is.na(data.inv[,i])) > threshold){ too.many.na <- c(too.many.na, i)}
     }
-    cat("\nThe following", length(too.many.na), "taxa are excluded because they have more than ", threshold, "NAs :\n", gsub("Occurrence.", "", colnames(data)[too.many.na]), "\n")
-    data<- data[, -too.many.na]
-    
+    cat("\nThe following", length(too.many.na), "taxa are excluded because they have more than ", threshold, "NAs :\n", gsub("Occurrence.", "", colnames(data.inv)[too.many.na]), "\n")
+    data.inv <- data.inv[, -too.many.na]
     
     # Drop rows with incomplete taxa or influence factors
-    rind <- !apply(is.na(data), 1, FUN=any)
+    rind <- !apply(is.na(data.inv), 1, FUN=any)
     rind <- ifelse(is.na(rind), FALSE, rind)
-    cat(paste("\n", sum(!rind),"sites/samples excluded because of incomplete taxa or influence factors.\n"))
-    data <- data[rind,]
-    dim(data)
+    cat(paste("\n", sum(!rind),"sites/samples excluded because of incomplete taxa.\n"))
+    data.inv <- data.inv[rind,]
+    dim(data.inv)
     
     # Delete taxa with only presence or absence (happens because we deleted rows)
     # Delete taxa with less than 5% of only present or absent
-    cind.taxa <- which(grepl("Occurrence.",colnames(data)))
-    no.samples <- nrow(data)
-    five.perc <- 0.05*no.samples
+    cind.taxa <- which(grepl("Occurrence.",colnames(data.inv)))
+    no.samples <- nrow(data.inv)
+    prev.perc <- prev.restrict*no.samples
     cind.rem <- c()
     for (j in cind.taxa) {
-        if(sum(data[,j]) < five.perc | sum(data[,j]) > no.samples - five.perc){ cind.rem <- c(cind.rem, j) }
+        if(sum(data.inv[,j]) < prev.perc | sum(data.inv[,j]) > no.samples - prev.perc){ cind.rem <- c(cind.rem, j) }
     }
-    cat("\nThe following", length(cind.rem), "taxa are excluded because they have less than 5% or more than 95% of prevalence:\n", gsub("Occurrence.", "", colnames(data)[cind.rem]), "\n")
-    data <- data[,-cind.rem]
+    cat("\nThe following", length(cind.rem), "taxa are excluded because they have less than", 100*prev.restrict, "% or more than", 100 - 100*prev.restrict, "% of prevalence:\n", gsub("Occurrence.", "", colnames(data.inv)[cind.rem]), "\n")
+    if(length(cind.rem) != 0){ data.inv <- data.inv[,-cind.rem] }
+    dim(data.inv)
+    
+  }
+  
+    # Merge data sets
+    cind.taxa <- which(grepl("Occurrence.", colnames(data.inv)))
+    list.taxa <- colnames(data.inv)[cind.taxa]
+    data <- data.env[, c("SiteId", "SampId", "X", "Y", "RiverBasin", "Region", env.fact.full)] %>%
+      right_join(data.inv[, c(which(colnames(data.inv) %in% c("SiteId", "SampId")), cind.taxa)], by = c("SiteId", "SampId"))
     dim(data)
     
     # Split data
-    
     prefix <- ifelse(BDM, "BDM_", "All_")
-    prefix <- paste0(prefix, ifelse(lme.temp, "lme_",""))
-    if(CV == T){
+    info.file.name <- paste0(prefix,
+                             dim(data)[1], "samples_",
+                             ifelse(CV, "CV_",
+                                    ifelse(ODG, paste(c("ODG", paste(c(ODG.info,"_"), collapse = "")), collapse = "_"),
+                                           "FIT_")),
+                             ifelse(lme.temp, "lme_temp_", ""),
+                             "")
+    if(CV){
         
         # Split for CV
-        file.name <- paste0(dir.workspace, prefix, "SplitsForCV.rds")
+        file.name <- paste0(dir.workspace, info.file.name, "Splits.rds")
         
-        # If the file with the three different splits already exist, just read it
-        if (file.exists(file.name) == T ){
+        # If the file with the splits exist, we read it, otherwise we split the data
+        if (file.exists(file.name)){
             
             if(exists("splits") == F){ splits <- readRDS(file = file.name)
             cat("\nFile with data splits already exists, we read it from", file.name, "and save it in object 'splits'.\n")}
@@ -335,7 +237,7 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
         } else {
             
             cat("\nNo data splits exist yet, we produce it and save it in", file.name, ".\n")
-            splits <- split.data(data)
+            splits <- split.data.cv(data)
             saveRDS(splits, file = file.name)
         }
     } else if (ODG) {
@@ -343,28 +245,28 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
       training.ratio <- as.numeric(ODG.info["training.ratio"])
       variable <- ODG.info["variable"]
       
-      # Split for ODGation
-      file.name <- paste0(dir.workspace, prefix, "SplitForODGation_", training.ratio, variable, ".rds")
+      # Split for ODG
+      file.name <- paste0(dir.workspace, info.file.name, "Split_", training.ratio, variable, ".rds")
       
       # If the file with the three different splits already exist, just read it
       if (file.exists(file.name) == T ){
         
         if(exists("splits") == F){ splits <- readRDS(file = file.name)
-        cat("\nFile with data splitted for ODGation already exists, we read it from", file.name, "and save it in object 'splits'.\n")}
+        cat("\nFile with data splitted for ODG already exists, we read it from", file.name, "and save it in object 'splits'.\n")}
         else{
           cat("\nList with data splits already exists as object 'splits' in this environment.\n")
         }
       } else {
         
         cat("\nNo data splits exist yet, we produce it and save it in", file.name, ".\n")
-        splits <- split.data.ml(data, training.ratio = training.ratio, variable = variable)
+        splits <- split.data.odg(data, training.ratio = training.ratio, variable = variable)
         saveRDS(splits, file = file.name)
       }
     } else {
       splits <- list(data)
     }
     
-    # Normalize data
+    # Standardize data
     
     # Calculate mean and sd for env data for normalization with data leakage
     mean.dl <- apply(select(data, all_of(env.fact.full)), 2, function(k){
@@ -375,37 +277,17 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
     })
     
     # Normalize the data (each folds for CV and whole data set else)
-    if(CV == T | ODG == T){
+    if(CV | ODG){
         
         # Center the splits
-        centered.splits.tmp <- lapply(splits, FUN = center.data, CV = CV, ODG = ODG, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full = env.fact.full)
+        centered.splits.tmp <- lapply(splits, FUN = standardize.data, CV = CV, ODG = ODG, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full = env.fact.full)
         
-        # To control if the splits have the same taxa
-        # # Splits don't have same taxa columns, should be harmonized
-         col1 <- colnames(centered.splits.tmp$Split1$`Training data`)
-        # col2 <- colnames(centered.splits.tmp$Split2$`Training data`)
-        # col3 <- colnames(centered.splits.tmp$Split3$`Training data`)
-        # 
-        # # Make union of column names
-        # col.names <- unique(c(col1, col2, col3))
-        # list.taxa <- col.names[which(grepl("Occurrence.", col.names))]
-         list.taxa <- col1[which(grepl("Occurrence.", col1))]
-        # 
-        # # Make intersection of column names (remove taxa not common to each split)
-        # rem.taxa <- unique(c(col1[-which(col1 %in% col2)],
-        #                     col1[-which(col1 %in% col3)],
-        #                     col2[-which(col2 %in% col1)],
-        #                     col2[-which(col2 %in% col3)],
-        #                     col3[-which(col3 %in% col1)],
-        #                     col3[-which(col3 %in% col2)]))
-        # cat("\nFollowing taxa are not in all splits, consider removing them:",length(rem.taxa), rem.taxa, "\n")
-
         # Extract necessary information
-        centered.data <- lapply(centered.splits.tmp,"[", 1:2) # only the splits without the mean, sd info
+        standardized.data <- lapply(centered.splits.tmp,"[", 1:2) # only the splits without the mean, sd info
         normalization.data <- lapply(centered.splits.tmp,"[", 3:4) # the mean and sd of the splits
         
         # Normalize the folds but replace '0' and '1' by factors
-        centered.data.factors <- lapply(centered.data, function(split){
+        standardized.data.factors <- lapply(standardized.data, function(split){
             
             return(lapply(split, function(fold){
                 
@@ -423,34 +305,34 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
 
     } else {
         
-        centered.data <- center.data(split = splits, CV = CV, ODG = ODG, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full = env.fact.full)
+        standardized.data <- standardize.data(split = splits, CV = CV, ODG = ODG, data = data, dl = dl, mean.dl = mean.dl, sd.dl = sd.dl, env.fact.full = env.fact.full)
         normalization.data <- list("Mean" = mean.dl, "SD" = sd.dl)
-        centered.data.factors <- centered.data
+        standardized.data.factors <- standardized.data
         
         # Replace '0' and '1' by factors
-        cind.taxa <- which(grepl("Occurrence.",colnames(centered.data.factors[[1]])))
+        cind.taxa <- which(grepl("Occurrence.",colnames(standardized.data.factors[[1]])))
         #Replace "0" and "1" by "absent" and "present" and convert them to factors
         for (i in cind.taxa ) {
-            centered.data.factors[[1]][which(centered.data.factors[[1]][,i] == 0),i] <- "absent"
-            centered.data.factors[[1]][which(centered.data.factors[[1]][,i] == 1),i] <- "present"
-            centered.data.factors[[1]][,i] = as.factor(centered.data.factors[[1]][,i])
+            standardized.data.factors[[1]][which(standardized.data.factors[[1]][,i] == 0),i] <- "absent"
+            standardized.data.factors[[1]][which(standardized.data.factors[[1]][,i] == 1),i] <- "present"
+            standardized.data.factors[[1]][,i] = as.factor(standardized.data.factors[[1]][,i])
         }
         
-        cind.taxa <- which(grepl("Occurrence.",colnames(centered.data$`Entire dataset`)))
-        list.taxa <- colnames(centered.data$`Entire dataset`)[cind.taxa]
+        cind.taxa <- which(grepl("Occurrence.",colnames(standardized.data$`Entire dataset`)))
+        list.taxa <- colnames(standardized.data$`Entire dataset`)[cind.taxa]
     }
     
     # Test centering
     
     # if(CV == T){
-    #     if(mean(centered.data$Split1$`Training data`$temperature) <= 0.001){
+    #     if(mean(standardized.data$Split1$`Training data`$temperature) <= 0.001){
     #         cat("\nThe data is normalized.\n")
     #     }else{
     #         cat("\nThe data isn't normalized.\n")
     #         break()
     #     }
-    # }else if (exists("centered.data") == T){
-    #     if(mean(centered.data$`Entire dataset`$temperature) <= 0.001){
+    # }else if (exists("standardized.data") == T){
+    #     if(mean(standardized.data$`Entire dataset`$temperature) <= 0.001){
     #         cat("\nThe data is normalized.\n")
     #     }else{
     #         cat("\nThe data isn't normalized.\n")
@@ -462,6 +344,8 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
     # }
     
     # Update prevalence dataframe with new list of taxa and number of samples
+    cind.taxa <- which(grepl("Occurrence.", colnames(data))) # update list.taxa
+    list.taxa <- colnames(data)[cind.taxa]
     prev.inv <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa),]
     for (j in list.taxa) { 
       prev <- sum(data[,j]) / dim(data)[1]
@@ -474,16 +358,17 @@ preprocess.data <- function(data.env, data.inv, prev.inv, env.fact.full, dir.wor
     cat("\nSummary information of final datasets after preprocessing:\n",
         length(unique(data$SampId)), "samples,\n",
         length(unique(data$SiteId)), "sites,\n",
-        length(list.taxa), "taxa (without missing values) with prevalence between 5% and 95% with taxonomic level:\n")
+        length(list.taxa), "taxa (without missing values) with prevalence between", 100*prev.restrict, "% or more than", 100 - 100*prev.restrict, "% of prevalence with taxonomic level:\n")
         
     print(summary(as.factor(prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Taxonomic.level"])))
     
     preprocessed.data <- list("data" = data, "splits" = splits, "list.taxa" = list.taxa, # "rem.taxa" = if(CV){ rem.taxa },
-                              "centered.data" = centered.data, "centered.data.factors" = centered.data.factors, 
+                              "standardized.data" = standardized.data, "standardized.data.factors" = standardized.data.factors, 
                               "normalization.data" = normalization.data, "prev.inv" = prev.inv)
     return(preprocessed.data)
 }
 
+## ---- Models utilities ----
 
 # Apply NULL model
 apply.null.model <- function(data, list.taxa, prev.inv){

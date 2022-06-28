@@ -29,7 +29,7 @@ lowest <- function (x, metric, maximize = F){
 apply.ml.model <- function(splitted.data, list.algo, list.taxa, env.fact, selec.metric = "StandardizedDeviance", CV = T, ODG, prev.inv, seed = 2021,...){
     
     env.fact.orig <- env.fact
-    # splitted.data <- centered.data.factors[[1]]
+    # splitted.data <- standardized.data.factors[[1]]
     data.train <- splitted.data[["Training data"]]
     data.test <- splitted.data[["Testing data"]]
     
