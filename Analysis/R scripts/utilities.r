@@ -1089,51 +1089,18 @@ make.table.species.rearranged.order <- function(df.merged.perf, list.models){
   return(tab3)
 }
 
-pred.stat.models <- function(model, taxon, env.fact.test, list.taxa){
+pred.stat.models <- function(res.extracted, matrix.predictors){
+  # res.extracted   <- rstan::extract(res,permuted=TRUE,inc_warmup=FALSE)
   
-  res.extracted   <- rstan::extract(model,permuted=TRUE,inc_warmup=FALSE)
-  
-  # extract taxon and env variable names
-  #output <- list("deviance" = tibble(), "probability" = tibble(), "parameters" = tibble()) #this is where the data is gathered in the end for the return
-  #training.data <- data.splits[[1]]
-  
-  inv.names <- list.taxa
-  env.names <- colnames(env.fact.test)
-  #env.names <- colnames(select(training.data, colnames(training.data), -contains("Occurrence.")))
-  
-  env.cond <- env.fact.test
-  # occur.taxa <- training.data[,inv.names]
-  # comm.corr = comm.corr
-  # inf.fact <- colnames(select(env.cond, -SiteId, -SampId, -X, -Y))
-  # inf.fact <- colnames(select(env.cond, -SiteId, -SampId, -X, -Y))
-  
-  
-  # sites <- occur.taxa$SiteId
-  # samples <- occur.taxa$SampId
-  
-  # n.sites <- length(unique(sites))
-  # n.samples <- length(samples)
-  
-  # occur.taxa$SiteId <- NULL
-  # occur.taxa$SampId <- NULL
-  
-  # occur.taxa <- occur.taxa[, ind]
-  # n.taxa <- ncol(occur.taxa)
-  # 
-  # replace NA with -1
-  # occur.taxa.na.encod <- occur.taxa
-  # for(j in 1:ncol(occur.taxa.na.encod)) occur.taxa.na.encod[,j] <- ifelse(is.na(occur.taxa.na.encod[,j]),
-  #                                                                         -1, occur.taxa.na.encod[,j])
-  # extract model parameters
-  colnames(res.extracted[["alpha_taxa"]]) <- list.taxa
-  
-  colnames(res.extracted[["mu_beta_comm"]]) <- env.names
-  colnames(res.extracted[["sigma_beta_comm"]]) <- env.names
+  # Name dimensions of parameters within stanfit object
+  # colnames(res.extracted[["alpha_taxa"]]) <- list.taxa
+  # colnames(res.extracted[["mu_beta_comm"]]) <- env.fact.full
+  # colnames(res.extracted[["sigma_beta_comm"]]) <- env.fact.full
   
   # Extract inputs (x), observations (y), and parameters at maximum posterior
-  x <- as.matrix(env.fact.test)
-  colnames(x) <- env.names
-  #y <- as.matrix(occur.taxa)
+  # x <- as.matrix(env.cond[,env.fact.full])
+  # colnames(x) <- env.fact.full
+  # y <- as.matrix(occur.taxa)
   ind.maxpost <- which.max(res.extracted[["lp__"]])
   mu.alpha.comm.maxpost <- res.extracted[["mu_alpha_comm"]][ind.maxpost]
   sigma.alpha.comm.maxpost <- res.extracted[["sigma_alpha_comm"]][ind.maxpost]
@@ -1143,25 +1110,88 @@ pred.stat.models <- function(model, taxon, env.fact.test, list.taxa){
   beta.taxa.maxpost  <- res.extracted[["beta_taxa"]][ind.maxpost,,]
   
   # Name dimensions of maximum posterior community parameters
-  names(mu.beta.comm.maxpost) <- env.names
-  names(sigma.beta.comm.maxpost) <- env.names
-  rownames(beta.taxa.maxpost) <- env.names
-  
+  # names(mu.beta.comm.maxpost) <- env.fact.full
+  # names(sigma.beta.comm.maxpost) <- env.fact.full
+  # rownames(beta.taxa.maxpost) <- env.fact.full
+  # 
   ### Calibration results
   # Check if site effects AND latent variables are disabled
-  alpha.mat <- matrix(rep(alpha.taxa.maxpost,nrow(x)),nrow=nrow(x),byrow=TRUE)
-  z <- alpha.mat + x%*%beta.taxa.maxpost
+  z <- matrix(rep(alpha.taxa.maxpost,nrow(matrix.predictors)),nrow=nrow(matrix.predictors),byrow=TRUE) + 
+    matrix.predictors%*%beta.taxa.maxpost
   
   p.maxpost <- 1/(1+exp(-z))
   
-  train.p <- as_tibble(p.maxpost, stringsAsFactors = FALSE)
-  colnames(train.p) <- list.taxa
-  #train.p$SiteId <- sites
-  #train.p$SampId <- samples
-  #train.p <- gather(train.p, Taxon, Pred, -SiteId, -SampId)
-  #train.p <- left_join(train.p, train.obs, by = c("SiteId", "SampId", "Taxon"))
-  
-  return(train.p[, taxon])
+  return(p.maxpost)
+  # res.extracted   <- rstan::extract(model,permuted=TRUE,inc_warmup=FALSE)
+  # 
+  # # extract taxon and env variable names
+  # #output <- list("deviance" = tibble(), "probability" = tibble(), "parameters" = tibble()) #this is where the data is gathered in the end for the return
+  # #training.data <- data.splits[[1]]
+  # 
+  # inv.names <- list.taxa
+  # env.names <- colnames(env.fact.test)
+  # #env.names <- colnames(select(training.data, colnames(training.data), -contains("Occurrence.")))
+  # 
+  # env.cond <- env.fact.test # useless
+  # # occur.taxa <- training.data[,inv.names]
+  # # comm.corr = comm.corr
+  # # inf.fact <- colnames(select(env.cond, -SiteId, -SampId, -X, -Y))
+  # # inf.fact <- colnames(select(env.cond, -SiteId, -SampId, -X, -Y))
+  # 
+  # 
+  # # sites <- occur.taxa$SiteId
+  # # samples <- occur.taxa$SampId
+  # 
+  # # n.sites <- length(unique(sites))
+  # # n.samples <- length(samples)
+  # 
+  # # occur.taxa$SiteId <- NULL
+  # # occur.taxa$SampId <- NULL
+  # 
+  # # occur.taxa <- occur.taxa[, ind]
+  # # n.taxa <- ncol(occur.taxa)
+  # # 
+  # # replace NA with -1
+  # # occur.taxa.na.encod <- occur.taxa
+  # # for(j in 1:ncol(occur.taxa.na.encod)) occur.taxa.na.encod[,j] <- ifelse(is.na(occur.taxa.na.encod[,j]),
+  # #                                                                         -1, occur.taxa.na.encod[,j])
+  # # extract model parameters
+  # colnames(res.extracted[["alpha_taxa"]]) <- list.taxa
+  # 
+  # colnames(res.extracted[["mu_beta_comm"]]) <- env.names
+  # colnames(res.extracted[["sigma_beta_comm"]]) <- env.names
+  # 
+  # # Extract inputs (x), observations (y), and parameters at maximum posterior
+  # x <- as.matrix(env.fact.test)
+  # colnames(x) <- env.names
+  # #y <- as.matrix(occur.taxa)
+  # ind.maxpost <- which.max(res.extracted[["lp__"]])
+  # mu.alpha.comm.maxpost <- res.extracted[["mu_alpha_comm"]][ind.maxpost]
+  # sigma.alpha.comm.maxpost <- res.extracted[["sigma_alpha_comm"]][ind.maxpost]
+  # mu.beta.comm.maxpost  <- res.extracted[["mu_beta_comm"]][ind.maxpost,]
+  # sigma.beta.comm.maxpost  <- res.extracted[["sigma_beta_comm"]][ind.maxpost,]
+  # alpha.taxa.maxpost <- res.extracted[["alpha_taxa"]][ind.maxpost,]
+  # beta.taxa.maxpost  <- res.extracted[["beta_taxa"]][ind.maxpost,,]
+  # 
+  # # Name dimensions of maximum posterior community parameters
+  # names(mu.beta.comm.maxpost) <- env.names
+  # names(sigma.beta.comm.maxpost) <- env.names
+  # rownames(beta.taxa.maxpost) <- env.names
+  # 
+  # ### Calibration results
+  # alpha.mat <- matrix(rep(alpha.taxa.maxpost,nrow(x)),nrow=nrow(x),byrow=TRUE)
+  # z <- alpha.mat + x%*%beta.taxa.maxpost
+  # 
+  # p.maxpost <- 1/(1+exp(-z))
+  # 
+  # train.p <- as_tibble(p.maxpost, stringsAsFactors = FALSE)
+  # colnames(train.p) <- list.taxa
+  # #train.p$SiteId <- sites
+  # #train.p$SampId <- samples
+  # #train.p <- gather(train.p, Taxon, Pred, -SiteId, -SampId)
+  # #train.p <- left_join(train.p, train.obs, by = c("SiteId", "SampId", "Taxon"))
+  # 
+  # return(train.p[, taxon])
 }
 
 

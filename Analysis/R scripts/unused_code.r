@@ -275,6 +275,44 @@ model.comparison <- function(df.merged.perf, list.models, CV, extrapol, select.t
 }
 
 
+# Make HTML Table ####
+
+
+# df.perf2 <- df.perf2[,-which(grepl("GLM", colnames(df.perf2)) | grepl("ANN", colnames(df.perf2)))]
+# # HTML file with numbers
+# file.name <- paste0(info.file.name, "ModelsCompar_")
+
+# tab.model.comp <- make.table(df.pred.perf = df.pred.perf, df.perf = df.perf, list.models = list.models)
+# gtsave(data = tab.model.comp, filename = paste0(file.name, "Table_forAll.html"), path =  dir.plots.output)
+
+# tab.model.comp.species <- make.table.species(df.perf = df.perf, list.models = list.models)
+# gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTaxonforAll.html"), path =  dir.plots.output)
+
+# tab.model.comp.species <- make.table.species.rearranged(df.perf = df.perf, list.models = list.models)
+# gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTaxonperModel.html"), path =  dir.plots.output)
+#
+# tab.model.comp.species <- make.table.species.rearranged.order(df.perf = df.perf, list.models = list.models)
+# gtsave(data = tab.model.comp.species, filename = paste0(file.name, "Table_perTaxonperModel_OrderedbyDiff.html"), path =  dir.plots.output)
+
+# # PDF file with colors ####
+# if(CV){
+#         # Tables prediction
+#         list.plots1 <- plot.df.perf(df.perf = df.pred.perf.cv, list.models = list.models, list.taxa = list.taxa, CV)
+#         list.plots2 <- plot.df.perf(df.perf = df.pred.perf, list.models = list.models, list.taxa = list.taxa, CV)
+#         list.plots3 <- plot.df.perf(df.perf = temp.df.merged, list.models = list.models, list.taxa = list.taxa, CV,
+#                                    title = "Comparison likelihood ratio")
+# 
+#         list.plots <- append(append(list.plots1, list.plots2), list.plots3)
+#         name <- "VisualTablesResults"
+#         file.name <- paste0(name, ".pdf")
+#         print.pdf.plots(list.plots = list.plots, width = 9, dir.output = dir.plots.output, info.file.name = info.file.name, file.name = file.name)
+# 
+#         # if(dl){
+#         # list.plots.dl <- plot.dl.perf(df.pred.perf.dl.comb, list.models = list.models)
+#         # }
+#     } else {
+#         list.plots <- plot.df.perf(df.perf = df.fit.perf, list.models = list.models, list.taxa = list.taxa, CV)
+# }
 
 
 # Performance vs hyperparameters ####
