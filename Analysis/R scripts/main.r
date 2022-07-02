@@ -395,11 +395,9 @@ names(list.stat.mod) <- c("#256801", "#59AB2D")
 ptm <- proc.time() # to calculate time of simulation
 
 # Split computation of ML algorithm, because it' too heavy to read in
-if(CV|ODG){ 
-  # temp.list.algo <- list(list.algo[1:3], list.algo[4:5]) # too heavy!! :(
-  temp.list.algo <- list(list.algo[1:3])
-} else { 
-  temp.list.algo <- list.algo }
+if(CV|ODG){ temp.list.algo <- list(list.algo[1:3], list.algo[4:5])
+} else { temp.list.algo <- list.algo }
+
 temp.outputs <- list()
 
 for (n in 1:length(temp.list.algo)) {
@@ -620,7 +618,7 @@ info.file.ann.name <-  paste0("ANN_model_",
 file.name <- paste0(dir.models.output, info.file.ann.name, ".rds")
 cat(file.name)
 
-if( file.exists(file.name) == T ){
+if(file.exists(file.name)){
   cat("The file already exists. Reading it", file.name)
   if(CV | ODG){
     ann.outputs.cv <- readRDS(file = file.name)
@@ -631,26 +629,20 @@ if( file.exists(file.name) == T ){
     if(run.ann){
 
     cat("This ANN output doesn't exist yet, we produce it and save it in", file.name)
-    if(CV | ODG){
+    if(CV|ODG){
       ann.outputs.cv <- lapply(standardized.data, function(split){
         lapply(list.hyper.param, FUN = build_and_train_model, split = split,
-               env.fact = env.fact,
-               list.taxa = list.taxa,
-               learning.rate = learning.rate,
-               batch.size = batch.size,
-               CV = CV,
-               ODG = ODG)
+               env.fact = env.fact, list.taxa = list.taxa,
+               learning.rate = learning.rate, batch.size = batch.size,
+               CV = CV, ODG = ODG)
       })
       saveRDS(ann.outputs.cv, file = file.name)
 
     } else {
       ann.outputs <- lapply(list.hyper.param, FUN = build_and_train_model, split = standardized.data,
-                            env.fact = env.fact,
-                            list.taxa = list.taxa,
-                            learning.rate = learning.rate,
-                            batch.size = batch.size,
-                            CV = CV,
-                            ODG = ODG)
+                            env.fact = env.fact, list.taxa = list.taxa,
+                            learning.rate = learning.rate, batch.size = batch.size,
+                            CV = CV, ODG = ODG)
       saveRDS(ann.outputs, file = file.name)
     }
     } else {
