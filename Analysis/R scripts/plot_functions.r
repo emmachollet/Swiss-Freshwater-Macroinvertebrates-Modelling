@@ -215,7 +215,7 @@ explore.splits <- function(inputs, splits, env.fact){
   
   plot.data1 <- gather(plot.data[,c("Split", "Region", env.fact)], key = factor, value = value, -c("Split", "Region"))
   q <- ggplot(data = plot.data1, aes(x=value)) 
-  q <- q + geom_density(aes(colour = Split), alpha = 0.3)
+  q <- q + geom_density(aes(colour = Split, fill = Split), alpha = 0.3)
   q <- q + theme_bw(base_size = 18)
   q <- q + facet_wrap(~factor, scales = "free",
                       # labeller=label_parsed, 
@@ -889,7 +889,7 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
     list.plots <- list()
     
     for(k in select.env.fact){
-      # k <- select.env.fact[2]
+      # k <- select.env.fact[1]
       cat("\nFor env. fact.", k)
     
       # # Make temporary list of ICE plots for env.fact k for each algorithm
@@ -908,7 +908,7 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
         # Extract trained model
         #trained.mod <- ann.outputs.cv$Split1$ANN$Occurrence.Gammaridae$`Trained model`
         trained.mod <- outputs[[l]][[taxon]][["Trained model"]]
-        trained.mod <- stat.outputs.transformed$hGLM$Occurrence.Gammaridae$`Trained model`
+        # trained.mod <- stat.outputs.transformed$hGLM$Occurrence.Gammaridae$`Trained model`
         
         if(grepl("GLM", l) & !("temperature2" %in% env.fact)){
           env.fact <- c(env.fact, "temperature2", "velocity2")
@@ -941,7 +941,7 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
         range.test <- seq(m, M, length.out = no.steps)
         
         # Make range of backward normalized values for labelling x axis
-        # !! Might mathematically false 
+        # !! Might be mathematically false 
         m2 <- (m * normalization.data$SD[k]) + normalization.data$Mean[k]
         M2 <- (M * normalization.data$SD[k]) + normalization.data$Mean[k]
         range.orig.fact <- round(seq(m2, M2, length.out = no.steps), digits = 4)
@@ -950,6 +950,7 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
         # no.samples <- 3
         set.seed(2021)
         env.df <- env.df[sample(nrow(env.df), size = no.samples),]
+        # env.df <- env.df[1,]
         
         # Make a dataframe for predicted values for each sample
         pred.df <- data.frame(matrix(nrow = no.samples, ncol = no.steps))
