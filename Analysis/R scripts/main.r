@@ -696,24 +696,27 @@ if(CV | ODG){
   for (s in list.splits) {
     #s = "Split2"
     
-    if(length(temp.outputs) == 1){
-      ml.outputs.cv[[s]] <- temp.outputs[[1]][[s]]
-    } else {
-      ml.outputs.cv[[s]] <- append(temp.outputs[[1]][[s]],temp.outputs[[2]][[s]])
+    if(exists("temp.outputs")){
+      if(length(temp.outputs) == 1){
+        ml.outputs.cv[[s]] <- temp.outputs[[1]][[s]]
+      } else {
+        ml.outputs.cv[[s]] <- append(temp.outputs[[1]][[s]],temp.outputs[[2]][[s]])
+      }
+      names(ml.outputs.cv[[s]]) <- list.algo
+      
+      outputs.cv[[s]][[list.algo[1]]] <- ml.outputs.cv[[s]][[list.algo[1]]]
     }
-    names(ml.outputs.cv[[s]]) <- list.algo
-    
-    outputs.cv[[s]][[list.algo[1]]] <- ml.outputs.cv[[s]][[list.algo[1]]]
     
     if(exists("stat.outputs.transformed")){
         outputs.cv[[s]][[list.stat.mod[1]]] <- stat.outputs.transformed[[1]][[s]]
         outputs.cv[[s]][[list.stat.mod[2]]] <- stat.outputs.transformed[[2]][[s]]
     }
 
-    for (l in list.algo[2:no.algo]) {
-      outputs.cv[[s]][[l]] <- ml.outputs.cv[[s]][[l]]
+    if(exists("temp.outputs")){
+      for (l in list.algo[2:no.algo]) {
+        outputs.cv[[s]][[l]] <- ml.outputs.cv[[s]][[l]]
+      }
     }
-
     # outputs.cv[[s]] <- append(outputs.cv[[s]], tuned.ml.outputs.cv[[s]])
     # outputs.cv[[s]] <- append(outputs.cv[[s]], ml.outputs.cv.bct[[s]])
 
@@ -735,71 +738,35 @@ if(CV | ODG){
   
 } else {
   # Make final outputs as list
-  ml.outputs <- temp.outputs[[1]]
-  names(ml.outputs) <- list.algo
+  outputs <- list()
+  
+  if(exists("temp.outputs")){
+    outputs[[list.algo[1]]] <- temp.outputs[[1]]
+  }
   if(exists("stat.outputs.transformed")){
-    outputs <- append(append(ml.outputs[1], stat.outputs.transformed), ml.outputs[2:no.algo])
-  } else {
-    outputs <- ml.outputs
+    outputs[[list.stat.mod[1]]] <- stat.outputs.transformed[[1]]
+    outputs[[list.stat.mod[2]]] <- stat.outputs.transformed[[2]]
+  } 
+  if(exists("temp.outputs")){
+    for (l in list.algo[2:no.algo]) {
+      outputs[[l]] <- temp.outputs[[l]]
+    }  
   }
   if (exists("ann.outputs")){
     outputs <- append(outputs, ann.outputs)
   }
-  # outputs <- stat.outputs
 }
 
 # Check if we have problem with some ml performance (>1.5)
 if(CV|ODG){check.outputs.perf(outputs.cv = ml.outputs.cv, list.taxa = list.taxa, CV = CV, ODG = ODG)}
 
 remove(temp.outputs)
-# JW analyis for different temp models, need to move somewhere else
-
-# outputs <- list()
-# outputs <- append(outputs, ml.outputs)
-# names(outputs)[[1]] <- "GlM_LM"
-# names(outputs)[[2]] <- "RF_LM"
-# #saveRDS(outputs, file = paste0(dir.models.output,"temp_comp_glm"), version = 2)
-# temp.lm <- readRDS(file = paste0(dir.models.output, info.file.ml.name,".rds"))
-# names(temp.lm) <- c("glm_lm_temp", "rf_lm_temp")
-#
-# temp.lme <- readRDS(file = paste0(dir.models.output, info.file.ml.name,".rds"))
-# names(temp.lme) <- c("glm_lme_temp", "rf_lme_temp")
-#
-# names(outputs)
-# outputs <- append(outputs, temp.lme[1:2])
-# outputs <- append(outputs, temp.lm[1:2])
-#
-# outputs <- outputs[c("glm_lm_temp", "glm_lme_temp", "rf_lm_temp", "rf_lme_temp")]
-#saveRDS(outputs, file = paste0(dir.models.output,"temp_comp_2models.rds"), version = 2)
-
-# ECR: For analysis
-# To analyze ANN
-# list.ann <- c(names(ann.outputs.cv[[1]]), names(ann.outputs.cv2[[1]]))
-# no.ann <- length(list.ann)
-# names(list.ann) <- rainbow(no.ann)
-# To analyze ML or RRF
-# outputs.cv <- tuned.ml.outputs.cv
-# list.models <- c(list.algo, list.tuned.algo)
 
 # Make final list of models
 if(CV|ODG){
-  if( exists("stat.outputs.transformed") & exists("ann.outputs.cv") ){
-    if(all(names(outputs.cv$Split1) %in% c(list.algo, list.stat.mod, list.ann))){
-      vec1 <- names(outputs.cv$Split1)
-      vec2 <- c(list.algo, list.stat.mod, list.ann)
-      list.models <- vec2[match(vec1, vec2)]
-      if(identical(list.models, names(outputs.cv$Split1))){ print("Problem in list models.")}
-    }
-  } else {
-    # list.models <- c(list.algo, list.stat.mod)
-    # list.models <- names(outputs.cv$Split1)
-    # list.models <- c(list.algo, list.ann)
-    # list.models <- c(list.algo,"hotpink" = "BRT", list.stat.mod, list.ann)
-    # list.models <- list.algo
-    vec1 <- names(outputs.cv$Split1)
-    vec2 <- c(list.algo, list.ann)
-    list.models <- vec2[match(vec1, vec2)]
-  }
+  vec1 <- names(outputs.cv$Split1)
+  vec2 <- c(list.algo, list.stat.mod, list.ann)
+  list.models <- vec2[match(vec1, vec2)]
 } else {
   vec1 <- names(outputs)
   vec2 <- c(list.algo, list.stat.mod, list.ann)
@@ -1134,8 +1101,11 @@ subselect <- 1
 data.orig <- data
 
 
-list.list.plots <- lapply(select.taxa[1], FUN= plot.ice.per.taxa, outputs = outputs, data = standardized.data[[1]], list.models = list.models, env.fact = env.fact, select.env.fact = env.fact[c(1,2,5)],
-                          normalization.data = normalization.data, ODG = ODG, no.samples = no.samples, no.steps = no.steps, subselect = subselect)
+list.list.plots <- lapply(select.taxa[1], FUN= plot.ice.per.taxa, outputs = outputs, ref.data = standardized.data[[1]], 
+                          list.models = list.models[1:7], list.taxa = list.taxa,
+                          env.fact = env.fact, select.env.fact = env.fact[c(1,2,5)],
+                          normalization.data = normalization.data, ODG = ODG, 
+                          no.samples = no.samples, no.steps = no.steps, subselect = subselect)
 
 for (j in 1:no.taxa.int) {
   # j = 1

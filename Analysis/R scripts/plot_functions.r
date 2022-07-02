@@ -876,7 +876,7 @@ plot.varimp <- function(outputs, list.algo, list.taxa, env.fact){
 
 # Plot ICE 
 
-plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, select.env.fact, normalization.data, ODG, no.samples, no.steps, subselect){
+plot.ice.per.taxa <- function(taxon, outputs, ref.data, list.models, list.taxa, env.fact, select.env.fact, normalization.data, ODG, no.samples, no.steps, subselect){
     
     # taxon <- select.taxa[1]
     cat("\nProducing ICE plot for taxa", taxon)
@@ -889,7 +889,7 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
     list.plots <- list()
     
     for(k in select.env.fact){
-      # k <- select.env.fact[1]
+      # k <- env.fact[1]
       cat("\nFor env. fact.", k)
     
       # # Make temporary list of ICE plots for env.fact k for each algorithm
@@ -935,7 +935,7 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
         #   M <- max(env.df[,k])
         # }
         
-        env.df <- data[ ,env.fact]
+        env.df <- ref.data[ ,env.fact]
         m <- min(env.df[,k])
         M <- max(env.df[,k])
         range.test <- seq(m, M, length.out = no.steps)
@@ -972,7 +972,10 @@ plot.ice.per.taxa <- function(taxon, outputs, data, list.models, env.fact, selec
             env.fact.test <- as.matrix(env.fact.test)
             pred.df[n,] <- predict(trained.mod, env.fact.test)[ , which(names(outputs[[l]]) == taxon)]
           } else if (l == "hGLM" | l == "chGLM"){
-              pred.df[n,] <- t(pred.stat.models(model = trained.mod, taxon = taxon , env.fact.test = env.fact.test, list.taxa = list.taxa))
+            res.extracted   <- rstan::extract(trained.mod,permuted=TRUE,inc_warmup=FALSE)
+            pred.stat <- pred.stat.models(res.extracted = res.extracted, matrix.predictors = as.matrix(env.fact.test))
+            colnames(pred.stat) <- list.taxa
+            pred.df[n,] <- pred.stat[,taxon]
           } else {
           pred.df[n,] <- predict(trained.mod, env.fact.test, type = 'prob')[,"present"]
           }
