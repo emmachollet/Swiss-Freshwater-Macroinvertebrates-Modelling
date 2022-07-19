@@ -274,6 +274,59 @@ model.comparison <- function(df.merged.perf, list.models, CV, extrapol, select.t
   
 }
 
+check.outputs.perf <- function(outputs.cv, list.taxa, CV, ODG){
+  
+  list.splits <- names(ml.outputs.cv)
+  list.algo <- names(ml.outputs.cv$Split1)
+  no.taxa <- length(list.taxa)
+  
+  # Check if we have problem with some ml performance, which would suggest that the model didn't converge
+  if(CV | ODG){
+    cat("Check if performance > 1.5 in\n")
+    for (s in list.splits) {
+      for (l in list.algo) {
+        cat( s, "for model", l, "\n")
+        list.taxa.temp <- names(ml.outputs.cv[[s]][[l]])
+        if(length(list.taxa.temp) != no.taxa){
+          cat(length(list.taxa.temp), "taxa for this algorithm, different from list.taxa.\n")
+        }
+        for (j in list.taxa.temp) {
+          
+          perf.test <- ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]]
+          perf.train <- ml.outputs.cv[[s]][[l]][[j]][["Performance training set"]]
+          
+          if(perf.train > 1.5){
+            cat(j, "has training performance bigger than 1.5", perf.train, "\n")
+          }
+          
+          if(perf.test > 1.5){
+            cat(j, "has testing performance bigger than 1.5", perf.test, "\n")
+          }
+          
+          # if(length(ml.outputs.cv[[s]][[l]][[j]][["Trained model"]]) == 1){
+          #   ml.outputs.cv[[s]][[l]][[j]][["Trained model"]]
+          #   cat("This model has NULL MODEL instead of trained algorithm\n")
+          # }
+          # to replace performance having a problem
+          # ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]] <- ifelse(perf.test > 1.5, Inf, perf.test)
+          # ml.outputs.cv[[s]][[l]][[j]][["Performance training set"]] <- ifelse(perf.train > 1.5, Inf, perf.train)
+        }
+      }
+    }
+  } else {
+    for (l in list.algo) {
+      print(l)
+      list.taxa.temp <- names(ml.outputs[[l]])
+      for (j in list.taxa.temp) {
+        perf <- ml.outputs[[l]][[j]][["Performance training set"]]
+        if(perf > 1.5){
+          cat(j, "has training performance bigger than 1.5", perf, "\n")
+        }
+        # ml.outputs[[l]][[j]][["Performance training set"]] <- ifelse(perf > 1.5, Inf, perf)
+      }
+    }
+  }
+}
 
 # Make HTML Table ####
 

@@ -322,7 +322,7 @@ stat_mod_cv <- function (data.splits, CV, ODG, comm.corr, sampsize, n.chain, lis
   res.extracted   <- rstan::extract(res,permuted=TRUE,inc_warmup=FALSE)
   x <- as.matrix(env.cond[,env.fact.full])
   y <- as.matrix(occur.taxa)
-  p.maxpost <- pred.stat.models(res.extracted = res.extracted, matrix.predictors = x)
+  p.maxpost <- pred.stat.models(res.extracted = res.extracted, matrix.predictors = x) # function defined in utilities.r
   colnames(p.maxpost) <- list.taxa
   
   # # Name dimensions of parameters within stanfit object

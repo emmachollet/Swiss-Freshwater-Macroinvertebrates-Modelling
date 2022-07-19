@@ -2,9 +2,9 @@
 
 ## ---- Produce pdf of a list of plots ----
 
-print.pdf.plots <- function(list.plots, width = 12, height = width*3/4, dir.output, info.file.name = "", file.name){
+print.pdf.plots <- function(list.plots, width = 12, height = width*3/4, dir.output, info.file.name = "", file.name, png = FALSE){
   
-  pdf(paste0(dir.output, info.file.name, file.name), paper = 'special', width = width, height = height, onefile = TRUE)
+  pdf(paste0(dir.output, info.file.name, file.name, ".pdf"), paper = 'special', width = width, height = height, onefile = TRUE)
   
   for (n in 1:length(list.plots)) {
     
@@ -15,6 +15,17 @@ print.pdf.plots <- function(list.plots, width = 12, height = width*3/4, dir.outp
   
   dev.off()
   
+  if(png){
+  # Print a png file
+    for (n in 1:length(list.plots)) {
+      
+      png(paste0(dir.output, info.file.name, file.name, n, ".png"), width = 3/4*1280, height = 3/4*720) # size in pixels (common 16:9 --> 1920�1080 or 1280�720)
+      plot(list.plots[[n]]) # sometimes this works better
+      # print(list.plots[[n]])
+      dev.off()
+      
+    }    
+  }
 }
 
 ## ---- Inputs for Swiss map plot ----
@@ -184,6 +195,8 @@ explore.splits <- function(inputs, splits, env.fact){
   }
   plot.data$Split <- as.factor(plot.data$Split)
   
+  plot.data <- na.omit(plot.data)
+  
   g <- ggplot()
   g <- g + geom_sf(data = inputs$ch, fill="#E8E8E8", color="black")
   g <- g + geom_sf(data = inputs$rivers.major, fill=NA, color="lightblue", show.legend = FALSE)
@@ -193,23 +206,25 @@ explore.splits <- function(inputs, splits, env.fact){
   g <- g + theme(# plot.title = element_text(hjust = 0.5),
     panel.grid.major = element_line(colour="transparent"),
     plot.margin = unit(c(0.1,0.1,0.1,0.1), "lines"))
-  g <- g + labs(title = "Geographic distribution of the samples across the splits")
+  # g <- g + labs(title = "Geographic distribution of the samples across the splits")
   
   list.plots <- append(list.plots, list(g))
   
   p <- ggplot(data = plot.data, aes(x=Region)) 
   p <- p + geom_histogram(aes(fill = Split), stat="count", position = "dodge")
   p <- p + theme_bw(base_size = 18)
-  p <- p + labs(y = "Number of samples",
-                title = "Distribution of the samples in the splits across regions")
+  p <- p + labs(y = "Number of samples"#,
+                # title = "Distribution of the samples in the splits across regions"
+                )
   
   list.plots <- append(list.plots, list(p))
   
   p1 <- ggplot(data = plot.data, aes(x=RiverBasin)) 
   p1 <- p1 + geom_histogram(aes(fill = Split), stat="count", position = "dodge")
   p1 <- p1 + theme_bw(base_size = 18)
-  p1 <- p1 + labs(y = "Number of samples",
-                title = "Distribution of the samples in the splits across main catchments")
+  p1 <- p1 + labs(y = "Number of samples"#,
+                # title = "Distribution of the samples in the splits across main catchments"
+                )
   
   list.plots <- append(list.plots, list(p1))
   
@@ -223,8 +238,9 @@ explore.splits <- function(inputs, splits, env.fact){
   q <- q + theme(legend.text = element_text(size=22),
                  strip.background = element_rect(fill = "white"))
   q <- q + labs(x = "Values of environmental factor",
-                y = "Density",
-                title = "Distribution of the environmental factors in splits")
+                y = "Density"#,
+                # title = "Distribution of the environmental factors in splits"
+                )
   
   list.plots <- append(list.plots, list(q))
   
@@ -284,6 +300,124 @@ plot.df.perf <- function(df.perf, list.models, list.taxa, CV, title = c()){
     
     return(list(p))
     
+}
+
+df.glm.param <- function(outputs, df.perf, list.glm, list.taxa, env.fact.full){
+  
+  temp.temp.df.coef <- data.frame()
+  temp.temp.comm.coef <- data.frame()
+  
+  for (l in list.glm) {
+    # l = list.models[2]
+    temp.df.coef <- data.frame(Taxa = list.taxa)
+    temp.df.coef$Prevalence <- df.perf$Prevalence
+    temp.df.coef[,c("Intercept", env.fact.full)] <- NA
+    
+    temp.comm.coef <- data.frame(variable = env.fact.full)
+    
+    if(l == "iGLM"){
+      
+      for(j in list.taxa){
+        # j = list.taxa[1]
+        trained.mod <- outputs[[l]][[j]][["Trained model"]]
+        coef <- trained.mod[["finalModel"]][["coefficients"]]
+        temp.df.coef[which(temp.df.coef$Taxa == j), c("Intercept", env.fact.full)] <- coef
+      }
+      
+    } else {
+      trained.mod <- outputs[[l]][[1]][["Trained model"]]
+      res.extracted   <- rstan::extract(trained.mod,permuted=TRUE,inc_warmup=FALSE)
+      ind.maxpost <- which.max(res.extracted[["lp__"]])
+      alpha.taxa.maxpost <- res.extracted[["alpha_taxa"]][ind.maxpost,]
+      beta.taxa.maxpost  <- res.extracted[["beta_taxa"]][ind.maxpost,,]
+      names(alpha.taxa.maxpost) <- list.taxa
+      colnames(beta.taxa.maxpost) <- list.taxa
+      # sigma.alpha.comm.maxpost <- res.extracted[["sigma_alpha_comm"]][ind.maxpost]
+      for(j in list.taxa){
+        temp.df.coef[which(temp.df.coef$Taxa == j), "Intercept"] <- alpha.taxa.maxpost[j]
+        temp.df.coef[which(temp.df.coef$Taxa == j), env.fact.full] <- beta.taxa.maxpost[,j]
+      }
+      temp.comm.coef$mu.beta.comm.maxpost  <- res.extracted[["mu_beta_comm"]][ind.maxpost,]
+      temp.comm.coef$sigma.beta.comm.maxpost  <- res.extracted[["sigma_beta_comm"]][ind.maxpost,]
+      temp.comm.coef$Model <- l
+      temp.temp.comm.coef <- bind_rows(temp.temp.comm.coef, temp.comm.coef)
+    }
+    
+    temp.df.coef <- gather(temp.df.coef, key = variable, value = value, -c("Taxa", "Prevalence"))
+    temp.df.coef$Model <- l
+    temp.temp.df.coef <- bind_rows(temp.temp.df.coef, temp.df.coef)
+    
+  }
+  
+  return(list(temp.temp.df.coef, temp.temp.comm.coef))
+
+}
+
+plot.glm.param <- function(outputs, df.perf, list.glm, list.taxa, env.fact.full, CV){
+  
+  col.vect <- names(list.glm)
+  df.coef <- data.frame()
+  
+  # Make df coefficients
+  if(CV){
+    list.splits <- names(outputs)
+    
+    for (s in list.splits) {
+      # s <- list.splits[2]
+      temp.temp.df.coef <- df.glm.param(outputs[[s]], df.perf, list.glm, list.taxa, env.fact.full)[[1]]
+      temp.temp.df.coef$Split <- s
+      df.coef <- bind_rows(df.coef, temp.temp.df.coef)
+    }
+    
+  } else {
+    
+    df.coef <- df.glm.param(outputs, df.perf, list.glm, list.taxa, env.fact.full)[[1]]
+  
+  }
+  
+  if(CV){ 
+    p <- ggplot(data = df.coef, aes(value, color = Split, fill = Split))
+    p <- p + geom_density(alpha = 0.1)
+    p <- p + facet_grid(variable ~ Model, scales = "free")
+  } else {
+    p <- ggplot(data = df.coef, aes(value, color = Model, fill = Model))
+    p <- p + geom_density(alpha = 0.1)
+    # p <- p + stat_function(fun = dnorm, args = c(mean = temp.temp.comm.coef$mu.beta.comm.maxpost, sd = temp.temp.comm.coef$sigma.beta.comm.maxpost))
+    p <- p + facet_wrap( ~ variable, scales = "free",
+                         strip.position="top",
+                         ncol = 2)
+  }
+  p <- p + scale_colour_manual(values=col.vect)
+  p <- p + theme(strip.background = element_rect(fill = "white"))
+  p <- p + labs(title = "Distribution of parameters", 
+                x = "Parameter value",
+                y = "Density")
+  p <- p + theme_bw(base_size = 10)
+  
+  
+  q <- ggplot(data = df.coef, aes(x = Prevalence, y = value, color = Model, 
+                                  shape = Model))
+  q <- q + geom_point(alpha = 0.7)
+  if(CV){
+    q <- q + facet_grid(variable ~ Model, scales = "free")
+  } else {
+    q <- q + facet_wrap( ~ variable, scales = "free",
+                         strip.position="top",
+                         ncol = 2)
+  }
+  q <- q + scale_colour_manual(values=col.vect, name="Model", labels=list.glm) +
+    scale_shape_manual(values=c("triangle", "square", "circle"), name="Model", labels=list.glm)
+  q <- q + guides(colour = FALSE)
+  # scale_color_manual(values=c("blue","purple"), name="leg", labels = c("lab1","lab2")) +
+  #   scale_fill_manual(values = rep("red", 2), name="leg", labels= c("lab1","lab2"))
+  q <- q + theme(strip.background = element_rect(fill = "white"))
+  q <- q + labs(title = "Distribution of parameters across all taxa", 
+                x = "Prevalence",
+                y = "Parameter value")
+  q <- q + theme_bw(base_size = 10)
+  
+  return(list(p,q))
+  
 }
 
 
