@@ -8,10 +8,6 @@
 ##
 ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# next two lines are for jonas, dont run these
-# setwd("Q:/Abteilungsprojekte/siam/Jonas Wydler/Swiss-Freshwater-Macroinvertebrates-Modelling/Analysis/R scripts")
-#.libPaths("C:/Program Files/R/R-4.1.1/library")
-
 ## ---- PACKAGES, DATA & FCTS ----
 
 # Check and set working directory
@@ -67,7 +63,7 @@ analysis.ann <- F # Hyperparameter tuning
 analysis.training <- F
 comparison.cv.odg <- F
 comparison.lm.lme <- F
-analysis.temp <- F
+analysis.temp <- T
 
 lme.temp <- T # Select if you want to use the linear mixed effect temperature model or not
 
@@ -155,6 +151,7 @@ if(run.ann){ source("ann_model_functions.r")}
 # Define directory and files
 dir.env.data      <- "../../Data/Processed data/Environmental data/"
 dir.inv.data      <- "../../Data/Processed data/Invertebrate data/"
+dir.orig.data     <- "../../Data/Original data/"
 dir.workspace     <- "../Intermediate results/"
 dir.plots.output  <- "../Plots/Models analysis plots/"
 dir.expl.plots.output <- "../Plots/Explorative plots/"
@@ -165,7 +162,8 @@ file.env.data.lme <- "environmental_data_lme_2020-06-25.dat"
 file.inv.data     <- "occ_data_2020-06-25.dat"
 file.ibch         <- "ListTaxaIBCH2019.csv"
 file.prev         <- "prevalence_2020-06-25.dat"
-
+file.stations     <- "temperature_stations.dat"
+file.stations.used     <- "temperature_dataset_11_07.rds"
 # Load datasets
 
 if(lme.temp){
@@ -1252,7 +1250,7 @@ print(proc.time()-ptm)
 
 source("plot_functions.r")
 
-# Comparison temp models
+# Comparison temp models ####
 if(analysis.temp & lme.temp){
   data.env.lme <- data
   
@@ -1263,9 +1261,42 @@ if(analysis.temp & lme.temp){
   data.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.inv.data),header=T,sep="\t", stringsAsFactors=F)
   prev.inv          <- read.delim(paste0(dir.inv.data, file.prefix, file.prev),header=T,sep="\t", stringsAsFactors=F)
   
-  ## ---- DATA WRANGLING  ----
+  # load dataset containing information on the temperature measuring stations
+  data.stations    <- read.table(paste(dir.orig.data,file.stations,sep=""),header=T,sep="\t", quote = "" )
+  data.stations.used     <- readRDS(paste0(dir.orig.data,file.stations.used))
+  data.stations.used.ID  <- unique(data.stations.used$ID)
   
-  # Select env. factors ####
+  
+# 
+#   data.stations <- data.stations[data.stations$ID %in% data.stations.used.ID, ]
+# 
+#   # Extract X, Y values from coordinates
+#   data.stations$X   <- as.numeric(sub("/.*", "", data.stations$coordinates))  
+#   data.stations$Y   <- as.numeric(sub(".*/", "", data.stations$coordinates))
+#   
+#   # Some stations are at the wrong place (ID 2481 too far west, ID 2613 too far south)
+#   data.stations[data.stations$ID == 2481,]$coordinates <- c("673551/202870")
+#   data.stations[data.stations$ID == 2481,]$X <- 673551
+#   
+#   data.stations[data.stations$ID == 2613,]$coordinates <- c("611737, 272317")
+#   data.stations[data.stations$ID == 2613,]$Y <- 272317 
+  
+  # load dataset containing information on the temperature measuring stations
+  data.stations.used     <- readRDS(paste0(dir.orig.data,file.stations.used))
+  data.stations.used.ID  <- unique(data.stations.used$ID)
+  
+  # Extract X, Y values from coordinates
+  data.stations.used$X   <- as.numeric(sub("/.*", "", data.stations.used$coordinates))  
+  data.stations.used$Y   <- as.numeric(sub(".*/", "", data.stations.used$coordinates))
+  
+  # Some stations are at the wrong place (ID 2481 too far west, ID 2613 too far south)
+  data.stations.used[data.stations.used$ID == 2481,]$coordinates <- c("673551/202870")
+  data.stations.used[data.stations.used$ID == 2481,]$X <- 673551
+  #   
+  data.stations.used[data.stations.used$ID == 2613,]$coordinates <- c("611737, 272317")
+  data.stations.used[data.stations.used$ID == 2613,]$Y <- 272317 
+  
+  # Select env. factors 
   env.fact <- c("temperature",     # Temp
                 "velocity",          # FV
                 "A10m",              # A10m
@@ -1285,32 +1316,48 @@ if(analysis.temp & lme.temp){
   no.env.fact <- length(env.fact)
   
   
-  # Preprocess data ####
+  # Preprocess data
   
   # Remove NAs, normalize data, split data for CV or extrapolation
   
   
-  prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv, prev.inv = prev.inv,
+  prepro.data <- preprocess.data(data.env = data.env, data.inv = data.inv, prev.inv = prev.inv, 
+                                 remove.na.env.fact = T, remove.na.taxa = T, prev.restrict = 0.05,# 0.05,
                                  env.fact.full = env.fact.full, dir.workspace = dir.workspace, 
                                  BDM = BDM, dl = dl, CV = CV, ODG = ODG, ODG.info = ODG.info, lme.temp = lme.temp)
   
   data.env.lm <- prepro.data$data
   
-  inputs1 <- map.inputs(dir.env.data = dir.env.data, data.env = data.env.lm)
-  
-  inputs2 <- map.inputs(dir.env.data = dir.env.data, data.env = data.env.lme)
-  
-  
-  
-  map.env.fact.2(inputs1, env.fact, data.env.lm)
-  map.env.fact.2(inputs2, env.fact, data.env.lme)
   data.diff <- data.env.lm[1:15]
   data.diff[5:15] <- data.env.lm[5:15] - data.env.lme[5:15]
   
+  inputs1 <- map.inputs(dir.env.data = dir.env.data, data.env = data.env.lm)
+  inputs2 <- map.inputs(dir.env.data = dir.env.data, data.env = data.env.lme)
   inputs3 <- map.inputs(dir.env.data = dir.env.data, data.env = data.diff)
   
   
-  map.env.fact.2(inputs3, env.fact, data.diff)
+  # Summary statistics
+  summary(data.env.lm$temperature)
+  summary(data.env.lme$temperature)
+  summary(data.diff$temperature)
+  
+  
+  pdf(file = paste0(dir.expl.plots.output,"Comparision_temp_models.pdf"))
+  #
+  map.env.fact.2(inputs1, env.fact, data.env.lm, info = "linear temperature model", data.stations = data.stations)
+  map.env.fact.2(inputs2, env.fact, data.env.lme, info = "linear mixed effect temperature model", data.stations = data.stations)
+  map.env.fact.2(inputs3, env.fact, data.diff, info = "Difference between temperature models", data.stations = data.stations)
+  dev.off()
+ 
+  sink(file = paste0(dir.expl.plots.output, "summary_statistics_temperature_models.txt"))
+  print(paste0("Temperature based on linear model:"))
+  print(summary(data.env.lm$temperature))
+  print(paste0("Temperature based on linear mixed effects model:"))
+  print(summary(data.env.lme$temperature))
+  print(paste0("Difference between the two temperature models:"))
+  print(summary(data.diff$temperature))
+  sink()
+  
   
 }
 

@@ -11,7 +11,6 @@
 rm(list=ls())  # free workspace etc.
 graphics.off()
 cat("\14")
-lme = T # Do you want to create the output with the linear mixed effect temperature model?
 # packages and functions  ####
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -50,7 +49,8 @@ file.inv.BDM.data       <- "BDM_occ_data_2020-06-25.dat"
 # Only colnames of env fact sorted by importance (need to be updated if there is a change in workflow)
 file.rank.env     <- "ranking_env_data.csv"
 
-# File lme model
+# Files temperature models
+file.temp.lm      <- "lm_temperature_model.rds"
 file.temp.lme     <- "lme_temperature_model.rds"
 
 # read data ####
@@ -184,28 +184,32 @@ dim(data)   # 3068  290
 data$A_EZG <- as.numeric(data$A_EZG)   # in m2
 data$DEM_EZG <- as.numeric(data$DEM_EZG)  # in m
 
-if(lme == T){
-  #read in temperature lme model
-  temp.lme <- readRDS(paste0(dir.env.data, file.temp.lme))
-  fixEffect <- fixef(temp.lme)
-  randEffect <- ranef(temp.lme)
-  randEffect <- rownames_to_column(randEffect, "year")
-  colnames(randEffect)[2] <- "intercept"
-  
-  # Use linear mixed effects model for temperature 
- #data$temperature<- fixEffect[[1]] + fixEffect[[2]] * log10(data$A_EZG/1e6) + fixEffect[[3]] * data$DEM_EZG  # mean morning temperature in summer from linear mixed effect model
-  data$temperature<- 18.83731 + 2.726326 * log10(data$A_EZG/1e6) -0.006594001 * data$DEM_EZG  # mean morning temperature in summer from linear mixed effect model
-  
-  # Add random intercept to the corresponding year
-  for( i in unique(data$Year_)){
-    data[data[,"Year_"] == i, "temperature"] <- data[data[,"Year_"] == i, "temperature"] + randEffect[randEffect$year == i, "intercept"]
-  }
-}else{
 
-  # data$temp.max.sum <- 17.836 + 1.858 * log10(data$A_EZG/1e6) -  0.005 * data$DEM_EZG  # mean maximum temperature in summer
-  data$temperature <- 18.4 + 2.77 * log10(data$A_EZG/1e6) -  0.006 * data$DEM_EZG        # mean morning temperature in summer
+#read in temperature lme model
+temp.lme <- readRDS(paste0(dir.env.data, file.temp.lme))
+fixEffect <- fixef(temp.lme)
+randEffect <- ranef(temp.lme)
+randEffect <- rownames_to_column(randEffect, "year")
+colnames(randEffect)[2] <- "intercept"
+  
+# Use linear mixed effects model for temperature 
+data$temperature_lme<- fixEffect[[1]] + fixEffect[[2]] * log10(data$A_EZG/1e6) + fixEffect[[3]] * data$DEM_EZG  # mean morning temperature in summer from linear mixed effect model
+#data$temperature<- 18.83731 + 2.726326 * log10(data$A_EZG/1e6) -0.006594001 * data$DEM_EZG  # mean morning temperature in summer from linear mixed effect model
+  
+# Add random intercept to the corresponding year
+for( i in unique(data$Year_)){
+  data[data[,"Year_"] == i, "temperature_lme"] <- data[data[,"Year_"] == i, "temperature_lme"] + randEffect[randEffect$year == i, "intercept"]
 }
-data[which(data$temperature<0), "temperature"] <- 0  # there are no negative temperatures now, constrained to 0
+
+#read in temperature lm model
+temp.lm <- readRDS(paste0(dir.env.data, file.temp.lm))
+# data$temp.max.sum <- 17.836 + 1.858 * log10(data$A_EZG/1e6) -  0.005 * data$DEM_EZG  # mean maximum temperature in summer
+data$temperature_lm <- temp.lm$coefficients[[1]] + temp.lm$coefficients[[2]] * log10(data$A_EZG/1e6) + 
+temp.lm$coefficients[[3]] * data$DEM_EZG
+# data$temperature <- 18.4 + 2.77 * log10(data$A_EZG/1e6) -  0.006 * data$DEM_EZG        # mean morning temperature in summer
+
+data[which(data$temperature_lm<0), "temperature_lm"] <- 0  # there are no negative temperatures now, constrained to 0
+data[which(data$temperature_lme<0), "temperature_lme"] <- 0  # there are no negative temperatures now, constrained to 0
 
 ## < discharge ##########################################################################
 
@@ -512,8 +516,9 @@ data <- left_join(data, jarable, by = "EZG_NR") #JW: can we use EZG just like th
 
 ## < transformations temperature and flow velocity ###########################################################################
 
-data$temperature2 <- as.numeric(data$temperature**2)
-data$velocity2 <- as.numeric(data$velocity**2)
+# JW: I think we don't need this anymore because we normalize and square later? right?
+# data$temperature2 <- as.numeric(data$temperature**2)
+# data$velocity2 <- as.numeric(data$velocity**2)
 
 # clean final dataset ####
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -609,32 +614,17 @@ if ( length(setdiff(colnames(data), colnames(rank.env))) != 0){
 
 d <- "2020-06-25"  # date of the MIDAT invertebrate datafile
 
-if(lme == T){
+# write All env data set
+filename <- paste(dir.env.data,"All_environmental_data_",d,".dat", sep="")
+write.table(data, filename,sep="\t",row.names=F,col.names=TRUE)
   
-  # write All env data set
-  filename <- paste(dir.env.data,"All_environmental_data_lme_",d,".dat", sep="")
-  write.table(data, filename,sep="\t",row.names=F,col.names=TRUE)
+# write BDM env data set
+data.BDM <- data[which(data$MonitoringProgram == "BDM"),]
+dim(data.BDM)
   
-  # write BDM env data set
-  data.BDM <- data[which(data$MonitoringProgram == "BDM"),]
-  dim(data.BDM)
-  
-  filename <- paste(dir.env.data,"BDM_environmental_data_lme_",d,".dat", sep="")
-  write.table(data.BDM, filename,sep="\t",row.names=F,col.names=TRUE)
-  
-}else{
-  
-  # write All env data set
-  filename <- paste(dir.env.data,"All_environmental_data_",d,".dat", sep="")
-  write.table(data, filename,sep="\t",row.names=F,col.names=TRUE)
-  
-  # write BDM env data set
-  data.BDM <- data[which(data$MonitoringProgram == "BDM"),]
-  dim(data.BDM)
-  
-  filename <- paste(dir.env.data,"BDM_environmental_data_",d,".dat", sep="")
-  write.table(data.BDM, filename,sep="\t",row.names=F,col.names=TRUE)
-}
+filename <- paste(dir.env.data,"BDM_environmental_data_",d,".dat", sep="")
+write.table(data.BDM, filename,sep="\t",row.names=F,col.names=TRUE)
+
 
 cat("Information about sample/site:\n", length(info), info, "\n",
     "Environmental factors to prioritize: \n", length(prio), prio, "\n",
