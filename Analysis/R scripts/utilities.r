@@ -205,13 +205,26 @@ preprocess.data <- function(data.env, data.inv, prev.inv, remove.na.env.fact = T
     
   }
   
-    # Merge data sets
-    cind.taxa <- which(grepl("Occurrence.", colnames(data.inv)))
-    list.taxa <- colnames(data.inv)[cind.taxa]
-    data <- data.env[, c("SiteId", "SampId", "X", "Y", "RiverBasin", "Region", env.fact.full)] %>%
-      right_join(data.inv[, c(which(colnames(data.inv) %in% c("SiteId", "SampId")), cind.taxa)], by = c("SiteId", "SampId"))
-    dim(data)
-    
+  # Update prevalence dataframe with new list of taxa and number of samples
+  cind.taxa <- which(grepl("Occurrence.", colnames(data.inv))) # update list.taxa
+  list.taxa <- colnames(data.inv)[cind.taxa]
+  prev.inv <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa),]
+  for (j in list.taxa) { 
+    prev <- sum(data.inv[,j]) / dim(data.inv)[1]
+    prev.inv[which(prev.inv$Occurrence.taxa == j), "Prevalence"] <- prev
+  }
+  prev.inv[which(grepl("Occurrence.group", prev.inv$Occurrence.taxa)), "Taxonomic.level"] <- "group"
+  
+  # Reorder taxa by prevalence
+  list.taxa <- list.taxa[order(match(list.taxa, prev.inv$Occurrence.taxa))]
+  
+  # Merge data sets
+  data <- data.env[, c("SiteId", "SampId", "X", "Y", "RiverBasin", "Region", env.fact.full)] %>%
+    right_join(data.inv[, c(which(colnames(data.inv) %in% c("SiteId", "SampId", list.taxa)))], by = c("SiteId", "SampId"))
+  # Reorder taxa columns by prevalence
+  data <- data[,c(which(!(colnames(data) %in% list.taxa)), match(list.taxa, colnames(data)))]
+  dim(data)
+
     # Split data
     prefix <- ifelse(BDM, "BDM_", "All_")
     info.file.name <- paste0(prefix,
@@ -343,23 +356,15 @@ preprocess.data <- function(data.env, data.inv, prev.inv, remove.na.env.fact = T
     #     
     # }
     
-    # Update prevalence dataframe with new list of taxa and number of samples
-    cind.taxa <- which(grepl("Occurrence.", colnames(data))) # update list.taxa
-    list.taxa <- colnames(data)[cind.taxa]
-    prev.inv <- prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa),]
-    for (j in list.taxa) { 
-      prev <- sum(data[,j]) / dim(data)[1]
-      prev.inv[which(prev.inv$Occurrence.taxa == j), "Prevalence"] <- prev
-    }
-    
-    prev.inv[which(grepl("Occurrence.group", prev.inv$Occurrence.taxa)), "Taxonomic.level"] <- "group"
     
     # Print information
     cat("\nSummary information of final datasets after preprocessing:\n",
         length(unique(data$SampId)), "samples,\n",
         length(unique(data$SiteId)), "sites,\n",
-        length(list.taxa), "taxa (without missing values) with prevalence between", 100*prev.restrict, "% or more than", 100 - 100*prev.restrict, "% of prevalence with taxonomic level:\n")
-        
+        length(list.taxa), "taxa (without missing values) with prevalence between", 
+        100*prev.restrict, "% or more than", 
+        100 - 100*prev.restrict, "% of prevalence with taxonomic level:\n")
+    
     print(summary(as.factor(prev.inv[which(prev.inv$Occurrence.taxa %in% list.taxa), "Taxonomic.level"])))
     
     preprocessed.data <- list("data" = data, "splits" = splits, "list.taxa" = list.taxa, # "rem.taxa" = if(CV){ rem.taxa },
@@ -588,59 +593,6 @@ transfrom.stat.outputs <- function(stat.outputs, list.taxa, CV, ODG){
     }
 }
 
-check.outputs.perf <- function(outputs.cv, list.taxa, CV, ODG){
-    
-    list.splits <- names(ml.outputs.cv)
-    list.algo <- names(ml.outputs.cv$Split1)
-    no.taxa <- length(list.taxa)
-    
-    # Check if we have problem with some ml performance, which would suggest that the model didn't converge
-    if(CV | ODG){
-        cat("Check if performance > 1.5 in\n")
-        for (s in list.splits) {
-            for (l in list.algo) {
-                cat( s, "for model", l, "\n")
-                list.taxa.temp <- names(ml.outputs.cv[[s]][[l]])
-                if(length(list.taxa.temp) != no.taxa){
-                    cat(length(list.taxa.temp), "taxa for this algorithm, different from list.taxa.\n")
-                }
-                for (j in list.taxa.temp) {
-                    
-                    perf.test <- ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]]
-                    perf.train <- ml.outputs.cv[[s]][[l]][[j]][["Performance training set"]]
-                    
-                    if(perf.train > 1.5){
-                        cat(j, "has training performance bigger than 1.5", perf.train, "\n")
-                    }
-                    
-                    if(perf.test > 1.5){
-                        cat(j, "has testing performance bigger than 1.5", perf.test, "\n")
-                    }
-                    
-                    # if(length(ml.outputs.cv[[s]][[l]][[j]][["Trained model"]]) == 1){
-                    #   ml.outputs.cv[[s]][[l]][[j]][["Trained model"]]
-                    #   cat("This model has NULL MODEL instead of trained algorithm\n")
-                    # }
-                    # to replace performance having a problem
-                    # ml.outputs.cv[[s]][[l]][[j]][["Performance testing set"]] <- ifelse(perf.test > 1.5, Inf, perf.test)
-                    # ml.outputs.cv[[s]][[l]][[j]][["Performance training set"]] <- ifelse(perf.train > 1.5, Inf, perf.train)
-                }
-            }
-        }
-    } else {
-        for (l in list.algo) {
-            print(l)
-            list.taxa.temp <- names(ml.outputs[[l]])
-            for (j in list.taxa.temp) {
-                perf <- ml.outputs[[l]][[j]][["Performance training set"]]
-                if(perf > 1.5){
-                    cat(j, "has training performance bigger than 1.5", perf, "\n")
-                }
-                # ml.outputs[[l]][[j]][["Performance training set"]] <- ifelse(perf > 1.5, Inf, perf)
-            }
-        }
-    }
-}
 
 make.final.outputs.cv <- function(outputs.cv, list.models, list.taxa){
     
